@@ -1,13 +1,29 @@
 const { EventEmitter } = require('events');
 const path = require('path');
 const { AsyncLocalStorage } = require('async_hooks');
+const fs = require('fs');
+
+function postgresConfig(connectionString, publicHost) {
+  const url = new URL(connectionString);
+  if(publicHost) {
+    // Restrict this Render override to the same database instance, not an arbitrary destination.
+    if(!/^dpg-[a-z0-9-]+$/.test(url.hostname)||!publicHost.startsWith(url.hostname+'.')||!/^dpg-[a-z0-9-]+\.[a-z]+-postgres\.render\.com$/.test(publicHost))throw new Error('PG_PUBLIC_HOST must be the external hostname for this internal Render database.');
+    url.hostname=publicHost;
+  }
+  let ssl=process.env.PG_SSL==='false'?false:(process.env.PG_SSL==='true'||process.env.NODE_ENV==='production')?{rejectUnauthorized:process.env.PG_SSL_REJECT_UNAUTHORIZED!=='false'}:false;
+  if(process.env.PG_CA_FILE) ssl={rejectUnauthorized:true,ca:fs.readFileSync(process.env.PG_CA_FILE,'utf8')};
+  if(publicHost) ssl={...ssl,rejectUnauthorized:true};
+  // URL sslmode options otherwise replace pg's SSL object and can silently drop its CA/verification settings.
+  if(publicHost||process.env.PG_CA_FILE)for(const key of ['sslmode','sslcert','sslkey','sslrootcert'])url.searchParams.delete(key);
+  return {connectionString:url.toString(),ssl};
+}
 
 function createPool() {
   if (process.env.DATABASE_URL) {
     const { Pool, Client } = require('pg');
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL,
+    const pool = new Pool({ ...postgresConfig(process.env.DATABASE_URL,process.env.PG_PUBLIC_HOST),
       max: Number(process.env.DB_POOL_MAX || 10), connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000,
-      ssl: process.env.PG_SSL === 'false' ? false : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED !== 'false' } : false });
+      });
     const context = new AsyncLocalStorage(), query = pool.query.bind(pool);
     pool.query = (...args) => context.getStore() ? context.getStore().query(...args) : query(...args);
     pool.transaction = async fn => {
@@ -17,7 +33,7 @@ function createPool() {
       catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
     };
     pool.leadership = async key => {
-      const client = new Client({connectionString:process.env.LEADER_DATABASE_URL||process.env.DATABASE_URL,ssl:process.env.PG_SSL==='false'?false:process.env.NODE_ENV==='production'?{rejectUnauthorized:process.env.PG_SSL_REJECT_UNAUTHORIZED!=='false'}:false});
+      const client = new Client(postgresConfig(process.env.LEADER_DATABASE_URL||process.env.DATABASE_URL,process.env.PG_LEADER_PUBLIC_HOST||process.env.PG_PUBLIC_HOST));
       await client.connect();
       client.on('error', () => { console.error('Leadership connection lost.'); process.exit(1); });
       const { rows } = await client.query('SELECT pg_try_advisory_lock($1) AS acquired', [key]);
