@@ -1,0 +1,36 @@
+{
+  "name": "chartpulse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trading workspace with simulated and licensed market providers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:simulated": "node server.js",
+    "start:api": "node services/launch.js api",
+    "start:gateway": "node services/launch.js gateway",
+    "start:ingestion": "node services/launch.js ingestion",
+    "start:evaluator": "node services/launch.js evaluator",
+    "start:delivery": "node services/launch.js delivery",
+    "start:relay": "node services/launch.js relay"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "bcryptjs": "^2.4.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.13.1",
+    "redis": "^6.3.0",
+    "truedata-nodejs": "^1.2.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.1"
+  }
+}

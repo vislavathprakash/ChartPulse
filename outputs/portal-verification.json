@@ -1,0 +1,45 @@
+{
+  "verifiedAt": "2026-10-09T21:45:06.370Z",
+  "results": [
+    {
+      "name": "Separate pages and frontend bundles",
+      "passed": true
+    },
+    {
+      "name": "Public registration always creates a customer",
+      "passed": true
+    },
+    {
+      "name": "Wrong portal rejects valid credentials",
+      "passed": true
+    },
+    {
+      "name": "Customer session cannot access administrative APIs",
+      "passed": true
+    },
+    {
+      "name": "Both accounts stay signed in in one browser",
+      "passed": true
+    },
+    {
+      "name": "Admin session cannot access customer APIs",
+      "passed": true
+    },
+    {
+      "name": "Pausing a customer revokes customer access",
+      "passed": true
+    },
+    {
+      "name": "Customer logout preserves the admin session",
+      "passed": true
+    },
+    {
+      "name": "Admin logout preserves the customer session",
+      "passed": true
+    },
+    {
+      "name": "Session cookie names cannot be exchanged to bypass roles",
+      "passed": true
+    }
+  ]
+}

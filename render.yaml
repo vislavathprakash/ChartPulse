@@ -1,0 +1,32 @@
+databases:
+  - name: chartpulse-db
+    plan: free
+    databaseName: chartpulse
+    user: chartpulse
+services:
+  - type: web
+    name: chartpulse
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chartpulse-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: MARKET_DATA_PROVIDER
+        value: simulated
+      - key: MARKET_DATA_MARKET
+        value: NSE,BSE
+      - key: MARKET_DATA_REDISPLAY_APPROVED
+        value: "false"

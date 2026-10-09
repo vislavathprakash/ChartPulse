@@ -1,0 +1,30 @@
+{
+  "verifiedAt": "2026-10-09T21:45:30.905Z",
+  "results": [
+    {
+      "name": "Customer-only single-use socket tickets",
+      "passed": true
+    },
+    {
+      "name": "Authorized subscription snapshot and bounds",
+      "passed": true
+    },
+    {
+      "name": "Quotes and interval candles arrive without HTTP refreshes",
+      "passed": true
+    },
+    {
+      "name": "Private alerts are delivered through the transactional outbox",
+      "passed": true
+    },
+    {
+      "name": "Quote snapshots and administrative worker metrics",
+      "passed": true
+    },
+    {
+      "name": "Customer logout immediately revokes the live connection",
+      "passed": true
+    }
+  ],
+  "capacityCertified": false
+}

@@ -1,0 +1,6 @@
+node_modules
+work
+outputs
+.env
+.git
+*.zip

@@ -1,0 +1,57 @@
+{
+  "verifiedAt": "2026-10-09T21:45:22.067Z",
+  "results": [
+    {
+      "name": "Indicator reference values and warm-up gaps",
+      "passed": true
+    },
+    {
+      "name": "13 alert condition predicates",
+      "passed": true
+    },
+    {
+      "name": "Account preferences persist and remain private",
+      "passed": true
+    },
+    {
+      "name": "Saved layouts and indicator templates",
+      "passed": true
+    },
+    {
+      "name": "Watchlist creation, membership and isolation",
+      "passed": true
+    },
+    {
+      "name": "All drawing types save, edit and enforce ownership",
+      "passed": true
+    },
+    {
+      "name": "Technical fields power actual screener queries",
+      "passed": true
+    },
+    {
+      "name": "All intervals return coherent OHLCV",
+      "passed": true
+    },
+    {
+      "name": "Crossing alert triggers once and deactivates",
+      "passed": true
+    },
+    {
+      "name": "Indicator and watchlist alerts generate events",
+      "passed": true
+    },
+    {
+      "name": "Frequency deduplication and invalid expiration",
+      "passed": true
+    },
+    {
+      "name": "Every-entry, per-bar and bar-close schedules",
+      "passed": true
+    },
+    {
+      "name": "CRUD cleanup, old API compatibility and permission protection",
+      "passed": true
+    }
+  ]
+}

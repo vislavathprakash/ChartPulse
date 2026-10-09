@@ -1,0 +1,81 @@
+# Local distributed topology. Development credentials only; bind published ports to loopback.
+x-app: &app
+  build: .
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+x-env: &env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://chartpulse:development-only@postgres:5432/chartpulse
+  REDIS_URL: redis://redis:6379
+  PG_SSL: "false"
+  SESSION_SECRET: local-compose-only-replace-before-public-deployment
+  ADMIN_EMAIL: admin@example.com
+  ADMIN_PASSWORD: Compose-local-2026!
+  MARKET_DATA_PROVIDER: simulated
+  MARKET_DATA_MARKET: NSE,BSE
+  MARKET_DATA_REDISPLAY_APPROVED: "false"
+  ALERT_SHARDS: "2"
+  DB_POOL_MAX: "5"
+  ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: chartpulse
+      POSTGRES_USER: chartpulse
+      POSTGRES_PASSWORD: development-only
+    volumes: [chartpulse-db:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U chartpulse]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7
+    command: [redis-server, --maxmemory, 256mb, --maxmemory-policy, allkeys-lru]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_ROLE: api
+      STREAM_URL: ws://localhost:3001/stream
+    ports: ["127.0.0.1:3000:3000"]
+  gateway:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_ROLE: gateway
+    ports: ["127.0.0.1:3001:3000"]
+  ingestion:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_ROLE: ingestion
+  evaluator-0:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_ROLE: evaluator
+      ALERT_SHARD: "0"
+  evaluator-1:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_ROLE: evaluator
+      ALERT_SHARD: "1"
+  delivery:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_ROLE: delivery
+volumes:
+  chartpulse-db:
