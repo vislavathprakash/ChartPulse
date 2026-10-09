@@ -1,5 +1,9 @@
 # ChartPulse simulated-data application
 
+## Email and Google sign-in
+
+Customer Google sign-in/signup, secure account linking, email verification/opt-in and Resend email alert jobs are implemented. Configure provider credentials and the public application URL after deployment. See EMAIL-GOOGLE-SETUP.md. Real provider sign-in and email delivery have not been verified; the 37-check report below predates this update.
+
 ## Streaming runtime
 
 Quotes and chart candles now use authenticated WebSockets instead of recurring browser polling. Separate API, gateway, ingestion, account-sharded evaluator and notification workers share PostgreSQL and Redis. Notification jobs are committed with their alert; service status is visible in Admin.

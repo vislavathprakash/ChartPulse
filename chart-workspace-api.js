@@ -79,7 +79,7 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
           if(matched&&frequencyOpen) {
             const stamp=Date.now(),status=deliveryStatus(alert.whatsapp_opt_in,c.notification);
             const detail=symbol+' '+(c.source==='price'?'price':c.indicator.type+' '+c.plot)+' '+value.toFixed(4)+' matches '+c.condition+' '+c.value+(c.upper!=null?' to '+c.upper:'')+'. Interval '+c.interval+'. '+c.message;
-            await pool.query("INSERT INTO alerts(user_id,symbol,title,detail,source,status,event_key) VALUES($1,$2,$3,$4,'technical',$5,$6) ON CONFLICT(event_key) DO NOTHING",[alert.user_id,symbol,'[SIMULATED] '+alert.name,detail,status,'technical:'+alert.id+':'+symbol+':'+bar+':'+(evaluationKey()||stamp)]);
+            await pool.query("INSERT INTO alerts(user_id,symbol,title,detail,source,status,event_key,email_requested) VALUES($1,$2,$3,$4,'technical',$5,$6,$7) ON CONFLICT(event_key) DO NOTHING",[alert.user_id,symbol,'[SIMULATED] '+alert.name,detail,status,'technical:'+alert.id+':'+symbol+':'+bar+':'+(evaluationKey()||stamp),['email','all'].includes(c.notification)]);
             prior.firedAt=stamp;prior.firedBar=bar;if(c.frequency==='once')completed=true;
           }
           states[symbol]={...prior,value,inside,matched,bar};if(completed)break;

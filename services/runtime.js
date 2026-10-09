@@ -23,6 +23,9 @@ class Runtime extends EventEmitter {
       CREATE TABLE IF NOT EXISTS evaluation_requests(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,sequence BIGINT NOT NULL,requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS service_commands(id BIGSERIAL PRIMARY KEY,kind TEXT NOT NULL,payload JSONB NOT NULL,status TEXT NOT NULL DEFAULT 'ready',result JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),completed_at TIMESTAMPTZ);
       CREATE TABLE IF NOT EXISTS notification_jobs(id BIGSERIAL PRIMARY KEY,alert_id INTEGER NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,channel TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'ready',attempts INTEGER NOT NULL DEFAULT 0,available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),lease_until TIMESTAMPTZ,claim_token TEXT,last_error TEXT,UNIQUE(alert_id,channel));
+      ALTER TABLE notification_jobs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+      ALTER TABLE notification_jobs ADD COLUMN IF NOT EXISTS provider_message_id TEXT;
+      ALTER TABLE notification_jobs ADD COLUMN IF NOT EXISTS delivery_key TEXT NOT NULL DEFAULT gen_random_uuid()::text;
       CREATE TABLE IF NOT EXISTS socket_tickets(token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,session_id TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL);
       CREATE TABLE IF NOT EXISTS service_heartbeats(id TEXT PRIMARY KEY,role TEXT NOT NULL,details JSONB NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS service_topology(name TEXT PRIMARY KEY,alert_shards INTEGER NOT NULL);
@@ -43,6 +46,9 @@ class Runtime extends EventEmitter {
     await this.pool.query(`CREATE OR REPLACE FUNCTION chartpulse_alert_outbox() RETURNS trigger AS $$ BEGIN
       INSERT INTO notification_jobs(alert_id,channel) VALUES(NEW.id,'in_app') ON CONFLICT(alert_id,channel) DO NOTHING;
       IF NEW.status='queued' THEN INSERT INTO notification_jobs(alert_id,channel) VALUES(NEW.id,'whatsapp') ON CONFLICT(alert_id,channel) DO NOTHING; END IF;
+      IF NEW.email_requested AND EXISTS(SELECT 1 FROM users WHERE id=NEW.user_id AND active=TRUE AND role='customer' AND email_opt_in=TRUE AND email_verified=TRUE) THEN
+        INSERT INTO notification_jobs(alert_id,channel) VALUES(NEW.id,'email') ON CONFLICT(alert_id,channel) DO NOTHING;
+      END IF;
       RETURN NEW; END; $$ LANGUAGE plpgsql`);
     await this.pool.query(`DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='chartpulse_alert_outbox_trigger') THEN
       CREATE TRIGGER chartpulse_alert_outbox_trigger AFTER INSERT ON alerts FOR EACH ROW EXECUTE FUNCTION chartpulse_alert_outbox();

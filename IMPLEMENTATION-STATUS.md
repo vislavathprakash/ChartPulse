@@ -1,12 +1,5 @@
 # Implementation status
 
-Recorded: 2026-10-09T21:46:22.084Z
+Email alert delivery and Google customer sign-in added on 2026-10-10. JavaScript syntax checks and local startup succeeded. Customer integration settings rendered without captured errors. No new automated tests were run. Real Google OAuth and email delivery need provider credentials and remain unverified. The earlier 37 functional checks predate this update.
 
-- 37 local functional check groups passed: 10 portal, 13 chart, 8 simulation, 6 stream.
-- JavaScript syntax and three YAML configuration files validated.
-- Customer chart and administrative service status rendered in the browser without captured JavaScript errors.
-- Multi-process PostgreSQL/Redis, external Kafka, distributed failover and Render deployment have not been exercised.
-- Million-user capacity is not certified; native partitioned processing, rule indexing, regional routing, retention, tracing and disaster recovery remain.
-- See RUNTIME-IMPLEMENTATION.md for the exact implementation, run commands, deployment configuration and limitations.
-
-Verification scripts alter synthetic feed state and create test accounts. Run them only against a development instance, sequentially. Set VERIFY_ADMIN_EMAIL and VERIFY_ADMIN_PASSWORD to its administrator credentials.
+Distributed failover, external Kafka, licensed native historical data and million-user capacity remain unverified/incomplete as described in RUNTIME-IMPLEMENTATION.md. Render free deployment was prepared but has not been confirmed live.

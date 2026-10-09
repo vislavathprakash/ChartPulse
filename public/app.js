@@ -13,7 +13,7 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
   history.replaceState(null,'','/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
@@ -33,7 +33,7 @@ function showApp(user, meta) {
   $('screenerMarketBadge').textContent = meta.simulated ? 'SIMULATED DATA' : 'LICENSED FEED';
   $('chartProviderLabel').textContent = meta.simulated ? 'SIMULATED · saved drawings and crossing alerts' : 'TradingView embedded chart';
   if(meta.simulated) { $('chartSymbol').value='NSE:SIM001'; $('whatsappBadge').textContent='SIMULATED'; $('channelStatus').textContent='Simulated'; $('channelHint').textContent='Test events only; no WhatsApp messages sent'; }
-  refreshCounts(); loadQueries(); loadAlerts(); loadWatch(); liveMarket.start();
+  refreshCounts(); loadQueries(); loadAlerts(); loadWatch(); liveMarket.start(); window.syncIntegrationPreferences?.();
 }
 function setAuthMode(mode) {
   state.authMode = mode;
@@ -122,7 +122,7 @@ async function loadAlerts() {
   loadAlertRules();
   try {
     const { alerts } = await api('/api/alerts'); $('alertCount').textContent = alerts.length; $('overviewAlertCount').textContent = alerts.length;
-    $('alertList').innerHTML = alerts.length ? alerts.map(a => `<div class="alert-row"><span class="alert-type-icon">${a.source === 'tradingview' ? '⌁' : '♧'}</span><div><b>${html(a.title)} · ${html(a.symbol || 'Market')}</b><p>${html(a.detail)}</p></div><div><span class="status-chip ${html(a.status)}">${html(a.status)}</span><br><time>${new Date(a.created_at).toLocaleString()}</time></div></div>`).join('') : '<p class="muted">No alert events yet. Create a TradingView alert and send it to your private webhook endpoint.</p>';
+    $('alertList').innerHTML = alerts.length ? alerts.map(a => `<div class="alert-row"><span class="alert-type-icon">${a.source === 'tradingview' ? '⌁' : '♧'}</span><div><b>${html(a.title)} · ${html(a.symbol || 'Market')}</b><p>${html(a.detail)}</p></div><div><span class="status-chip ${html(a.status)}">${html(a.status)}</span>${(a.deliveries||[]).filter(d=>d.channel!=='in_app').map(d=>`<br><span class="tiny muted">${html(d.channel)}: ${html(d.status)}</span>`).join('')}<br><time>${new Date(a.created_at).toLocaleString()}</time></div></div>`).join('') : '<p class="muted">No alert events yet. Create a TradingView alert and send it to your private webhook endpoint.</p>';
   } catch { $('alertList').innerHTML = '<p class="muted">Sign in to view account alerts.</p>'; }
 }
 async function loadAlertRules() {

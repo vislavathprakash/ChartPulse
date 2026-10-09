@@ -24,12 +24,12 @@ if(!users.length)$('adminUsers').innerHTML='<p class="settings-intro muted">No c
 }
 async function loadAdmin() {
   try {
-    const [data,health] = await Promise.all([api('/api/admin/overview'),api('/api/admin/runtime')]);
+    const [data,health,delivery] = await Promise.all([api('/api/admin/overview'),api('/api/admin/runtime'),api('/api/admin/delivery-jobs')]);
     renderRuntime(health);
     adminData = data; $('simulationControls').classList.toggle('hidden', !data.simulated); $('simulationNav').classList.toggle('hidden', !data.simulated); $('importMarketSymbols').disabled = data.simulated; $('marketSymbolFile').disabled = data.simulated; $('adminUserCount').textContent = data.customerCount; $('adminEventCount').textContent = data.eventCount;
     $('adminMarketMode').textContent = data.marketConnected ? data.marketMode : 'Disconnected'; $('adminMarketStatus').textContent = `${data.marketSymbolCount} instruments · ${data.redistributionApproved ? 'Redistribution approved' : 'License approval required'}`; $('adminMarketBadge').textContent = data.marketConnected ? 'CONNECTED' : 'NOT CONNECTED'; $('adminMarketMessage').textContent = data.marketConnected ? `Connected to ${data.marketMode}; ${data.marketSymbolCount} imported instruments.` : data.redistributionApproved ? 'Provider credentials or instrument master may be missing. Check Render logs and the imported symbol list.' : 'Import the licensed provider instrument master. Do not enable shared live data until the provider/exchange has granted written display and redistribution rights.'; $('adminWhatsApp').textContent = data.simulated ? 'Simulated' : data.whatsappReady ? 'Connected' : 'Not configured'; if(data.simulated) { $('adminMarketMode').textContent=data.simulationPaused?'Paused':'Simulated'; $('adminMarketStatus').textContent='60 fictional instruments'; $('adminMarketMessage').textContent='SIMULATED DATA: generated locally; no exchange or provider credentials needed.'; }
     await loadCustomers();
-    $('adminFailures').innerHTML = data.failed.length ? data.failed.map(a => `<div class="saved-query"><div><b>${html(a.title)} · ${html(a.symbol || '')}</b><code>${html(a.detail)}</code></div><span class="status-chip failed">failed</span></div>`).join('') : '<p class="muted">No failed deliveries.</p>';
+    $('adminFailures').innerHTML = delivery.jobs.length ? delivery.jobs.map(job => `<div class="saved-query"><div><b>${html(job.title)} · ${html(job.symbol || '')}</b><code>${html(job.channel)} · ${job.attempts} attempts · ${html(job.last_error || 'Provider delivery failed')}</code></div><span class="status-chip failed">failed</span></div>`).join('') : '<p class="muted">No failed delivery jobs.</p>';
   } catch (err) { toast(err.message, true); }
 }
 

@@ -6,6 +6,8 @@ const http = require('http');
 const { Runtime } = require('./services/runtime');
 const { installGateway, allowedOrigin } = require('./services/gateway');
 const { processNotifications } = require('./services/delivery');
+const {emailReady,externalEmailEnabled,applicationOrigin,sendEmail,hashToken}=require('./services/email');
+const {googleReady,installGoogleAuth}=require('./services/google-auth');
 const metrics = require('./services/metrics');
 const { createPool } = require('./database');
 const { SimulatedMarket } = require('./simulated-market');
@@ -28,6 +30,7 @@ const shardMatches = userId => Number(userId) % runtime.shards === runtime.shard
 const providerRecords = [];
 const screenerCache = new Map(), parsedRules = new Map();
 app.use(metrics.middleware);
+app.use((req,res,next)=>{res.set('Referrer-Policy','no-referrer');next();});
 app.use((req,res,next)=>{if(runtime.role==='gateway'&&req.path!=='/api/health')return res.status(404).json({error:'Gateway endpoint not found.'});next();});
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '5mb' }));
@@ -63,6 +66,13 @@ async function setup() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS webhook_token TEXT UNIQUE');
+  await pool.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT UNIQUE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_opt_in BOOLEAN NOT NULL DEFAULT FALSE;
+    CREATE TABLE IF NOT EXISTS google_login_flows(state_hash TEXT PRIMARY KEY,session_id TEXT NOT NULL,nonce TEXT NOT NULL,verifier TEXT NOT NULL,link_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,expires_at TIMESTAMPTZ NOT NULL);
+    CREATE INDEX IF NOT EXISTS google_flow_expiry_idx ON google_login_flows(expires_at);
+    CREATE TABLE IF NOT EXISTS email_verifications(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,token_hash TEXT UNIQUE NOT NULL,email TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL,requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW());`);
   await pool.query(`CREATE TABLE IF NOT EXISTS saved_queries (
     id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL, query_text TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -81,6 +91,7 @@ async function setup() {
   )`);
   await pool.query('ALTER TABLE alerts ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0');
   await pool.query('ALTER TABLE alerts ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE alerts ADD COLUMN IF NOT EXISTS email_requested BOOLEAN NOT NULL DEFAULT TRUE');
   await pool.query(`CREATE TABLE IF NOT EXISTS drawings (
     id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     symbol TEXT NOT NULL, kind TEXT NOT NULL, payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -120,16 +131,16 @@ function requirePortal(role) { return asyncRoute(async (req, res, next) => {
   next();
 }); }
 const requireAuth = requirePortal('customer'), requireAdminAuth = requirePortal('admin');
-function publicUser(user) { return { id: user.id, email: user.email, name: user.name, role: user.role, whatsappPhone: user.whatsapp_phone || '', whatsappOptIn: user.whatsapp_opt_in || false, webhookToken: user.webhook_token || '' }; }
+function publicUser(user) { return { id: user.id, email: user.email, name: user.name, role: user.role, emailVerified:user.email_verified===true,emailOptIn:user.email_opt_in===true,googleLinked:Boolean(user.google_sub),whatsappPhone: user.whatsapp_phone || '', whatsappOptIn: user.whatsapp_opt_in || false, webhookToken: user.webhook_token || '' }; }
 function regenerateSession(req) { return new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve())); }
-function deliveryStatus(optIn,notification='whatsapp') { return isSimulated ? 'simulated' : notification === 'whatsapp' && optIn && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME ? 'queued' : 'logged'; }
+function deliveryStatus(optIn,notification='whatsapp') { return isSimulated ? 'simulated' : ['whatsapp','all'].includes(notification) && optIn && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME ? 'queued' : 'logged'; }
 const workspace = installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulated,deliveryStatus,requestEvaluation:()=>runtime.role==='standalone'?runtime.evaluateCurrent():Promise.resolve(),shardMatches,evaluationKey:()=>runtime.evaluationKey,evaluationScope:()=>({shards:runtime.shards,shard:runtime.shard,users:runtime.baselineUsers,symbols:runtime.changedSymbols})});
 function enrichQuote(row) { return row; }
 
 app.get('/api/health', asyncRoute(async (req, res) => { await pool.query('SELECT 1'); res.json({ ok: true, marketReady: marketEntitled() && marketRuntime.connected }); }));
 function marketEntitled() { return isSimulated || process.env.MARKET_DATA_PROVIDER === 'truedata' && process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true' && (!['standalone','ingestion'].includes(runtime.role) || Boolean(process.env.TRUEDATA_USERNAME&&process.env.TRUEDATA_PASSWORD)); }
 function portalMetadata() { return { simulated: isSimulated, dataLabel, whatsappMode: isSimulated ? 'simulated delivery' : 'WhatsApp Business', marketMode: process.env.MARKET_DATA_PROVIDER || 'simulated', market: process.env.MARKET_DATA_MARKET || null, marketReady: marketEntitled() && marketRuntime.connected, marketConfigured: Boolean(isSimulated || (process.env.TRUEDATA_USERNAME && process.env.TRUEDATA_PASSWORD)), marketRedistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', marketConnected: marketRuntime.connected, whatsappReady: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME), chartMode: isSimulated ? 'Interactive simulated chart' : 'TradingView embedded chart' }; }
-app.get('/api/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'customer'),...portalMetadata()})));
+app.get('/api/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'customer'),...portalMetadata(),googleReady:googleReady(),emailReady:emailReady(),emailSimulated:!externalEmailEnabled()})));
 app.get('/api/admin/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'admin'),...portalMetadata()})));
 
 app.post('/api/register', asyncRoute(async (req, res) => {
@@ -146,12 +157,13 @@ function login(role) { return asyncRoute(async (req,res) => {
   const {email,password}=req.body || {};
   if(typeof email!=='string' || typeof password!=='string') return res.status(400).json({error:'Enter your email and password.'});
   const {rows}=await pool.query('SELECT * FROM users WHERE email=$1 AND active=TRUE',[email.toLowerCase().trim()]);
-  if(!rows[0] || !await bcrypt.compare(password,rows[0].password_hash)) return res.status(401).json({error:'Email or password is incorrect.'});
+  if(!rows[0]?.password_hash || !await bcrypt.compare(password,rows[0].password_hash)) return res.status(401).json({error:'Email or password is incorrect. Google accounts should use Continue with Google.'});
   if(rows[0].role!==role) return res.status(403).json({error:'This account cannot access this portal. Use the '+rows[0].role+' login.'});
   await regenerateSession(req); req.session.portal=role; req.session.user=publicUser(rows[0]); res.json({user:req.session.user});
 }); }
 app.post('/api/login',login('customer'));
 app.post('/api/admin/login',login('admin'));
+installGoogleAuth({app,pool,asyncRoute,requireAuth,publicUser,regenerateSession});
 function logout(portal) { return (req,res,next) => req.session.destroy(err => {
   if(err) return next(err); res.clearCookie('chartpulse.'+portal+'.sid',{path:'/'}); res.json({ok:true});
 }); }
@@ -180,7 +192,7 @@ app.post('/api/queries', requireAuth, asyncRoute(async (req, res) => {
   const { rows } = await pool.query('INSERT INTO saved_queries(user_id,name,query_text) VALUES($1,$2,$3) RETURNING *', [req.session.user.id, name.trim(), query.trim()]); res.status(201).json({ query: rows[0] });
 }));
 app.get('/api/queries', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query('SELECT * FROM saved_queries WHERE user_id=$1 ORDER BY created_at DESC', [req.session.user.id]); res.json({ queries: rows }); }));
-app.get('/api/alerts', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query('SELECT * FROM alerts WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30', [req.session.user.id]); res.json({ alerts: rows }); }));
+app.get('/api/alerts', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query(`SELECT a.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('channel',j.channel,'status',j.status,'attempts',j.attempts)) FROM notification_jobs j WHERE j.alert_id=a.id),'[]'::jsonb) AS deliveries FROM alerts a WHERE a.user_id=$1 ORDER BY a.created_at DESC LIMIT 30`, [req.session.user.id]); res.json({ alerts: rows }); }));
 app.get('/api/alert-rules', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query('SELECT * FROM alert_rules WHERE user_id=$1 ORDER BY created_at DESC', [req.session.user.id]); res.json({ rules: rows }); }));
 app.post('/api/alert-rules', requireAuth, asyncRoute(async (req, res) => {
   const { name, query } = req.body || {};
@@ -216,6 +228,34 @@ app.patch('/api/preferences', requireAuth, asyncRoute(async (req, res) => {
   if (consent && (digits.length < 8 || digits.length > 15)) return res.status(400).json({ error: 'Enter a valid international number before opting in to WhatsApp alerts.' });
   const { rows } = await pool.query('UPDATE users SET whatsapp_phone=$1, whatsapp_opt_in=$2 WHERE id=$3 RETURNING *', [phone, consent, req.session.user.id]);
   req.session.user = publicUser(rows[0]); res.json({ user: req.session.user });
+}));
+
+app.patch('/api/email/preferences',requireAuth,asyncRoute(async(req,res)=>{
+  if(typeof req.body?.emailOptIn!=='boolean')return res.status(400).json({error:'Choose whether to receive email alerts.'});
+  const {rows}=await pool.query('UPDATE users SET email_opt_in=$1 WHERE id=$2 AND (email_verified=TRUE OR $1=FALSE) RETURNING *',[req.body.emailOptIn,req.session.user.id]);
+  if(!rows[0])return res.status(409).json({error:'Verify your email address before enabling email alerts.'});
+  req.session.user=publicUser(rows[0]);res.json({user:req.session.user});
+}));
+app.post('/api/email/verification',requireAuth,asyncRoute(async(req,res)=>{
+  if(!emailReady())return res.status(503).json({error:'Email delivery must be configured before verification emails can be sent.'});
+  const {rows}=await pool.query('SELECT * FROM users WHERE id=$1',[req.session.user.id]);const user=rows[0];
+  if(user.email_verified)return res.json({ok:true,alreadyVerified:true});
+  const token=crypto.randomBytes(32).toString('base64url');
+  const result=await pool.query(`INSERT INTO email_verifications(user_id,token_hash,email,expires_at) VALUES($1,$2,$3,NOW()+INTERVAL '30 minutes') ON CONFLICT(user_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,email=EXCLUDED.email,expires_at=EXCLUDED.expires_at,requested_at=NOW() WHERE email_verifications.requested_at<NOW()-INTERVAL '1 minute' RETURNING user_id`,[user.id,hashToken(token),user.email]);
+  if(!result.rows.length)return res.status(429).json({error:'Wait one minute before requesting another verification email.'});
+  await sendEmail({to:user.email,subject:'Verify your ChartPulse email',text:'Sign in to your ChartPulse account, then open this link to verify your email. The link expires in 30 minutes.\n\n'+applicationOrigin()+'/app?email_verify='+token+'\n\nIf you did not request this, ignore this email.',key:'chartpulse-verify-'+hashToken(token)});
+  res.json({ok:true,message:'Verification email sent. Check your inbox.'});
+}));
+app.post('/api/email/verify',requireAuth,asyncRoute(async(req,res)=>{
+  if(typeof req.body?.token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(req.body.token))return res.status(400).json({error:'Invalid verification link.'});
+  let user;
+  await pool.transaction(async()=>{
+    const {rows}=await pool.query('DELETE FROM email_verifications WHERE user_id=$1 AND token_hash=$2 AND expires_at>NOW() RETURNING email',[req.session.user.id,hashToken(req.body.token)]);
+    if(!rows[0])return;
+    user=(await pool.query("UPDATE users SET email_verified=TRUE WHERE id=$1 AND email=$2 AND active=TRUE AND role='customer' RETURNING *",[req.session.user.id,rows[0].email])).rows[0];
+  });
+  if(!user)return res.status(400).json({error:'This verification link expired or belongs to another account.'});
+  req.session.user=publicUser(user);res.json({user:req.session.user});
 }));
 
 app.post('/api/admin/market-symbols', requireAdminAuth, asyncRoute(async (req, res) => {
@@ -454,6 +494,10 @@ runtime.commandHandler=async(kind,payload,key)=>{
 app.get('/api/admin/runtime',requireAdminAuth,asyncRoute(async(req,res)=>{
   const [services,jobs]=await Promise.all([pool.query("SELECT * FROM service_heartbeats WHERE updated_at>NOW()-INTERVAL '1 minute'"),pool.query('SELECT status,channel,COUNT(*)::int AS count FROM notification_jobs GROUP BY status,channel')]);
   res.json({role:runtime.role,sequence:runtime.sequence,metrics:metrics.snapshot(),services:services.rows,jobs:jobs.rows,capacityCertified:false});
+}));
+app.get('/api/admin/delivery-jobs',requireAdminAuth,asyncRoute(async(req,res)=>{
+  const {rows}=await pool.query("SELECT j.id,j.channel,j.status,j.attempts,j.last_error,a.title,a.symbol FROM notification_jobs j JOIN alerts a ON a.id=j.alert_id WHERE j.status='failed' ORDER BY j.id DESC LIMIT 100");
+  res.json({jobs:rows,emailReady:emailReady(),emailSimulated:!externalEmailEnabled(),googleReady:googleReady()});
 }));
 let server,gateway;
 async function start(){
