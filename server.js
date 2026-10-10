@@ -503,22 +503,28 @@ let server,gateway;
 async function start(){
   let release;while(!release){release=await pool.leadership(730010);if(!release)await new Promise(resolve=>setTimeout(resolve,500));}
   try{await setup();await runtime.setup();}finally{await release();}
-  if(['standalone','ingestion','evaluator','relay'].includes(runtime.role)){
-    const key=runtime.role==='evaluator'?731000+runtime.shard:runtime.role==='relay'?732000:730020;
-    while(!runtime.releaseLeader){runtime.releaseLeader=await pool.leadership(key);if(!runtime.releaseLeader)await new Promise(resolve=>setTimeout(resolve,1000));}
-    await runtime.loadSnapshot();await runtime.claimLeadership(key);
-  }
   if(['standalone','api','gateway'].includes(runtime.role)){
     server=http.createServer(app);gateway=installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled:marketEntitled});app.use(errorHandler);
     await new Promise(resolve=>server.listen(PORT,resolve));console.log('ChartPulse '+runtime.role+' listening on '+PORT);
     if(runtime.role!=='standalone')runtime.every(1000,()=>runtime.sync());
+  }
+  // Render probes the replacement before retiring the previous instance.
+  // Serve the persisted snapshot while waiting for exclusive worker ownership.
+  const shutdown=async()=>{if(runtime.stopping)return;runtime.stopping=true;const timeout=setTimeout(()=>process.exit(1),12000);timeout.unref();try{if(gateway)await gateway.close();if(server)await new Promise(resolve=>server.close(resolve));await runtime.stop();await pool.end();clearTimeout(timeout);process.exit(0);}catch(err){console.error(err.message);process.exit(1);}};
+  process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
+  if(['standalone','ingestion','evaluator','relay'].includes(runtime.role)){
+    const syncTimer=runtime.role==='standalone'?runtime.every(1000,()=>runtime.sync()):null;
+    const key=runtime.role==='evaluator'?731000+runtime.shard:runtime.role==='relay'?732000:730020;
+    while(!runtime.releaseLeader&&!runtime.stopping){runtime.releaseLeader=await pool.leadership(key);if(!runtime.releaseLeader)await new Promise(resolve=>setTimeout(resolve,1000));}
+    if(syncTimer)clearInterval(syncTimer);if(runtime.stopping)return;
+    // A snapshot sync already in flight must finish before taking ownership.
+    while(runtime.syncing)await new Promise(resolve=>setTimeout(resolve,25));
+    await runtime.loadSnapshot();await runtime.claimLeadership(key);
   }
   if(['standalone','ingestion'].includes(runtime.role)){await startMarketFeed();runtime.every(100,flushMarketQuotes);runtime.every(125,()=>runtime.processCommands());}
   if(runtime.role==='evaluator')runtime.every(125,()=>runtime.evaluateEvents());
   if(['standalone','delivery'].includes(runtime.role))runtime.every(250,()=>processNotifications({pool,runtime,deliver:deliverWhatsAppAlert}));
   if(runtime.role==='relay')await require('./services/kafka-relay').startKafkaRelay(runtime);
   await runtime.heartbeat();runtime.every(5000,()=>runtime.heartbeat());
-  const shutdown=async()=>{if(runtime.stopping)return;const timeout=setTimeout(()=>process.exit(1),12000);timeout.unref();try{if(gateway)await gateway.close();if(server)await new Promise(resolve=>server.close(resolve));await runtime.stop();await pool.end();clearTimeout(timeout);process.exit(0);}catch(err){console.error(err.message);process.exit(1);}};
-  process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
 }
 start().catch(err=>{console.error('Startup failed:',err.message);process.exit(1);});

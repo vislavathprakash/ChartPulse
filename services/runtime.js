@@ -143,7 +143,7 @@ class Runtime extends EventEmitter {
     if(this.quotes.size)await this.evaluateRequests();
   }
   async command(kind,payload){
-    if(this.role==='standalone')return this.commandHandler(kind,payload);
+    if(this.role==='standalone'&&this.releaseLeader)return this.commandHandler(kind,payload);
     const {rows}=await this.pool.query('INSERT INTO service_commands(kind,payload) VALUES($1,$2) RETURNING id',[kind,payload]);const id=rows[0].id;
     for(let i=0;i<40;i++){await pause(125);const r=await this.pool.query('SELECT status,result FROM service_commands WHERE id=$1',[id]);if(r.rows[0].status==='done')return {...r.rows[0].result,commandId:id};if(r.rows[0].status==='failed')throw Object.assign(new Error(r.rows[0].result.error),{status:400});}
     return {ok:true,queued:true,commandId:id};
