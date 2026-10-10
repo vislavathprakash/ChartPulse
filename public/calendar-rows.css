@@ -1,0 +1,34 @@
+/* Calendar rows inherit all three account themes. */
+.calendar-single-rows .calendar-list{min-width:0;}
+.calendar-row-scroll{max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);overscroll-behavior:contain;scrollbar-width:thin;margin:16px 0;}
+.calendar-row-scroll:focus-visible{outline:2px solid var(--blue);outline-offset:3px;}
+.calendar-row-table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;text-align:left;}
+.calendar-row-table caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.calendar-row-table th{position:sticky;top:0;z-index:2;background:var(--panel2);color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:14px 18px;white-space:nowrap;border-bottom:1px solid var(--line);}
+#page-calendar .calendar-row-table .calendar-record-row{display:table-row;background:transparent;border:0;margin:0;padding:0;}
+.calendar-row-table td{padding:18px;white-space:nowrap;vertical-align:middle;border-bottom:1px solid var(--line);color:var(--text);}
+.calendar-row-table tbody tr:last-child td{border-bottom:0;}
+.calendar-row-table tbody tr:hover td,.calendar-row-table tbody tr:focus-within td{background:var(--panel2);}
+.calendar-row-table .calendar-row-title{font-weight:600;}
+.calendar-row-table .calendar-row-date{font-variant-numeric:tabular-nums;color:var(--muted);}
+.calendar-row-table .calendar-row-symbol{font-weight:600;color:var(--blue);}
+.calendar-row-table .calendar-row-notes{color:var(--muted);font-size:12px;}
+.calendar-row-table a{color:var(--blue);text-decoration:none;}
+.calendar-row-table a:hover{text-decoration:underline;}
+.calendar-row-table .calendar-row-actions{position:sticky;right:0;background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 12px -12px #000;}
+.calendar-row-table th:last-child{right:0;z-index:3;border-left:1px solid var(--line);}
+.calendar-row-table .calendar-event-actions{display:flex;flex-wrap:nowrap;gap:8px;margin:0;}
+#page-calendar .calendar-row-table .calendar-event-actions button,.calendar-row-table .calendar-event-actions a{margin:0;padding:8px 11px;font-size:12px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);white-space:nowrap;}
+#page-calendar .calendar-row-table [data-event-reminder],#page-calendar .calendar-row-table [data-ipo-review]{background:var(--green2);color:var(--green);border-color:var(--green);}
+#page-calendar .calendar-row-table .calendar-row-icon{width:32px;height:32px;padding:0;font-size:17px;}
+.calendar-row-compact td{padding:11px 16px;}
+.calendar-single-rows .ipo-documents-list{max-height:550px;}
+.calendar-single-rows .ipo-documents-list .calendar-row-scroll{margin:14px 0 0;max-height:500px;}
+.calendar-single-rows .calendar-feed-panel{padding:14px 18px;margin:12px 0 18px;}
+.calendar-single-rows .calendar-feed-heading h3{font-size:14px;margin-bottom:4px;}
+.calendar-single-rows .calendar-feed-heading p{margin:0;font-size:12px;}
+.calendar-single-rows .calendar-feed-state{gap:10px;padding:10px 0;}
+.calendar-single-rows .calendar-feed-state small{flex-basis:auto;}
+.calendar-single-rows .calendar-feed-disclaimer{margin:6px 0 0;font-size:11px;}
+.calendar-single-rows [hidden]{display:none!important;}
+@media(max-width:700px){.calendar-row-table td{padding:12px;}.calendar-row-table th{padding:12px;}.calendar-row-table .calendar-row-actions{position:static;}.calendar-row-table th:last-child{right:auto;}.calendar-single-rows .calendar-feed-heading{flex-direction:row;align-items:center;}.calendar-single-rows .calendar-feed-heading button{padding:8px;font-size:11px;}}
