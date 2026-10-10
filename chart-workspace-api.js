@@ -71,15 +71,22 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
     });res.json({ok:true});
   }));
   app.delete('/api/watchlists/:id/items/:symbol',requireAuth,asyncRoute(async(req,res)=>{await ownWatchlist(req.params.id,req.session.user.id);await pool.query('DELETE FROM watchlist_items WHERE watchlist_id=$1 AND symbol=$2',[req.params.id,req.params.symbol]);res.json({ok:true});}));
-  app.get('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT * FROM technical_alerts WHERE user_id=$1 ORDER BY id DESC',[req.session.user.id]);res.json({alerts:rows});}));
+  async function alertStatus(alert) {
+    const expired=alert.config.expiresAt&&Date.parse(alert.config.expiresAt)<=Date.now();
+    const completed=!alert.enabled&&alert.config.frequency==='once'&&Object.values(alert.state||{}).some(s=>s.firedAt);
+    const symbols=alert.watchlist_id?(await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[alert.watchlist_id])).rows.map(r=>r.symbol):[alert.symbol];
+    const ready=isSimulated&&symbols.length>0&&symbols.every(s=>simulation.instruments.has(s));
+    const status=expired?'expired':completed?'completed':!alert.enabled?'paused':ready?'simulation_active':'waiting_data';
+    return {...alert,status,statusLabel:({expired:'Expired',completed:'Triggered · completed',paused:'Paused',simulation_active:'Active · simulation',waiting_data:'Waiting for data'})[status]};
+  }
+  app.get('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT * FROM technical_alerts WHERE user_id=$1 ORDER BY id DESC',[req.session.user.id]);res.json({alerts:await Promise.all(rows.map(alertStatus))});}));
   app.post('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{
-    if(!isSimulated)return res.status(503).json({error:'Technical alerts require a licensed historical-candle adapter in live mode.'});
     const data=D.validateAlert(req.body);
-    if(data.watchlistId)await ownWatchlist(data.watchlistId,req.session.user.id);else await requireSymbol(data.symbol);
+    if(data.watchlistId)await ownWatchlist(data.watchlistId,req.session.user.id);else if(!directory.find(data.symbol))await requireSymbol(data.symbol);
     const {rows}=await pool.query("INSERT INTO technical_alerts(user_id,name,symbol,watchlist_id,config) VALUES($1,$2,$3,$4,$5) RETURNING *",[req.session.user.id,data.name,data.watchlistId?null:data.symbol,data.watchlistId,data.config]);
-    await (requestEvaluation?requestEvaluation():scan());res.status(201).json({alert:rows[0]});
+    await (requestEvaluation?requestEvaluation():scan());res.status(201).json({alert:await alertStatus((await pool.query('SELECT * FROM technical_alerts WHERE id=$1',[rows[0].id])).rows[0])});
   }));
-  app.patch('/api/technical-alerts/:id',requireAuth,asyncRoute(async(req,res)=>{if(typeof req.body.enabled!=='boolean')return res.status(400).json({error:'Enabled must be true or false.'});const {rows}=await pool.query("UPDATE technical_alerts SET enabled=$1,state='{}' WHERE id=$2 AND user_id=$3 RETURNING *",[req.body.enabled,req.params.id,req.session.user.id]);res.status(rows[0]?200:404).json(rows[0]?{alert:rows[0]}:{error:'Alert not found.'});}));
+  app.patch('/api/technical-alerts/:id',requireAuth,asyncRoute(async(req,res)=>{if(typeof req.body.enabled!=='boolean')return res.status(400).json({error:'Enabled must be true or false.'});if(req.body.enabled){const current=await pool.query('SELECT config FROM technical_alerts WHERE id=$1 AND user_id=$2',[req.params.id,req.session.user.id]);if(current.rows[0]?.config.expiresAt&&Date.parse(current.rows[0].config.expiresAt)<=Date.now())return res.status(400).json({error:'This alert has expired. Create a new rule with a future expiration.'});}const {rows}=await pool.query("UPDATE technical_alerts SET enabled=$1,state='{}' WHERE id=$2 AND user_id=$3 RETURNING *",[req.body.enabled,req.params.id,req.session.user.id]);res.status(rows[0]?200:404).json(rows[0]?{alert:rows[0]}:{error:'Alert not found.'});}));
   app.delete('/api/technical-alerts/:id',requireAuth,asyncRoute(async(req,res)=>{const r=await pool.query('DELETE FROM technical_alerts WHERE id=$1 AND user_id=$2',[req.params.id,req.session.user.id]);res.status(r.rowCount?200:404).json(r.rowCount?{ok:true}:{error:'Alert not found.'});}));
   let busy=false;
   async function scan() {
@@ -97,6 +104,7 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
         const symbols=alert.watchlist_id?(await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[alert.watchlist_id])).rows.map(r=>r.symbol):[alert.symbol];
         const states=alert.state||{};let completed=false;
         for(const symbol of symbols) {
+          if(!simulation.instruments.has(symbol))continue;
           let candles=simulation.history(symbol,c.interval);if(!candles?.length)continue;
           const period={ '1m':60,'2m':120,'3m':180,'5m':300,'10m':600,'15m':900,'30m':1800,'1h':3600,'2h':7200,'4h':14400,'1D':86400 }[c.interval];
           const clock=simulation.instruments.get(symbol).candles.at(-1).time+60;
