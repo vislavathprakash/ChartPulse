@@ -1,0 +1,34 @@
+.stock-search{position:relative;min-width:235px;flex:1;max-width:430px}
+#chartSymbol{width:100%;font-size:13px!important;padding:10px 12px!important}
+.stock-suggestions{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:5;background:#142030;border:1px solid #35465d;border-radius:9px;box-shadow:0 12px 32px #0007;max-height:340px;overflow:auto}
+.stock-result{display:flex;border-bottom:1px solid #26354a}.stock-result:last-child{border:0}
+.stock-result button{border:0;background:none;color:#d8e4f4;padding:10px 12px;text-align:left;font-size:13px}
+.stock-result button:first-child{flex:1;min-width:0;display:grid;gap:4px}.stock-result small{color:#94a6bf;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stock-result button:last-child{width:42px;text-align:center;color:#8bdcb6;font-size:18px}
+.stock-result:hover,.stock-result.highlighted{background:#21334b}
+.search-message{padding:16px;font-size:12px;color:#a7b7cb}
+.customer-chart-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;align-items:stretch}
+.customer-watchlists{background:#111b28;border-left:1px solid #28384e;padding:14px;min-width:0}
+.customer-watch-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px}
+.customer-watch-heading h2{margin:0 0 4px;font-size:14px}.customer-watch-heading span{font-size:11px;color:#91a4bd}
+.customer-watch-heading button{padding:7px 9px}.customer-watch-controls{display:flex;align-items:center;gap:8px}
+.customer-watch-controls select{margin:0;padding:9px;min-width:0;font-size:13px}
+.customer-watch-controls>button{background:#1c293b;border:1px solid #35445b;border-radius:6px;padding:8px;font-size:16px}
+.customer-watch-actions{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 0}.customer-watch-actions button{font-size:11px;padding:7px 9px}
+.customer-watch-note{font-size:11px;color:#8fa3bd;line-height:1.5}
+.customer-watch-rows{max-height:max(330px,calc(100dvh - 430px));overflow:auto;scrollbar-width:thin}
+.customer-stock-row{display:flex;align-items:center;border-bottom:1px solid #253449;gap:6px}
+.customer-stock-row button{background:transparent;border:0;color:#d8e5f6;cursor:pointer}
+.customer-stock-row button:first-child{display:grid;gap:5px;text-align:left;flex:1;min-width:0;padding:12px 7px;border-radius:6px}
+.customer-stock-row button:first-child:hover,.customer-stock-row button.active{background:#1d3145}
+.customer-stock-row small{font-size:10px;color:#96a9c1;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.customer-stock-row span{font-size:9px;color:#7d97b6;letter-spacing:.4px}
+.customer-stock-row button[data-watch-remove]{font-size:10px;color:#ffa7a7;padding:6px}
+.customer-watch-empty{padding:28px 4px;font-size:13px;line-height:1.7}.customer-watch-empty p{font-size:12px;color:#94a8c1}
+.customer-delete-list{color:#ffaaaa;margin-top:18px;font-size:11px}
+button:disabled{opacity:.45;cursor:not-allowed}
+#page-charts:not(.tradingview-mode) .customer-watchlists{display:none}#page-charts:not(.tradingview-mode) .customer-chart-grid{display:block}
+#page-charts .symbol-select{flex:1}#page-charts .chart-toolbar{overflow:visible}#page-charts .chart-panel{overflow:visible}
+@media(max-width:1100px){.customer-chart-grid{grid-template-columns:minmax(0,1fr) 230px}}
+@media(max-width:850px){.customer-chart-grid{grid-template-columns:minmax(0,1fr)}.customer-watchlists{border-left:0;border-top:1px solid #28384e}.customer-watch-rows{max-height:300px}.customer-watch-controls{max-width:450px}.customer-watch-heading{margin-bottom:10px}}
+@media(max-width:520px){.stock-search{min-width:190px;max-width:none;width:100%}.chart-provider{line-height:1.5}#page-charts .symbol-select{gap:8px}.stock-result button{padding:10px}}

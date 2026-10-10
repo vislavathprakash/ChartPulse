@@ -1,5 +1,6 @@
 const T = require('./public/technical-analysis');
 const D = require('./chart-domain');
+const directory = require('./services/symbol-directory');
 function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulated,deliveryStatus,requestEvaluation,shardMatches=()=>true,evaluationKey=()=>null,evaluationScope=()=>({})}) {
   async function setup() {
     await pool.query(`CREATE TABLE IF NOT EXISTS chart_preferences (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, settings JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -13,7 +14,16 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
     const {rows}=await pool.query('SELECT symbol FROM market_symbols WHERE symbol=$1 AND active=TRUE',[symbol]);
     if(!rows[0])throw Object.assign(new Error('Choose an active instrument.'),{status:400});
   }
-  async function ownWatchlist(id,userId){const {rows}=await pool.query('SELECT id FROM watchlists WHERE id=$1 AND user_id=$2',[id,userId]);if(!rows[0])throw Object.assign(new Error('Watchlist not found.'),{status:404});}
+  async function ownWatchlist(id,userId){if(!/^\d+$/.test(String(id))||!Number.isSafeInteger(Number(id)))throw Object.assign(new Error('Invalid watchlist.'),{status:400});const {rows}=await pool.query('SELECT id FROM watchlists WHERE id=$1 AND user_id=$2',[id,userId]);if(!rows[0])throw Object.assign(new Error('Watchlist not found.'),{status:404});}
+  function watchlistName(value){const name=typeof value==='string'?value.trim():'';if(!name||name.length>60)throw Object.assign(new Error('Enter a watchlist name between 1 and 60 characters.'),{status:400});return name;}
+  app.get('/api/chart/symbols',requireAuth,asyncRoute(async(req,res)=>{
+    if(req.query.source==='simulation'){
+      if(!isSimulated)return res.status(400).json({error:'Simulation is not enabled.'});
+      const q=String(req.query.query||'').trim().toUpperCase().slice(0,80),{rows}=await pool.query("SELECT symbol,name,exchange FROM market_symbols WHERE active=TRUE AND data_source='simulated' ORDER BY symbol");
+      return res.json({results:rows.filter(r=>(r.symbol+' '+r.name).toUpperCase().includes(q)).slice(0,12),dataLevel:'simulated'});
+    }
+    res.json(directory.search(req.query.query));
+  }));
   function settings(body) {
     const b=body||{};
     if(!D.INTERVALS.includes(b.interval)||!['candles','hollow','bars','line','area','baseline','heikin','columns'].includes(b.chartType))throw Object.assign(new Error('Invalid interval or chart type.'),{status:400});
@@ -29,10 +39,37 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
   app.get('/api/chart/templates',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT * FROM indicator_templates WHERE user_id=$1 ORDER BY id DESC',[req.session.user.id]);res.json({templates:rows});}));
   app.post('/api/chart/templates',requireAuth,asyncRoute(async(req,res)=>{if(!req.body.name?.trim()||!Array.isArray(req.body.indicators)||req.body.indicators.length>12)return res.status(400).json({error:'Enter a name and up to 12 indicators.'});const {rows}=await pool.query('INSERT INTO indicator_templates(user_id,name,indicators) VALUES($1,$2,$3) RETURNING *',[req.session.user.id,req.body.name.trim().slice(0,100),JSON.stringify(req.body.indicators.map(D.validateIndicator))]);res.status(201).json({template:rows[0]});}));
   app.delete('/api/chart/templates/:id',requireAuth,asyncRoute(async(req,res)=>{const r=await pool.query('DELETE FROM indicator_templates WHERE id=$1 AND user_id=$2',[req.params.id,req.session.user.id]);res.status(r.rowCount?200:404).json(r.rowCount?{ok:true}:{error:'Template not found.'});}));
-  app.get('/api/watchlists',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query("SELECT w.id,w.name,COALESCE(array_agg(i.symbol ORDER BY i.symbol) FILTER(WHERE i.symbol IS NOT NULL),'{}') AS symbols FROM watchlists w LEFT JOIN watchlist_items i ON i.watchlist_id=w.id WHERE w.user_id=$1 GROUP BY w.id ORDER BY w.id",[req.session.user.id]);res.json({watchlists:rows});}));
-  app.post('/api/watchlists',requireAuth,asyncRoute(async(req,res)=>{if(!req.body.name?.trim())return res.status(400).json({error:'Watchlist name is required.'});const {rows}=await pool.query('INSERT INTO watchlists(user_id,name) VALUES($1,$2) RETURNING *',[req.session.user.id,req.body.name.trim().slice(0,100)]);res.status(201).json({watchlist:rows[0]});}));
+  app.get('/api/watchlists',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query("SELECT w.id,w.name,COALESCE(array_agg(i.symbol ORDER BY i.symbol) FILTER(WHERE i.symbol IS NOT NULL),'{}') AS symbols FROM watchlists w LEFT JOIN watchlist_items i ON i.watchlist_id=w.id WHERE w.user_id=$1 GROUP BY w.id ORDER BY w.id",[req.session.user.id]);res.json({limit:5,watchlists:rows.map(w=>({...w,instruments:w.symbols.map(symbol=>directory.find(symbol)||{symbol,name:symbol})}))});}));
+  app.post('/api/watchlists',requireAuth,asyncRoute(async(req,res)=>{
+    const name=watchlistName(req.body.name),userId=req.session.user.id;
+    const watchlist=await pool.transaction(async()=>{
+      await pool.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[userId]);
+      const {rows}=await pool.query('SELECT id,name FROM watchlists WHERE user_id=$1',[userId]);
+      if(rows.length>=5)throw Object.assign(new Error('You can create up to 5 watchlists.'),{status:409});
+      if(rows.some(w=>w.name.toLowerCase()===name.toLowerCase()))throw Object.assign(new Error('A watchlist with this name already exists.'),{status:409});
+      return (await pool.query('INSERT INTO watchlists(user_id,name) VALUES($1,$2) RETURNING *',[userId,name])).rows[0];
+    });res.status(201).json({watchlist:{...watchlist,symbols:[],instruments:[]}});
+  }));
+  app.patch('/api/watchlists/:id',requireAuth,asyncRoute(async(req,res)=>{
+    const name=watchlistName(req.body.name),userId=req.session.user.id;
+    const watchlist=await pool.transaction(async()=>{
+      await pool.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[userId]);await ownWatchlist(req.params.id,userId);
+      const duplicate=await pool.query('SELECT id FROM watchlists WHERE user_id=$1 AND lower(name)=lower($2) AND id<>$3',[userId,name,req.params.id]);
+      if(duplicate.rows.length)throw Object.assign(new Error('A watchlist with this name already exists.'),{status:409});
+      return (await pool.query('UPDATE watchlists SET name=$1 WHERE id=$2 AND user_id=$3 RETURNING *',[name,req.params.id,userId])).rows[0];
+    });res.json({watchlist});
+  }));
   app.delete('/api/watchlists/:id',requireAuth,asyncRoute(async(req,res)=>{const r=await pool.query('DELETE FROM watchlists WHERE id=$1 AND user_id=$2',[req.params.id,req.session.user.id]);res.status(r.rowCount?200:404).json(r.rowCount?{ok:true}:{error:'Watchlist not found.'});}));
-  app.post('/api/watchlists/:id/items',requireAuth,asyncRoute(async(req,res)=>{await ownWatchlist(req.params.id,req.session.user.id);await requireSymbol(req.body.symbol);await pool.query('INSERT INTO watchlist_items(watchlist_id,symbol) VALUES($1,$2) ON CONFLICT DO NOTHING',[req.params.id,req.body.symbol]);res.json({ok:true});}));
+  app.post('/api/watchlists/:id/items',requireAuth,asyncRoute(async(req,res)=>{
+    const symbol=typeof req.body.symbol==='string'?req.body.symbol.trim().toUpperCase():'';
+    if(!directory.find(symbol))await requireSymbol(symbol);
+    await pool.transaction(async()=>{await ownWatchlist(req.params.id,req.session.user.id);
+      await pool.query('SELECT id FROM watchlists WHERE id=$1 AND user_id=$2 FOR UPDATE',[req.params.id,req.session.user.id]);
+      const {rows}=await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[req.params.id]);
+      if(rows.length>=200&&!rows.some(r=>r.symbol===symbol))throw Object.assign(new Error('A watchlist can contain up to 200 stocks.'),{status:409});
+      await pool.query('INSERT INTO watchlist_items(watchlist_id,symbol) VALUES($1,$2) ON CONFLICT DO NOTHING',[req.params.id,symbol]);
+    });res.json({ok:true});
+  }));
   app.delete('/api/watchlists/:id/items/:symbol',requireAuth,asyncRoute(async(req,res)=>{await ownWatchlist(req.params.id,req.session.user.id);await pool.query('DELETE FROM watchlist_items WHERE watchlist_id=$1 AND symbol=$2',[req.params.id,req.params.symbol]);res.json({ok:true});}));
   app.get('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT * FROM technical_alerts WHERE user_id=$1 ORDER BY id DESC',[req.session.user.id]);res.json({alerts:rows});}));
   app.post('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{

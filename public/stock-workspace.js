@@ -1,0 +1,60 @@
+// ChartPulse-owned watchlists and search. The hosted chart has no persistence API.
+window.stockWorkspace={
+  owner:null,lists:[],active:null,results:[],highlight:-1,request:0,loading:null,busy:false,
+  reset(){this.owner=null;this.lists=[];this.active=null;this.editing=false;this.request++;this.loading=null;this.controller?.abort();clearTimeout(this.searchTimer);this.closeSearch();},
+  async mount(){
+    const owner=state.user?.id;if(!owner)return;
+    if(this.owner!==owner){this.reset();this.owner=owner;this.active=Number(localStorage.getItem('chartpulse_watchlist_'+owner))||null;this.loading=this.refresh().catch(err=>{if(state.user?.id===owner)toast(err.message,true);}).finally(()=>{if(this.owner===owner)this.loading=null;});}
+    this.render();if(this.loading)await this.loading;
+  },
+  async refresh(){const owner=this.owner,{watchlists}=await api('/api/watchlists');if(owner!==this.owner||owner!==state.user?.id)return;this.lists=watchlists;if(!this.lists.some(w=>w.id===this.active))this.active=this.lists[0]?.id||null;this.remember();this.render();},
+  remember(){if(this.owner)localStorage.setItem('chartpulse_watchlist_'+this.owner,this.active||'');},
+  current(){return this.lists.find(w=>w.id===this.active);},
+  render(){
+    const host=$('customerWatchlists');if(!host)return;const current=this.current();
+    host.innerHTML=`<header class="customer-watch-heading"><div><h2>Your watchlists</h2><span>${this.lists.length} / 5 lists</span></div><button id="newCustomerWatchlist" class="button secondary" ${this.lists.length>=5?'disabled':''}>＋ New</button></header>
+      ${this.lists.length?`<div class="customer-watch-controls"><select id="customerWatchlistSelect" aria-label="Your watchlist">${this.lists.map(w=>`<option value="${w.id}" ${w.id===this.active?'selected':''}>${html(w.name)}</option>`).join('')}</select><button id="renameCustomerWatchlist" aria-label="Rename watchlist" title="Rename watchlist">✎</button></div><div class="customer-watch-actions"><button id="addCurrentStock" class="button secondary">＋ Add current stock</button><button id="editCustomerWatchlist" class="button secondary">${this.editing?'Done':'Edit list'}</button></div><p class="customer-watch-note">${current.symbols.length} stocks · ${this.editing?'Use Remove to edit this list.':'Click a stock to open its chart.'}</p><div class="customer-watch-rows">${current.symbols.map(symbol=>{const item=current.instruments?.find(i=>i.symbol===symbol);return `<div class="customer-stock-row"><button data-watch-open="${html(symbol)}" class="${$('chartSymbol').value===symbol?'active':''}"><b>${html(symbol.split(':')[1])}</b><small>${html(item?.name||symbol)}</small><span>${symbol.includes(':SIM')?'SIMULATED':'BSE · EOD'}</span></button>${this.editing?`<button data-watch-remove="${html(symbol)}" aria-label="Remove ${html(symbol)} from watchlist">Remove</button>`:''}</div>`;}).join('')||'<div class="customer-watch-empty"><b>No stocks yet</b><p>Search above and use ＋ to add a result, or add the current stock.</p></div>'}</div>${this.editing?'<button id="deleteCustomerWatchlist" class="text-button customer-delete-list">Delete this watchlist</button>':''}`:'<div class="customer-watch-empty"><b>Keep your stocks together</b><p>Create a named list, then add stocks from search. Your lists are saved to your account.</p></div>'}`;
+    $('newCustomerWatchlist').onclick=()=>this.nameDialog();
+    if(!current)return;
+    $('customerWatchlistSelect').onchange=e=>{this.active=Number(e.target.value);this.editing=false;this.remember();this.render();this.renderSearch();};
+    $('renameCustomerWatchlist').onclick=()=>this.nameDialog(current);
+    $('addCurrentStock').onclick=()=>this.attempt(()=>this.add($('chartSource').value==='tradingview'?tradingViewChart.key:simulationChart.symbol));
+    $('editCustomerWatchlist').onclick=()=>{this.editing=!this.editing;this.render();};
+    host.querySelectorAll('[data-watch-open]').forEach(b=>b.onclick=()=>this.open({symbol:b.dataset.watchOpen}));
+    host.querySelectorAll('[data-watch-remove]').forEach(b=>b.onclick=()=>this.attempt(async()=>{await api('/api/watchlists/'+current.id+'/items/'+encodeURIComponent(b.dataset.watchRemove),{method:'DELETE'});await this.refresh();}));
+    if($('deleteCustomerWatchlist'))$('deleteCustomerWatchlist').onclick=()=>this.deleteDialog(current);
+  },
+  nameDialog(list){const owner=this.owner;workspaceDialog(list?'Rename watchlist':'Create watchlist',`<label>Watchlist name<input name="name" required maxlength="60" placeholder="e.g. Long-term investments" value="${html(list?.name||'')}"></label><p class="tiny muted">Create up to five lists. Each name must be unique.</p>`,async data=>{if(owner!==state.user?.id)throw new Error('Sign in again to save.');const response=await api('/api/watchlists'+(list?'/'+list.id:''),{method:list?'PATCH':'POST',body:JSON.stringify({name:data.get('name')})});this.active=response.watchlist.id;this.editing=false;await this.refresh();toast(list?'Watchlist renamed.':'Watchlist created.');});},
+  deleteDialog(list){workspaceDialog('Delete '+list.name,'<p>This permanently deletes the list and any technical alerts scoped to it. Stocks and other lists remain available.</p>',async()=>{await api('/api/watchlists/'+list.id,{method:'DELETE'});this.editing=false;await this.refresh();toast('Watchlist deleted.');});},
+  async attempt(fn){if(this.busy)return;this.busy=true;try{await fn();}catch(err){toast(err.message,true);}finally{this.busy=false;}},
+  async add(symbol){const current=this.current();if(!current){this.nameDialog();return;}if(current.symbols.includes(symbol)){toast('This stock is already in '+current.name+'.');return;}await api('/api/watchlists/'+current.id+'/items',{method:'POST',body:JSON.stringify({symbol})});await this.refresh();this.renderSearch();toast('Stock added to '+current.name+'.');},
+  open(item){
+    this.closeSearch();const simulated=/^(NSE|BSE):SIM\d+$/.test(item.symbol);$('chartSource').value=simulated?'simulation':'tradingview';$('chartSymbol').value=item.symbol;
+    localStorage.setItem(simulated?'chartpulse_symbol':'chartpulse_tv_symbol',item.symbol);mountTvChart();this.render();
+  },
+  closeSearch(){this.request++;clearTimeout(this.searchTimer);this.controller?.abort();const host=$('stockSuggestions');if(host)host.classList.add('hidden');$('chartSymbol')?.setAttribute('aria-expanded','false');$('chartSymbol')?.removeAttribute('aria-activedescendant');this.highlight=-1;},
+  async search(){
+    const input=$('chartSymbol'),query=input.value.trim(),source=$('chartSource').value,request=++this.request,owner=this.owner;
+    this.controller?.abort();this.controller=new AbortController();
+    const host=$('stockSuggestions');host.classList.remove('hidden');input.setAttribute('aria-expanded','true');host.innerHTML='<div class="search-message">Finding stocks…</div>';
+    try{const normalized=source==='tradingview'?query.replace(/^NSE:/i,'BSE:'):query;const {results}=await api('/api/chart/symbols?source='+encodeURIComponent(source)+'&query='+encodeURIComponent(normalized),{signal:this.controller.signal});if(request!==this.request||owner!==state.user?.id)return;this.results=results;this.highlight=-1;this.renderSearch();
+      // Complete ticker matches open automatically; partial company names show choices.
+      const exact=results.find(r=>r.symbol.toUpperCase()===normalized.toUpperCase()||r.symbol.split(':')[1]===normalized.toUpperCase());
+      if(exact&&query.length>=2){if(/^NSE:/i.test(query)&&source==='tradingview')toast('Showing the BSE counterpart; NSE is restricted in this widget.');this.open(exact);}
+    }catch(err){if(request!==this.request||err.name==='AbortError')return;host.innerHTML='<div class="search-message">Unable to search. Type again to retry.</div>';}
+  },
+  renderSearch(){
+    const host=$('stockSuggestions');if(!host||host.classList.contains('hidden'))return;const current=this.current();
+    host.innerHTML=this.results.length?this.results.map((r,i)=>`<div role="option" id="stock-result-${i}" aria-selected="${i===this.highlight}" class="stock-result ${i===this.highlight?'highlighted':''}"><button type="button" data-search-open="${i}"><b>${html(r.symbol)}</b><small>${html(r.name)}</small></button><button type="button" data-search-add="${i}" aria-label="Add ${html(r.symbol)} to ${html(current?.name||'watchlist')}" title="${current?'Add to '+html(current.name):'Create a watchlist first'}">${current?.symbols.includes(r.symbol)?'✓':'＋'}</button></div>`).join(''):'<div class="search-message">No matching stocks. Try a company name or BSE symbol.</div>';
+    host.querySelectorAll('[data-search-open]').forEach(b=>b.onclick=()=>this.open(this.results[Number(b.dataset.searchOpen)]));
+    host.querySelectorAll('[data-search-add]').forEach(b=>b.onclick=()=>this.attempt(()=>this.add(this.results[Number(b.dataset.searchAdd)].symbol)));
+    if(this.highlight>=0){$('chartSymbol').setAttribute('aria-activedescendant','stock-result-'+this.highlight);host.querySelector('#stock-result-'+this.highlight)?.scrollIntoView({block:'nearest'});}else $('chartSymbol').removeAttribute('aria-activedescendant');
+  },
+  bind(){
+    const input=$('chartSymbol');input.oninput=()=>{clearTimeout(this.searchTimer);this.request++;this.controller?.abort();this.searchTimer=setTimeout(()=>this.search(),180);};
+    input.onfocus=()=>{if(!input.value.trim())this.search();};
+    input.onkeydown=e=>{const host=$('stockSuggestions');if(e.key==='Escape'){this.closeSearch();return;}if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(host.classList.contains('hidden')){this.search();return;}this.highlight=Math.max(0,Math.min(this.results.length-1,this.highlight+(e.key==='ArrowDown'?1:-1)));this.renderSearch();}if(e.key==='Enter'){e.preventDefault();if(!host.classList.contains('hidden')&&this.results.length)this.open(this.results[Math.max(0,this.highlight)]);else this.search();}};
+    document.addEventListener('click',e=>{if(!e.target.closest('.stock-search'))this.closeSearch();});
+  }
+};
+stockWorkspace.bind();

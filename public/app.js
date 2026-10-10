@@ -13,7 +13,7 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
   history.replaceState(null,'','/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
@@ -139,27 +139,19 @@ $('createAlertRule').addEventListener('click', async () => {
   catch (err) { toast(err.message, true); }
 });
 
-async function loadTvChart() {
-  const symbol=$('chartSymbol').value.trim().toUpperCase();
-  if(!/^[A-Z0-9_.!:/-]{1,48}$/.test(symbol))return toast('Enter a symbol such as BSE:RELIANCE.',true);
-  if($('chartSource').value==='tradingview'&&/^(NSE|BSE):SIM\d+$/.test(symbol))return toast('Fictional symbols are available in Simulation workspace. Use a real symbol for TradingView.',true);
-  $('chartSymbol').value=symbol;localStorage.setItem($('chartSource').value==='tradingview'?'chartpulse_tv_symbol':'chartpulse_symbol',symbol);mountTvChart();
-}
 function mountTvChart() {
   if(state.currentPage!=='charts')return;
   const useTv=$('chartSource').value==='tradingview';$('page-charts').classList.toggle('tradingview-mode',useTv);
   const footer=$('page-charts').querySelector('.chart-footer');
-  $('openTradingView').classList.toggle('hidden',!useTv);$('reloadTvChart').classList.toggle('hidden',!useTv);
+  $('openTradingView').classList.toggle('hidden',!useTv);window.stockWorkspace?.mount();
   if(!useTv){tradingViewChart.dispose();$('chartProviderLabel').textContent='SIMULATED · fictional instruments';footer.innerHTML='<span>Simulation drawings are saved to your ChartPulse account.</span><span>Fictional prices and simulated alert delivery.</span>';simulationChart.mount($('chartSymbol').value.trim()||'NSE:SIM001').catch(err=>toast(err.message,true));return;}
   simulationChart.dispose();liveMarket.subscribe();$('chartProviderLabel').textContent='TradingView · exchange data availability varies';
   footer.innerHTML='<span>Indian stocks: BSE end-of-day charts are available. NSE symbols may be restricted to tradingview.com.</span><span>Embedded drawings are not linked to ChartPulse alerts or account storage. Configure TradingView webhooks in Settings.</span>';
-  const candidate=$('chartSymbol').value.trim().toUpperCase();const symbol=/^[A-Z0-9_.!:/-]{1,48}$/.test(candidate)&&! /^(NSE|BSE):SIM\d+$/.test(candidate)?candidate:'BSE:RELIANCE';
+  const candidate=$('chartSymbol').value.trim().toUpperCase();const symbol=/^[A-Z0-9&_.!:/-]{1,48}$/.test(candidate)&&! /^(NSE|BSE):SIM\d+$/.test(candidate)?candidate:'BSE:RELIANCE';
   $('chartSymbol').value=symbol;$('openTradingView').href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(symbol);tradingViewChart.mount(symbol);
 }
-$('chartSource').onchange=()=>{$('chartSymbol').value=$('chartSource').value==='tradingview'?localStorage.getItem('chartpulse_tv_symbol')||'BSE:RELIANCE':localStorage.getItem('chartpulse_symbol')||'NSE:SIM001';mountTvChart();};
-$('reloadTvChart').onclick=()=>{tradingViewChart.dispose();mountTvChart();};
-$('loadTvChart').addEventListener('click', loadTvChart);
-$('chartSymbol').addEventListener('keydown', e => { if (e.key === 'Enter') loadTvChart(); });
+$('chartSource').onchange=()=>{if(window.stockWorkspace){stockWorkspace.request++;stockWorkspace.controller?.abort();clearTimeout(stockWorkspace.searchTimer);stockWorkspace.closeSearch();}$('chartSymbol').value=$('chartSource').value==='tradingview'?localStorage.getItem('chartpulse_tv_symbol')||'BSE:RELIANCE':localStorage.getItem('chartpulse_symbol')||'NSE:SIM001';mountTvChart();};
+
 
 $('prefsForm').addEventListener('submit', async e => {
   e.preventDefault();
