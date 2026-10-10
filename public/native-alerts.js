@@ -19,6 +19,7 @@ window.nativeAlerts={
     d.classList.add('native-alert-dialog');d.querySelector('button[type=submit]').textContent='Create';d.querySelector('.cancel-dialog').textContent='Cancel';
     d.querySelector('[name=interval]').value=simulated?(simulationChart.settings.interval||'1D'):'1D';
     d.querySelectorAll('[data-alert-tab]').forEach(b=>b.onclick=()=>{d.querySelectorAll('[data-alert-tab]').forEach(t=>t.setAttribute('aria-selected',String(t===b)));d.querySelectorAll('[data-alert-section]').forEach(s=>s.hidden=s.dataset.alertSection!==b.dataset.alertTab);});
+    d.querySelector('form').addEventListener('invalid',event=>{const section=event.target.closest('[data-alert-section]');if(section?.hidden)d.querySelector('[data-alert-tab="'+section.dataset.alertSection+'"]').click();},true);
     d.querySelector('[name=condition]').onchange=e=>{const range=e.target.value.includes('channel'),move=e.target.value.startsWith('moving');d.querySelector('#nativeUpper').hidden=!range;d.querySelector('[name=upper]').required=range;d.querySelector('#nativeBars').hidden=!move;d.querySelector('#nativeValueLabel').firstChild.textContent=move?'Percentage change':range?'Lower price':'Price level';d.querySelector('[name=value]').min=move?'0':'0.000001';};
     return d;
   }

@@ -102,6 +102,7 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
         const c=alert.config;
         if(c.expiresAt && Date.parse(c.expiresAt)<=Date.now()){await pool.query('UPDATE technical_alerts SET enabled=FALSE WHERE id=$1',[alert.id]);continue;}
         const symbols=alert.watchlist_id?(await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[alert.watchlist_id])).rows.map(r=>r.symbol):[alert.symbol];
+        if(!symbols.some(symbol=>simulation.instruments.has(symbol)))continue;
         const states=alert.state||{};let completed=false;
         for(const symbol of symbols) {
           if(!simulation.instruments.has(symbol))continue;
