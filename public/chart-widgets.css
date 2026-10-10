@@ -12,3 +12,16 @@ body.pulse-chart-focus.chart-workspace-open .sidebar,body.pulse-chart-focus.char
 @media(max-width:1000px){#page-charts .customer-chart-grid{grid-template-columns:minmax(0,1fr) 260px}.pulse-feed-label{display:none}}
 @media(max-width:850px){#page-charts .customer-chart-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:520px){.pulse-chart-tools{gap:4px;padding:6px;flex-wrap:wrap}.pulse-chart-tools button{padding:7px 8px}.pulse-tool-actions{gap:0}.pulse-panel-tabs{margin-top:-14px}}
+
+/* The rail always stays visible; panels expand without reloading the chart. */
+#page-charts.tradingview-mode .customer-chart-grid{grid-template-columns:minmax(0,1fr) 300px 48px;position:relative}
+#page-charts.tradingview-mode .customer-chart-grid.pulse-dock-closed{grid-template-columns:minmax(0,1fr) 48px}
+.pulse-side-rail{display:flex;flex-direction:column;gap:8px;padding:8px 5px;background:#0e151e;border-left:1px solid #2a394d}
+.pulse-side-rail button{background:none;border:1px solid transparent;border-radius:6px;color:#9aadc3;padding:8px 5px;cursor:pointer}.pulse-side-rail svg{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.pulse-side-rail button:hover,.pulse-side-rail button[aria-pressed=true]{background:#243346;border-color:#38516b;color:#a0e8c5}
+.pulse-close-panel{float:right;border:0;background:none;color:#a5b7ce;font-size:22px;cursor:pointer;padding:0 4px;line-height:1}
+.pulse-intervals{flex-wrap:wrap}.pulse-chart-tools{flex-wrap:wrap}.pulse-chart-tools button.requires-feed{color:#8d9bab;border-bottom:1px dashed #697483}
+#page-charts:fullscreen{padding:0;background:#0c1017;overflow:auto}#page-charts:fullscreen .page-heading{display:none}#page-charts:fullscreen #tvChart{height:calc(100dvh - 160px);min-height:300px}#page-charts:fullscreen .chart-panel{border:0;border-radius:0}
+#page-charts.pulse-fullscreen-fallback{position:fixed;inset:0;z-index:30;padding:0;background:#0c1017;overflow:auto;margin:0}#page-charts.pulse-fullscreen-fallback .page-heading{display:none}#page-charts.pulse-fullscreen-fallback #tvChart{height:calc(100dvh - 160px);min-height:300px}#page-charts.pulse-fullscreen-fallback .chart-panel{border:0;border-radius:0}#page-charts:not(.tradingview-mode):fullscreen #tvChart,#page-charts:not(.tradingview-mode).pulse-fullscreen-fallback #tvChart{height:auto}
+@media(max-width:1000px){#page-charts.tradingview-mode .customer-chart-grid{grid-template-columns:minmax(0,1fr) 260px 48px}}
+@media(max-width:850px){#page-charts.tradingview-mode .customer-chart-grid{grid-template-columns:minmax(0,1fr) 44px}#page-charts.tradingview-mode .customer-watchlists{position:absolute;right:44px;top:0;bottom:0;width:min(300px,calc(100% - 44px));z-index:4;overflow:auto;border-left:1px solid #33475f;box-shadow:-12px 0 30px #0006}.pulse-side-rail{grid-column:2;grid-row:1}#page-charts.tradingview-mode .customer-chart-grid.pulse-dock-closed{grid-template-columns:minmax(0,1fr) 44px}.pulse-side-rail svg{width:22px;height:22px}}

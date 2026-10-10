@@ -144,7 +144,7 @@ function mountTvChart() {
   const useTv=$('chartSource').value==='tradingview';$('page-charts').classList.toggle('tradingview-mode',useTv);
   const footer=$('page-charts').querySelector('.chart-footer');
   $('openTradingView').classList.toggle('hidden',!useTv);window.stockWorkspace?.mount();
-  if(!useTv){tradingViewChart.dispose();$('chartProviderLabel').textContent='SIMULATED · fictional instruments';footer.innerHTML='<span>Simulation drawings are saved to your ChartPulse account.</span><span>Fictional prices and simulated alert delivery.</span>';simulationChart.mount($('chartSymbol').value.trim()||'NSE:SIM001').catch(err=>toast(err.message,true));return;}
+  if(!useTv){tradingViewChart.dispose();$('chartProviderLabel').textContent='SIMULATED · fictional instruments';footer.innerHTML='<span>Simulation drawings are saved to your ChartPulse account.</span><span>Fictional prices and simulated alert delivery.</span>';return simulationChart.mount($('chartSymbol').value.trim()||'NSE:SIM001').then(()=>window.chartWidgets?.sync()).catch(err=>{toast(err.message,true);throw err;});}
   simulationChart.dispose();liveMarket.subscribe();$('chartProviderLabel').textContent='TradingView · exchange data availability varies';
   footer.innerHTML='<span>Indian stocks: BSE end-of-day charts are available. NSE symbols may be restricted to tradingview.com.</span><span>Embedded drawings are not linked to ChartPulse alerts or account storage. Configure TradingView webhooks in Settings.</span>';
   const candidate=$('chartSymbol').value.trim().toUpperCase();const symbol=/^[A-Z0-9&_.!:/-]{1,48}$/.test(candidate)&&! /^(NSE|BSE):SIM\d+$/.test(candidate)?candidate:'BSE:RELIANCE';
