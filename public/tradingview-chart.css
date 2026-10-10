@@ -1,0 +1,28 @@
+/* A stable, generously sized container is required by the hosted widget. */
+body.chart-workspace-open .content-wrap{width:100%;padding:14px 18px}
+body.chart-workspace-open .app-shell{grid-template-columns:190px minmax(0,1fr)}
+body.chart-workspace-open .topbar{height:46px;padding:0 20px}
+body.chart-workspace-open .help-card{display:none}
+#page-charts .page-heading{align-items:center;margin:0 0 12px}
+#page-charts .page-heading h1{font-size:20px;margin:2px 0 4px;letter-spacing:-.4px}
+#page-charts .page-heading .eyebrow{display:none}
+#page-charts .page-heading p{font-size:12px;line-height:1.5}
+#page-charts .data-pill{font-size:10px;background:#172231;color:#a2b7cf}
+#page-charts .chart-toolbar{padding:8px 12px;gap:12px}
+#page-charts .symbol-select{flex-wrap:wrap}
+#chartSource{width:auto;margin:0;padding:8px;font-size:12px}
+#chartSymbol{width:160px;margin:0;padding:8px;font-size:12px}
+.chart-provider{margin-left:auto;font-size:11px;color:#9cb0c7}
+#reloadTvChart{padding:8px 10px}
+#openTradingView{color:#9cbfff;text-decoration:none;font-size:12px}
+#page-charts.tradingview-mode #tvChart{height:max(480px,calc(100dvh - 252px));min-height:480px;position:relative}
+.tradingview-widget-container{height:100%;width:100%}
+.tradingview-widget-container__widget{height:calc(100% - 28px);width:100%}
+.tradingview-widget-copyright{height:28px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.tradingview-widget-copyright a{color:#9db7de;text-decoration:none}
+.tradingview-status{position:absolute;left:70px;bottom:40px;max-width:calc(100% - 100px);background:#172335;border:1px solid #31445e;border-radius:6px;color:#bed0e7;padding:8px 12px;font-size:12px;pointer-events:none}
+#page-charts .chart-footer{gap:14px;flex-wrap:wrap;font-size:11px;line-height:1.6;padding:10px 12px}
+.simulation-banner{background:#1b2029;color:#c0af8e;border-bottom:1px solid #393629;padding:8px 20px;font-size:11px;line-height:1.5}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid #8ebdff;outline-offset:3px}
+.button:hover{transform:none}
+@media(max-width:760px){body.chart-workspace-open .app-shell{grid-template-columns:1fr}body.chart-workspace-open .content-wrap{padding:12px 10px}#page-charts .page-heading{gap:8px}#page-charts .data-pill{display:none}.chart-provider{width:100%;margin:0}#page-charts.tradingview-mode #tvChart{height:600px}#chartSymbol{width:145px}}
