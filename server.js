@@ -20,6 +20,7 @@ const path = require('path');
 const { parseQuery, evaluateQuery } = require('./market-query');
 const { installWorkspace } = require('./chart-workspace-api');
 const { installCalendar } = require('./calendar-api');
+const { installAccount } = require('./account-api');
 const { validateDrawing, drawingBounds, matchesCondition } = require('./chart-domain');
 
 const app = express();
@@ -137,6 +138,7 @@ function regenerateSession(req) { return new Promise((resolve, reject) => req.se
 function deliveryStatus(optIn,notification='whatsapp') { return isSimulated ? 'simulated' : ['whatsapp','all'].includes(notification) && optIn && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME ? 'queued' : 'logged'; }
 const workspace = installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulated,deliveryStatus,requestEvaluation:()=>runtime.role==='standalone'?runtime.evaluateCurrent():Promise.resolve(),shardMatches,evaluationKey:()=>runtime.evaluationKey,evaluationScope:()=>({shards:runtime.shards,shard:runtime.shard,users:runtime.baselineUsers,symbols:runtime.changedSymbols})});
 const calendar=installCalendar({app,pool,requireAuth,requireAdminAuth,asyncRoute,deliveryStatus,runtime});
+const account=installAccount({app,pool,requireAuth,asyncRoute,publicUser,regenerateSession,runtime});
 function enrichQuote(row) { return row; }
 
 app.get('/api/health', asyncRoute(async (req, res) => { await pool.query('SELECT 1'); res.json({ ok: true, marketReady: marketEntitled() && marketRuntime.connected }); }));
@@ -504,7 +506,7 @@ app.get('/api/admin/delivery-jobs',requireAdminAuth,asyncRoute(async(req,res)=>{
 let server,gateway;
 async function start(){
   let release;while(!release){release=await pool.leadership(730010);if(!release)await new Promise(resolve=>setTimeout(resolve,500));}
-  try{await setup();await runtime.setup();await calendar.setup();}finally{await release();}
+  try{await setup();await runtime.setup();await calendar.setup();await account.setup();}finally{await release();}
   if(['standalone','api','gateway'].includes(runtime.role)){
     server=http.createServer(app);gateway=installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled:marketEntitled});app.use(errorHandler);
     await new Promise(resolve=>server.listen(PORT,resolve));console.log('ChartPulse '+runtime.role+' listening on '+PORT);

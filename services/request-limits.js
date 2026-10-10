@@ -5,7 +5,7 @@ function requestLimits(runtime){const local=new Map();
     if(req.body?.query!=null&&(typeof req.body.query!=='string'||req.body.query.length>2000))return res.status(400).json({error:'Use a query with at most 2,000 characters.'});
     if(req.body?.password!=null&&(typeof req.body.password!=='string'||req.body.password.length>200))return res.status(400).json({error:'Password is too long.'});
     if(req.body?.email!=null&&(typeof req.body.email!=='string'||req.body.email.length>254))return res.status(400).json({error:'Email address is too long.'});
-    const auth=['/api/login','/api/admin/login','/api/register','/api/email/verification'].includes(req.path)||req.path.startsWith('/api/auth/');const limit=auth?30:300;
+    const auth=['/api/login','/api/admin/login','/api/register','/api/email/verification','/api/account/password'].includes(req.path)||req.path.startsWith('/api/auth/');const limit=auth?30:300;
     const identity=crypto.createHash('sha256').update(req.session?.user?String(req.session.user.id):String(req.ip)).digest('hex').slice(0,32);const window=Math.floor(Date.now()/60000),key=runtime.namespace+':limit:'+(auth?'auth':'api')+':'+identity+':'+window;
     let count;
     if(runtime.redis?.isReady){count=Number(await runtime.redis.eval("local n=redis.call('INCR',KEYS[1]);if n==1 then redis.call('EXPIRE',KEYS[1],65) end;return n",{keys:[key],arguments:[]}));}
