@@ -41,10 +41,11 @@ function validateAlert(body) {
   if(!Number.isFinite(c.value))bad('A numeric threshold is required.');
   if(c.condition.includes('channel') && (!Number.isFinite(c.upper)||c.upper<=c.value))bad('Upper boundary must be greater than lower boundary.');
   if(c.condition.startsWith('moving') && (c.value<0||!Number.isInteger(c.bars)||c.bars<1||c.bars>500))bad('Movement must be non-negative with 1 to 500 bars.');
+  if(c.startsAt && (!Number.isFinite(Date.parse(c.startsAt))||(c.expiresAt&&Date.parse(c.startsAt)>=Date.parse(c.expiresAt))))bad('Start time must be valid and earlier than expiration.');
   if(c.expiresAt && (!Number.isFinite(Date.parse(c.expiresAt))||Date.parse(c.expiresAt)<=Date.now()))bad('Choose a future expiration.');
   if(c.source!=='price'&&c.source!=='indicator')bad('Invalid alert source.');
   if(c.notification!==undefined&&!['in_app','whatsapp','email','all'].includes(c.notification))bad('Invalid delivery channel.');
-  const config={source:c.source,condition:c.condition,frequency:c.frequency,interval:c.interval,value:c.value,upper:c.upper??null,bars:c.bars||1,expiresAt:c.expiresAt||null,message:String(c.message||'').slice(0,500),notification:c.notification||'whatsapp'};
+  const config={source:c.source,startsAt:c.startsAt||null,condition:c.condition,frequency:c.frequency,interval:c.interval,value:c.value,upper:c.upper??null,bars:c.bars||1,expiresAt:c.expiresAt||null,message:String(c.message||'').slice(0,500),notification:c.notification||'whatsapp'};
   if(c.source==='indicator'){config.indicator=validateIndicator(c.indicator);const keys=T.calculate([{time:1,open:1,high:1,low:1,close:1,volume:1}],config.indicator).map(s=>s.key);config.plot=c.plot||keys[0];if(!keys.includes(config.plot))bad('Unsupported indicator plot.');}
   return {name:body.name.trim().slice(0,100),symbol:String(body.symbol||'').slice(0,60),watchlistId:body.watchlistId?Number(body.watchlistId):null,config};
 }

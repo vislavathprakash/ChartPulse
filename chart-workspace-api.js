@@ -76,8 +76,8 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
     const completed=!alert.enabled&&alert.config.frequency==='once'&&Object.values(alert.state||{}).some(s=>s.firedAt);
     const symbols=alert.watchlist_id?(await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[alert.watchlist_id])).rows.map(r=>r.symbol):[alert.symbol];
     const ready=isSimulated&&symbols.length>0&&symbols.every(s=>simulation.instruments.has(s));
-    const status=expired?'expired':completed?'completed':!alert.enabled?'paused':ready?'simulation_active':'waiting_data';
-    return {...alert,status,statusLabel:({expired:'Expired',completed:'Triggered · completed',paused:'Paused',simulation_active:'Active · simulation',waiting_data:'Waiting for data'})[status]};
+    const status=expired?'expired':completed?'completed':!alert.enabled?'paused':!ready?'waiting_data':alert.config.startsAt&&Date.parse(alert.config.startsAt)>Date.now()?'scheduled':'simulation_active';
+    return {...alert,status,statusLabel:({scheduled:'Scheduled · simulation',expired:'Expired',completed:'Triggered · completed',paused:'Paused',simulation_active:'Active · simulation',waiting_data:'Waiting for data'})[status]};
   }
   app.get('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{const {rows}=await pool.query('SELECT * FROM technical_alerts WHERE user_id=$1 ORDER BY id DESC',[req.session.user.id]);res.json({alerts:await Promise.all(rows.map(alertStatus))});}));
   app.post('/api/technical-alerts',requireAuth,asyncRoute(async(req,res)=>{
@@ -100,6 +100,7 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
       for(const alert of rows) {
         if(!shardMatches(alert.user_id))continue;
         const c=alert.config;
+        if(c.startsAt&&Date.parse(c.startsAt)>Date.now())continue;
         if(c.expiresAt && Date.parse(c.expiresAt)<=Date.now()){await pool.query('UPDATE technical_alerts SET enabled=FALSE WHERE id=$1',[alert.id]);continue;}
         const symbols=alert.watchlist_id?(await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[alert.watchlist_id])).rows.map(r=>r.symbol):[alert.symbol];
         if(!symbols.some(symbol=>simulation.instruments.has(symbol)))continue;
