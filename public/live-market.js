@@ -30,7 +30,7 @@ window.liveMarket={
   },
   subscribe(){if(!this.connected||this.socket?.readyState!==WebSocket.OPEN)return;
     const chart=window.simulationChart,stocks=chart.stocks?.length?chart.stocks:[...this.quotes.values()];
-    const symbols=[chart.symbol,chart.settings?.compareSymbol,...(state.currentPage==='charts'&&chart.visibleWatchSymbols?.length?chart.visibleWatchSymbols:stocks.slice(0,20).map(q=>q.symbol))].filter(Boolean);
+    const symbols=[chart.symbol,chart.settings?.compareSymbol,...(window.stockWorkspace?.current()?.symbols||[]),...(state.currentPage==='charts'&&chart.visibleWatchSymbols?.length?chart.visibleWatchSymbols:stocks.slice(0,20).map(q=>q.symbol))].filter(Boolean);
     const message={type:'subscribe',symbols:[...new Set(symbols)].slice(0,50),charts:state.currentPage==='charts'?[chart.symbol,chart.settings.split?chart.settings.compareSymbol:null].filter(Boolean):[],interval:chart.settings?.interval||'1m'};const key=JSON.stringify(message);if(key===this.subscriptionKey)return;this.subscriptionKey=key;this.socket.send(key);
   },
   seed(quotes){for(const quote of quotes)this.quotes.set(quote.symbol,quote);this.subscribe();}
