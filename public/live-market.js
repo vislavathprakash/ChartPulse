@@ -18,7 +18,7 @@ window.liveMarket={
     if(message.type==='status'){this.status(message.paused?'Simulated · feed paused':message.stale?'Feed stale · last prices retained':state.meta.simulated?'Simulated · streaming':'Provider · streaming');return;}
     if(message.type==='available'){loadWatch();return;}
     if(message.type==='error'){this.status(message.message);return;}
-    if(message.type==='alert'){refreshCounts();if(state.currentPage==='alerts')loadAlerts();return;}
+    if(message.type==='alert'){refreshCounts();if(state.currentPage==='calendar')marketCalendar.refreshSoon();if(state.currentPage==='alerts')loadAlerts();return;}
     if(!['snapshot','market'].includes(message.type))return;
     if(message.type==='market'&&message.sequence<=this.sequence&&message.epoch===this.epoch)return;
     if(message.epoch!==this.epoch){this.epoch=message.epoch;this.sequence=0;simulationChart.resyncNeeded=true;}

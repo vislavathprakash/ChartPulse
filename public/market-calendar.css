@@ -34,3 +34,21 @@
 #page-calendar .calendar-event[hidden]{display:none}
 #page-calendar .calendar-reminder{max-width:800px}
 @media(max-width:700px){#page-calendar .calendar-workspace-body{padding:12px}#page-calendar .calendar-week-nav{gap:5px;flex-wrap:wrap}#page-calendar .calendar-days{gap:4px}#page-calendar .calendar-days button{padding:8px;min-height:80px}#page-calendar .calendar-event{grid-template-columns:85px 1fr;padding:12px}.calendar-view-controls span{margin-left:0}#page-calendar .calendar-categories{gap:4px}#page-calendar .calendar-categories button{padding:8px 10px}}
+.calendar-centre-tabs,.calendar-ipo-tabs{display:flex;gap:12px;padding:0 0 20px;border-bottom:1px solid #2b3b4d;margin-bottom:20px;flex-wrap:wrap}
+.calendar-centre-tabs button,.calendar-ipo-tabs button,.calendar-ipo-table button,#calendarMoreLogs,#calendarMoreChanges{background:#162638;border:1px solid #32475c;border-radius:8px;color:#d8e7f5;padding:10px 15px;cursor:pointer}
+.calendar-centre-tabs button[aria-selected=true],.calendar-ipo-tabs button[aria-selected=true]{color:#0a1b2b;background:#d9eaf8;border-color:#d9eaf8}
+.calendar-ipo-scroll{overflow:auto;border:1px solid #33465b;border-radius:10px;margin:20px 0}
+.calendar-ipo-table{width:100%;border-collapse:collapse;min-width:1250px;color:#dce6f3;font-size:13px}
+.calendar-ipo-table th{background:#263559;text-align:left;text-transform:uppercase;font-size:11px;letter-spacing:.04em;padding:15px;white-space:nowrap}
+.calendar-ipo-table td{padding:16px 15px;border-top:1px solid #2e4053;line-height:1.6}
+.calendar-ipo-table tr:hover td{background:#152638}
+.calendar-ipo-table button{white-space:nowrap;margin:3px;font-size:12px}
+.calendar-ipo-table a{color:#8dc5ff}
+.calendar-managed-alert{display:flex;justify-content:space-between;gap:18px;align-items:center;max-width:none!important}
+.calendar-managed-alert p{font-size:13px;color:#9eb4cd}
+.calendar-delivery{display:inline-block;border:1px solid #34485e;border-radius:6px;padding:5px 8px;margin:10px 8px 0 0;font-size:12px}
+.calendar-alert-count{color:#8ddabf;font-size:11px;padding:8px}
+.calendar-global-alerts{padding:20px;margin-bottom:20px}
+#calendarWorkspace [hidden]{display:none!important}
+#page-calendar .calendar-list{max-height:68vh}
+@media(max-width:700px){.calendar-managed-alert{align-items:flex-start;flex-direction:column}.calendar-centre-tabs button{padding:9px;font-size:12px}}
