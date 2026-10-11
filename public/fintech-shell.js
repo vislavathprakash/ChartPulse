@@ -8,6 +8,8 @@
     toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Close workspace navigation':'Open workspace navigation');
     backdrop.classList.toggle('hidden',!open);
     sidebar.inert=mobile.matches&&!open;
+    document.querySelector('.main-area').inert=open;
+    if(open){sidebar.setAttribute('role','dialog');sidebar.setAttribute('aria-modal','true');}else{sidebar.removeAttribute('role');sidebar.removeAttribute('aria-modal');}
     if(open){previousFocus=document.activeElement;$('sidebarClose').focus();}
     else if(previousFocus){previousFocus.focus();previousFocus=null;}
   }
