@@ -16,9 +16,12 @@ function installAccount({app,pool,requireAuth,asyncRoute,publicUser,regenerateSe
     if(typeof name!=='string'||!name.trim()||name.length>80||typeof city!=='string'||city.length>100||typeof bio!=='string'||bio.length>500)return res.status(400).json({error:'Enter a name up to 80 characters, city up to 100 and bio up to 500.'});
     try{if(typeof timezone!=='string'||timezone.length>80)throw new Error();new Intl.DateTimeFormat('en',{timeZone:timezone});}catch{return res.status(400).json({error:'Choose a valid timezone.'});}
     const id=req.session.user.id;
-    await pool.query(`INSERT INTO account_settings(user_id,city,bio,timezone) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET city=$2,bio=$3,timezone=$4`,[id,city.trim(),bio.trim(),timezone]);
-    const {rows:[row]}=await pool.query('UPDATE users SET name=$2 WHERE id=$1 RETURNING *',[id,name.trim()]);
-    req.session.user=publicUser(row);await audit(id,'Profile updated');res.json({user:req.session.user});
+    const row=await pool.transaction(async()=>{
+      await pool.query(`INSERT INTO account_settings(user_id,city,bio,timezone) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET city=$2,bio=$3,timezone=$4`,[id,city.trim(),bio.trim(),timezone]);
+      const {rows:[updated]}=await pool.query('UPDATE users SET name=$2 WHERE id=$1 RETURNING *',[id,name.trim()]);
+      await audit(id,'Profile updated');return updated;
+    });
+    req.session.user=publicUser(row);res.json({user:req.session.user});
   }));
   app.patch('/api/account/appearance',requireAuth,asyncRoute(async(req,res)=>{
     if(!['midnight','light','forest'].includes(req.body.theme))return res.status(400).json({error:'Choose an available theme.'});
