@@ -1,6 +1,6 @@
 const integrationQuery=new URLSearchParams(location.search);
 let pendingEmailToken=integrationQuery.get('email_verify');
-const googleErrors={not_configured:'Google sign-in is not configured yet.',expired:'Google sign-in expired. Try again.',cancelled:'Google sign-in was cancelled.',invalid:'Google could not verify this sign-in. Try again.',link_required:'This email already has a password account. Sign in with your password, then connect Google in Workspace settings.',link_mismatch:'Choose the Google account with the same email as your ChartPulse account.',unavailable:'This account cannot access the customer portal.',account_conflict:'This Google account could not be connected.'};
+const googleErrors={not_configured:'Google sign-in is not configured yet.',expired:'Google sign-in expired. Try again.',cancelled:'Google sign-in was cancelled.',invalid:'Google could not verify this sign-in. Try again.',link_required:'This email already has a password account. Sign in with your password, then connect Google in Workspace settings.',link_mismatch:'Choose the Google account with the same email as your AlertPe account.',unavailable:'This account cannot access the customer portal.',account_conflict:'This Google account could not be connected.'};
 window.syncIntegrationPreferences=function(){
   const me=state.user,meta=state.meta||{};
   $('googleSignIn').disabled=!meta.googleReady;

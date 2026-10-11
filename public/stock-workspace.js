@@ -1,4 +1,4 @@
-// ChartPulse-owned watchlists and search. The hosted chart has no persistence API.
+// AlertPe-owned watchlists and search. The hosted chart has no persistence API.
 window.stockWorkspace={
   owner:null,lists:[],active:null,results:[],highlight:-1,request:0,loading:null,busy:false,
   reset(){this.owner=null;this.lists=[];this.active=null;this.editing=false;this.request++;this.loading=null;this.controller?.abort();clearTimeout(this.searchTimer);this.closeSearch();},

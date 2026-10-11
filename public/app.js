@@ -88,32 +88,56 @@ function renderMarketOverview(data) {
     $('moveCount').textContent = data.filter(s => Number(s.change_pct ?? s.change) <= -3).length;
 }
 function stockTable(data) {
-  if (!data.length) return '<div class="empty-state">No matches for this scan.</div>';
+  if (!data.length) return '<div class="empty-state">No stocks match these conditions. Adjust your query or choose another Scan Example, then run again.</div>';
   return `<table class="data-table"><thead><tr><th>SYMBOL</th><th>LAST PRICE</th><th>CHANGE</th><th>VOLUME</th></tr></thead><tbody>${data.map(s => `<tr><td><div class="symbol-cell"><span class="coin-dot">${html((s.exchange || '?').slice(0,2))}</span><span><b>${html(s.symbol)}</b><small>${html(s.name || '')}</small></span></div></td><td class="mono">₹ ${fmt(s.price ?? s.last_price)}</td><td class="mono ${Number(s.change_pct ?? s.change) < 0 ? 'negative' : 'positive'}">${fmt(s.change_pct ?? s.change)}%</td><td class="mono">${fmt(s.volume, 0)}</td></tr>`).join('')}</tbody></table>`;
 }
 async function runQuery() {
-  const query = $('queryInput').value.trim(); if (!query) return toast('Enter a screener query first.', true);
-  state.lastQuery = query; $('parsedQuery').textContent = 'Checking the live market data provider…';
+  if(state.scanPending)return;
+  const query = $('queryInput').value.trim();
+  $('queryError').classList.add('hidden');$('queryInput').removeAttribute('aria-invalid');
+  if (!query) { $('queryError').textContent='Enter a query or choose a Scan Example before running a scan.';$('queryError').classList.remove('hidden');$('queryInput').setAttribute('aria-invalid','true');$('queryInput').focus();return; }
+  const owner=state.user?.id;
+  state.scanPending=true;$('runQuery').disabled=true;$('saveQuery').disabled=true;
+  $('runQuery').setAttribute('aria-busy','true');$('scanTable').setAttribute('aria-busy','true');
+  $('runQuery').querySelector('.scan-spinner').classList.remove('hidden');$('runQuery').querySelector('.scan-button-icon').classList.add('hidden');$('runQuery').querySelector('.scan-button-label').textContent='Scanning…';
+  $('parsedQuery').textContent = 'Scanning the configured market universe…';
   try {
-    const result = await api('/api/screen', { method: 'POST', body: JSON.stringify({ query }) }); state.queryResults = result.data || [];
+    const result = await api('/api/screen', { method: 'POST', body: JSON.stringify({ query }) });
+    if(state.user?.id!==owner)return;
+    state.lastQuery=query;state.queryResults = result.data || [];
     $('resultCount').textContent = state.queryResults.length;
-    $('parsedQuery').textContent = result.explanation || `Live scan · ${result.market || 'configured market'} · ${new Date().toLocaleTimeString()}`;
+    $('parsedQuery').textContent = result.explanation && !result.explanation.includes('undefined') ? result.explanation : `${state.queryResults.length} matching instruments · ${result.market || result.provider || 'configured market'} · ${new Date().toLocaleTimeString()}`;
     $('scanTable').classList.remove('empty-state'); $('scanTable').innerHTML = stockTable(state.queryResults);
-  } catch (err) { $('resultCount').textContent = '—'; $('parsedQuery').textContent = ''; $('scanTable').classList.add('empty-state'); $('scanTable').textContent = noProviderText(err); }
+  } catch (err) {
+    if(state.user?.id!==owner)return;
+    state.lastQuery='';state.queryResults=[];
+    $('resultCount').textContent = '—'; $('parsedQuery').textContent = 'Scan could not be completed.';
+    $('queryError').textContent=err.message;$('queryError').classList.remove('hidden');
+    if(err.status===400){$('queryInput').setAttribute('aria-invalid','true');$('queryInput').focus();}
+    $('scanTable').classList.add('empty-state');$('scanTable').textContent=err.status===400?'Check the query above, or choose a valid example and run it again.':noProviderText(err);
+  } finally {
+    state.scanPending=false;$('runQuery').disabled=false;$('saveQuery').disabled=!state.lastQuery;
+    $('runQuery').removeAttribute('aria-busy');$('scanTable').removeAttribute('aria-busy');
+    $('runQuery').querySelector('.scan-spinner').classList.add('hidden');$('runQuery').querySelector('.scan-button-icon').classList.remove('hidden');$('runQuery').querySelector('.scan-button-label').textContent='Run Scan';
+  }
 }
 $('runQuery').addEventListener('click', runQuery);
-document.querySelectorAll('[data-query]').forEach(b => b.addEventListener('click', () => { $('queryInput').value = b.dataset.query; runQuery(); }));
+function syncQueryExamples(){document.querySelectorAll('[data-query]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.query===$('queryInput').value.trim())));}
+document.querySelectorAll('[data-query]').forEach(b => {b.setAttribute('aria-pressed','false');b.addEventListener('click', () => { $('queryInput').value = b.dataset.query;syncQueryExamples();$('queryInput').removeAttribute('aria-invalid');$('queryError').classList.add('hidden');$('queryInput').focus(); });});
+$('queryInput').addEventListener('input',()=>{syncQueryExamples();$('queryInput').removeAttribute('aria-invalid');$('queryError').classList.add('hidden');});
 $('saveQuery').addEventListener('click', () => { if (!state.lastQuery) return toast('Run a scan before saving it.', true); $('queryName').value = ''; $('saveDialog').showModal(); });
 $('confirmSave').addEventListener('click', async e => {
-  e.preventDefault(); const name = $('queryName').value.trim(); if (!name) return;
+  e.preventDefault(); if(e.currentTarget.disabled)return;const name = $('queryName').value.trim(); if (!name) {$('queryName').reportValidity();return;}
+  e.currentTarget.disabled=true;
   try { await api('/api/queries', { method: 'POST', body: JSON.stringify({ name, query: state.lastQuery }) }); $('saveDialog').close(); loadQueries(); toast('Scan saved to your account.'); }
   catch (err) { toast(err.message, true); }
+  finally {$('confirmSave').disabled=false;}
 });
 async function loadQueries() {
   try {
     const { queries } = await api('/api/queries');
     $('savedQueries').innerHTML = queries.length ? queries.map(q => `<div class="saved-query"><div><b>${html(q.name)}</b><code>${html(q.query_text)}</code></div><button data-rerun="${html(q.query_text)}" title="Run this scan">▶</button></div>`).join('') : '<p class="muted">No saved scans yet.</p>';
-    $('savedQueries').querySelectorAll('[data-rerun]').forEach(b => b.addEventListener('click', () => { $('queryInput').value = b.dataset.rerun; navigate('screener'); runQuery(); }));
+    $('savedQueries').querySelectorAll('[data-rerun]').forEach(b => {b.setAttribute('aria-label','Run saved scan '+b.closest('.saved-query').querySelector('b').textContent);b.addEventListener('click', () => { $('queryInput').value = b.dataset.rerun;syncQueryExamples();navigate('screener');runQuery(); });});
   } catch { }
 }
 
@@ -144,9 +168,9 @@ function mountTvChart() {
   const useTv=$('chartSource').value==='tradingview';$('page-charts').classList.toggle('tradingview-mode',useTv);
   const footer=$('page-charts').querySelector('.chart-footer');
   $('openTradingView').classList.toggle('hidden',!useTv);window.stockWorkspace?.mount();
-  if(!useTv){tradingViewChart.dispose();$('chartProviderLabel').textContent='SIMULATED · fictional instruments';footer.innerHTML='<span>Simulation drawings are saved to your ChartPulse account.</span><span>Fictional prices and simulated alert delivery.</span>';return simulationChart.mount($('chartSymbol').value.trim()||'NSE:SIM001').then(()=>window.chartWidgets?.sync()).catch(err=>{toast(err.message,true);throw err;});}
+  if(!useTv){tradingViewChart.dispose();$('chartProviderLabel').textContent='SIMULATED · fictional instruments';footer.innerHTML='<span>Simulation drawings are saved to your AlertPe account.</span><span>Fictional prices and simulated alert delivery.</span>';return simulationChart.mount($('chartSymbol').value.trim()||'NSE:SIM001').then(()=>window.chartWidgets?.sync()).catch(err=>{toast(err.message,true);throw err;});}
   simulationChart.dispose();liveMarket.subscribe();$('chartProviderLabel').textContent='TradingView · exchange data availability varies';
-  footer.innerHTML='<span>Indian stocks: BSE end-of-day charts are available. NSE symbols may be restricted to tradingview.com.</span><span>Embedded drawings are not linked to ChartPulse alerts or account storage. Configure TradingView webhooks in Settings.</span>';
+  footer.innerHTML='<span>Indian stocks: BSE end-of-day charts are available. NSE symbols may be restricted to tradingview.com.</span><span>Embedded drawings are not linked to AlertPe alerts or account storage. Configure TradingView webhooks in Settings.</span>';
   const candidate=$('chartSymbol').value.trim().toUpperCase();const symbol=/^[A-Z0-9&_.!:/-]{1,48}$/.test(candidate)&&! /^(NSE|BSE):SIM\d+$/.test(candidate)?candidate:'BSE:RELIANCE';
   $('chartSymbol').value=symbol;$('openTradingView').href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(symbol);tradingViewChart.mount(symbol);
 }
