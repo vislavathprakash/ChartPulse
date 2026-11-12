@@ -27,6 +27,7 @@ html[data-theme=midnight] {
 .app-shell .nav-item.active .nav-icon { color: var(--green); }
 .app-shell .sidebar .help-card { padding: 13px; }
 .app-shell .sidebar .help-card p { font-size: 12px; }
+.app-shell .sidebar .help-card .text-button { color: var(--green); }
 .app-shell .profile .icon-button { min-width: 32px; min-height: 40px; padding: 6px; }
 .app-shell .profile-copy { min-width: 0; }
 .app-shell .profile-copy b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -66,7 +67,7 @@ html[data-theme=midnight] {
 .terminal-symbol:hover b { color: var(--green); }
 .terminal-symbol .coin-dot { flex: none; width: 30px; height: 30px; background: var(--panel2); color: var(--muted); }
 .terminal-symbol .symbol-label { min-width: 0; display: grid; }
-.terminal-symbol .symbol-label small { max-width: 15ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.terminal-symbol .symbol-label small { max-width: clamp(15ch,20vw,28ch); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .terminal-symbol b { font: 600 12px/1.4 var(--font); }
 .terminal-symbol .terminal-icon { width: 13px; height: 13px; color: var(--muted); }
 .terminal-move-list { display: grid; padding: 2px 14px 0; }
@@ -89,6 +90,8 @@ html[data-theme=midnight] {
 #page-overview .step b { font-size: 13px; }
 #page-overview .step small { font-size: 12px; }
 body.chart-workspace-open .content-wrap { max-width: none; }
+@media(min-width:768px) { body.chart-workspace-open:not(.pulse-chart-focus) .app-shell { grid-template-columns: var(--sidebar-width) minmax(0,1fr); } }
+#page-charts .data-pill { background: var(--terminal-warm); border: 1px solid var(--line); color: var(--orange); }
 #page-charts .chart-toolbar { min-height: 52px; background: var(--terminal-surface); }
 #page-charts #chartSource,#page-charts #chartSymbol { border: 1px solid var(--line); background: var(--terminal-inset); color: var(--text); min-height: 38px; }
 #page-charts #chartSymbol { width: clamp(130px,23vw,300px); }

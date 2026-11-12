@@ -206,6 +206,8 @@ function mountTvChart() {
   if(state.currentPage!=='charts')return;
   const useTv=$('chartSource').value==='tradingview';$('page-charts').classList.toggle('tradingview-mode',useTv);
   const footer=$('page-charts').querySelector('.chart-footer');
+  $('page-charts').querySelector('.page-heading p').textContent=useTv?'TradingView charts with drawing tools, indicators, and symbol search.':'Practice with simulated prices, drawing tools, indicators, and chart alerts.';
+  $('page-charts').querySelector('.data-pill').textContent=useTv?'Market data availability varies by exchange':'SIMULATED DATA';
   $('openTradingView').classList.toggle('hidden',!useTv);window.stockWorkspace?.mount();
   if(!useTv){tradingViewChart.dispose();$('chartProviderLabel').textContent='SIMULATED · fictional instruments';footer.innerHTML='<span>Simulation drawings are saved to your AlertPe account.</span><span>Fictional prices and simulated alert delivery.</span>';return simulationChart.mount($('chartSymbol').value.trim()||'NSE:SIM001').then(()=>window.chartWidgets?.sync()).catch(err=>{toast(err.message,true);throw err;});}
   simulationChart.dispose();liveMarket.subscribe();$('chartProviderLabel').textContent='TradingView · exchange data availability varies';
