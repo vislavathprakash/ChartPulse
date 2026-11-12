@@ -448,7 +448,7 @@ async function applySimulationAction(body,key){
     else if(body.action==='reset'){simulation.reset();runtime.sourceEpoch=crypto.randomUUID();await pool.query("UPDATE alert_rules SET last_match_symbols='{}',last_event_at=NULL");}
     else if(body.action==='scenario')simulation.scenario(body.symbol,body.scenario);
     else throw Object.assign(new Error('Unknown action.'),{status:400});
-    await persistSimulation({bootstrap:body.action==='reset',key});return {ok:true,paused:simulation.paused,simulated:true,dataLabel};
+    await persistSimulation({bootstrap:body.action==='reset',forceCheckpoint:true,key});return {ok:true,paused:simulation.paused,simulated:true,dataLabel};
   }finally{simulationBusy=false;}
 }
 app.get('/api/candles', requireAuth, asyncRoute(async (req,res) => {

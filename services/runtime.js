@@ -14,6 +14,9 @@ class Runtime extends EventEmitter {
     if(process.env.NODE_ENV==='production'&&this.role!=='standalone'&&this.role!=='relay'&&!process.env.REDIS_URL)throw new Error('REDIS_URL is required for distributed push delivery.');
     this.namespace='chartpulse:'+(process.env.MARKET_DATA_PROVIDER||'simulated');this.quotes=new Map();this.sequence=0;this.timers=[];this.stopping=false;
     this.evaluationKey=null;this.sourceEpoch=crypto.randomUUID();
+    const checkpointMs=Number(process.env.SIMULATION_CHECKPOINT_MS||0);
+    this.simulationCheckpointMs=this.role==='standalone'&&this.isSimulated&&!process.env.REDIS_URL&&Number.isFinite(checkpointMs)&&checkpointMs>=60000?checkpointMs:0;
+    this.lastSimulationCheckpoint=0;
   }
   async setup(){
     await this.pool.query(`CREATE TABLE IF NOT EXISTS market_events(id BIGSERIAL PRIMARY KEY,event_key TEXT UNIQUE NOT NULL,payload JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -83,19 +86,24 @@ class Runtime extends EventEmitter {
   }
   async publish(quotes,options={}){
     const started=performance.now();
-    const event=this.buildEvent(quotes,options);const key=options.key||crypto.randomUUID();
+    const checkpoint=!this.simulationCheckpointMs||options.bootstrap||options.forceCheckpoint||options.key||Date.now()-this.lastSimulationCheckpoint>=this.simulationCheckpointMs;
+    const event=this.buildEvent(quotes,this.simulationCheckpointMs?{...options,bootstrap:false}:options);const key=options.key||crypto.randomUUID();
     const previousQuotes=new Map(this.quotes), previousSequence=this.sequence;
     try { await this.pool.transaction(async()=>{
       await this.assertLeadership();
-      const {rows}=await this.pool.query('INSERT INTO market_events(event_key,payload) VALUES($1,$2) ON CONFLICT(event_key) DO NOTHING RETURNING id',[key,event]);
+      const {rows}=checkpoint
+        ?await this.pool.query('INSERT INTO market_events(event_key,payload) VALUES($1,$2) ON CONFLICT(event_key) DO NOTHING RETURNING id',[key,event])
+        :await this.pool.query("SELECT nextval(pg_get_serial_sequence('market_events','id')) AS id");
       if(!rows[0])throw new Error('Market event key already committed.');event.sequence=Number(rows[0].id);
       for(const q of event.quotes)this.quotes.set(q.symbol,q);
+      if(!checkpoint)return;
       const snapshot={quotes:this.getQuotes(),simulation:this.simulation?pack(exportState(this.simulation)):null,lastTickAt:event.receivedAt,connected:true,epoch:event.epoch};
       await this.pool.query('INSERT INTO market_snapshot(name,sequence,payload) VALUES($1,$2,$3) ON CONFLICT(name) DO UPDATE SET sequence=EXCLUDED.sequence,payload=EXCLUDED.payload,updated_at=NOW()',[this.namespace,event.sequence,snapshot]);
       await this.pool.query(`INSERT INTO market_quotes(symbol,price,change_pct,volume,open,high,low,updated_at)
         SELECT symbol,price,change_pct,volume,open,high,low,updated_at FROM jsonb_to_recordset($1::jsonb) AS x(symbol text,price double precision,change_pct double precision,volume double precision,open double precision,high double precision,low double precision,updated_at timestamptz)
         ON CONFLICT(symbol) DO UPDATE SET price=EXCLUDED.price,change_pct=EXCLUDED.change_pct,volume=EXCLUDED.volume,open=EXCLUDED.open,high=EXCLUDED.high,low=EXCLUDED.low,updated_at=EXCLUDED.updated_at`,[JSON.stringify([...new Map(event.quotes.map(q=>[q.symbol,q])).values()])]);
     }); } catch(err){this.quotes=previousQuotes;this.sequence=previousSequence;throw err;}
+    if(checkpoint)this.lastSimulationCheckpoint=Date.now();
     this.sequence=event.sequence;this.marketRuntime.connected=true;this.marketRuntime.lastTickAt=event.receivedAt;this.refreshSymbols();metrics.count('market_events');metrics.observe('market_commit_ms',performance.now()-started);
     this.emit('market',event);
     if(this.redis?.isReady){try{await this.redis.set(this.namespace+':quotes',JSON.stringify({sequence:this.sequence,quotes:this.getQuotes(),receivedAt:event.receivedAt}));await this.redis.publish(this.namespace+':market',JSON.stringify(event));}catch(err){this.error('broadcast',err);}}
