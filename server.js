@@ -11,7 +11,10 @@ const {googleReady,installGoogleAuth}=require('./services/google-auth');
 const metrics = require('./services/metrics');
 const { createPool } = require('./database');
 const { SimulatedMarket } = require('./simulated-market');
-const isSimulated = (process.env.MARKET_DATA_PROVIDER || 'simulated') === 'simulated';
+const dhan = require('./services/dhan-feed');
+const marketProvider = process.env.MARKET_DATA_PROVIDER || 'simulated';
+const isSimulated = marketProvider === 'simulated';
+const providerName = { simulated: 'Simulated', truedata: 'TrueData', dhan: 'DhanHQ' }[marketProvider] || 'Unknown provider';
 const simulation = isSimulated ? new SimulatedMarket() : null;
 const dataLabel = isSimulated ? 'SIMULATED DATA — fictional instruments; not NSE/BSE quotes' : 'Licensed provider data';
 const bcrypt = require('./services/passwords');
@@ -30,6 +33,8 @@ const marketRuntime = { connected: false, lastTickAt: null, error: null, client:
 const runtime = new Runtime({pool,simulation,isSimulated,marketRuntime});
 const shardMatches = userId => Number(userId) % runtime.shards === runtime.shard;
 const providerRecords = [];
+const dhanQuotes = new Map();
+let startingDhan = false;
 const screenerCache = new Map(), parsedRules = new Map();
 app.use(metrics.middleware);
 app.use((req,res,next)=>{res.set('Referrer-Policy','no-referrer');next();});
@@ -110,6 +115,7 @@ async function setup() {
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query("ALTER TABLE market_symbols ADD COLUMN IF NOT EXISTS data_source TEXT NOT NULL DEFAULT 'licensed'");
+  if (marketProvider === 'dhan') await pool.query('ALTER TABLE market_quotes ALTER COLUMN change_pct DROP NOT NULL');
   await workspace.setup();
   if (['api','standalone'].includes(runtime.role) && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
@@ -142,8 +148,20 @@ const account=installAccount({app,pool,requireAuth,asyncRoute,publicUser,regener
 function enrichQuote(row) { return row; }
 
 app.get('/api/health', asyncRoute(async (req, res) => { await pool.query('SELECT 1'); res.json({ ok: true, marketReady: marketEntitled() && marketRuntime.connected }); }));
-function marketEntitled() { return isSimulated || process.env.MARKET_DATA_PROVIDER === 'truedata' && process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true' && (!['standalone','ingestion'].includes(runtime.role) || Boolean(process.env.TRUEDATA_USERNAME&&process.env.TRUEDATA_PASSWORD)); }
-function portalMetadata() { return { simulated: isSimulated, dataLabel, whatsappMode: isSimulated ? 'simulated delivery' : 'WhatsApp Business', marketMode: process.env.MARKET_DATA_PROVIDER || 'simulated', market: process.env.MARKET_DATA_MARKET || null, marketReady: marketEntitled() && marketRuntime.connected, marketConfigured: Boolean(isSimulated || (process.env.TRUEDATA_USERNAME && process.env.TRUEDATA_PASSWORD)), marketRedistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', marketConnected: marketRuntime.connected, whatsappReady: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME), chartMode: isSimulated ? 'Interactive simulated chart' : 'TradingView embedded chart' }; }
+function marketConfigured() {
+  if (isSimulated) return true;
+  if (!['dhan', 'truedata'].includes(marketProvider)) return false;
+  if (!['standalone','ingestion'].includes(runtime.role)) return true;
+  return marketProvider === 'dhan' ? Boolean(dhan.credentials()) : Boolean(process.env.TRUEDATA_USERNAME && process.env.TRUEDATA_PASSWORD);
+}
+function marketEntitled() { return isSimulated || marketConfigured() && process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true'; }
+function marketMessage() {
+  if (isSimulated) return dataLabel;
+  if (process.env.MARKET_DATA_REDISPLAY_APPROVED !== 'true') return 'Written market-data display and redistribution approval is required for the shared feed.';
+  if (!marketConfigured()) return `Configure valid ${providerName} credentials on the server.`;
+  return marketRuntime.connected ? `${providerName} feed connected.` : marketRuntime.error || `Waiting for ${providerName} quotes.`;
+}
+function portalMetadata() { return { simulated: isSimulated, dataLabel, whatsappMode: isSimulated ? 'simulated delivery' : 'WhatsApp Business', marketMode: providerName, market: process.env.MARKET_DATA_MARKET || null, marketReady: marketEntitled() && marketRuntime.connected, marketConfigured: marketConfigured(), marketRedistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', marketConnected: marketEntitled() && marketRuntime.connected, whatsappReady: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME), chartMode: isSimulated ? 'Interactive simulated chart' : 'TradingView embedded chart' }; }
 app.get('/api/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'customer'),...portalMetadata(),googleReady:googleReady(),emailReady:emailReady(),emailSimulated:!externalEmailEnabled()})));
 app.get('/api/admin/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'admin'),...portalMetadata()})));
 
@@ -174,20 +192,20 @@ function logout(portal) { return (req,res,next) => req.session.destroy(err => {
 app.post('/api/logout',requireAuth,asyncRoute(async(req,res,next)=>{await runtime.notify(req.session.user.id,{type:'revoked',sessionId:req.sessionID});logout('customer')(req,res,next);}));
 app.post('/api/admin/logout',logout('admin'));
 
-app.get('/api/market/status', requireAuth, (req, res) => res.json({ configured: Boolean(isSimulated || (process.env.TRUEDATA_USERNAME && process.env.TRUEDATA_PASSWORD)), redistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', connected: marketRuntime.connected, lastTickAt: marketRuntime.lastTickAt, symbolCount: marketRuntime.symbols.size, provider: process.env.MARKET_DATA_PROVIDER || null, market: process.env.MARKET_DATA_MARKET || null, simulated: isSimulated, dataLabel, message: isSimulated ? dataLabel : marketEntitled() ? (marketRuntime.connected ? 'Live feed connected.' : marketRuntime.error || 'Feed has not connected yet.') : 'TrueData account and explicit market-data redistribution approval are required before enabling the shared customer feed.' }));
+app.get('/api/market/status', requireAuth, (req, res) => res.json({ configured: marketConfigured(), redistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', connected: marketEntitled() && marketRuntime.connected, lastTickAt: marketRuntime.lastTickAt, symbolCount: runtime.symbolMeta?.size || 0, provider: marketProvider, market: process.env.MARKET_DATA_MARKET || null, simulated: isSimulated, dataLabel, message: marketMessage() }));
 app.get('/api/stocks', requireAuth, asyncRoute(async (req, res) => {
-  if (!marketEntitled() || !marketRuntime.connected) return res.status(503).json({ error: 'Live NSE/BSE feed is not enabled. Complete TrueData account setup and obtain written exchange redistribution approval.' });
+  if (!marketEntitled() || !marketRuntime.connected) return res.status(503).json({ error: marketMessage() });
   const rows = runtime.getQuotes();
-  res.json({ snapshot: runtime.sequence, data: rows.map(enrichQuote), technicalInterval: isSimulated ? '1m' : null, simulated: isSimulated, dataLabel, provider: isSimulated ? 'simulated' : 'TrueData', market: process.env.MARKET_DATA_MARKET, lastTickAt: marketRuntime.lastTickAt });
+  res.json({ snapshot: runtime.sequence, data: rows.map(enrichQuote), technicalInterval: isSimulated ? '1m' : null, simulated: isSimulated, dataLabel, provider: marketProvider, market: process.env.MARKET_DATA_MARKET, lastTickAt: marketRuntime.lastTickAt });
 }));
 app.post('/api/screen', requireAuth, asyncRoute(async (req, res) => {
-  if (!marketEntitled() || !marketRuntime.connected) return res.status(503).json({ error: 'Live NSE/BSE feed is not enabled. Complete TrueData account setup and obtain written exchange redistribution approval.' });
+  if (!marketEntitled() || !marketRuntime.connected) return res.status(503).json({ error: marketMessage() });
   let ast; try { ast = parseQuery(req.body.query); } catch (err) { return res.status(400).json({ error: err.message }); }
   if(typeof req.body.query!=='string'||req.body.query.length>2000)return res.status(400).json({error:'Query must contain at most 2,000 characters.'});
   const key=runtime.sequence+':'+req.body.query.trim();
   let data=screenerCache.get(key);
   if(!data){data=runtime.getQuotes().filter(row=>evaluateQuery(ast,row));if(screenerCache.size>=128)screenerCache.delete(screenerCache.keys().next().value);screenerCache.set(key,data);}
-  res.json({ snapshot: runtime.sequence, data, count: data.length, market: process.env.MARKET_DATA_MARKET, simulated: isSimulated, dataLabel, provider: isSimulated ? 'simulated' : 'TrueData', lastTickAt: marketRuntime.lastTickAt, explanation: `${data.length} matching instruments · ${process.env.MARKET_DATA_MARKET} · updated ${marketRuntime.lastTickAt ? new Date(marketRuntime.lastTickAt).toLocaleTimeString() : '—'}` });
+  res.json({ snapshot: runtime.sequence, data, count: data.length, market: process.env.MARKET_DATA_MARKET, simulated: isSimulated, dataLabel, provider: marketProvider, lastTickAt: marketRuntime.lastTickAt, explanation: `${data.length} matching instruments · ${process.env.MARKET_DATA_MARKET} · updated ${marketRuntime.lastTickAt ? new Date(marketRuntime.lastTickAt).toLocaleTimeString() : '—'}` });
 }));
 app.post('/api/queries', requireAuth, asyncRoute(async (req, res) => {
   const { name, query } = req.body || {};
@@ -264,6 +282,7 @@ app.post('/api/email/verify',requireAuth,asyncRoute(async(req,res)=>{
 
 app.post('/api/admin/market-symbols', requireAdminAuth, asyncRoute(async (req, res) => {
   if (isSimulated) return res.status(409).json({error:'Switch to the licensed provider before importing real instruments.'});
+  if (marketProvider === 'dhan') return res.status(409).json({error:'Dhan instruments are resolved automatically from the DHAN_SYMBOLS server setting.'});
   const items = req.body?.symbols;
   if (!Array.isArray(items) || !items.length || items.length > 10000) return res.status(400).json({ error: 'Provide 1 to 10,000 symbols from your licensed provider instrument master.' });
   const accepted = [];
@@ -328,7 +347,7 @@ async function scanActiveAlertRules() {
   if (!marketEntitled() || !marketRuntime.connected) return;
   try {
     const rules = await pool.query("SELECT a.* FROM alert_rules a JOIN users u ON u.id=a.user_id WHERE a.enabled=TRUE AND u.active=TRUE AND u.role='customer' AND (a.user_id % $1)=$2 AND ($3::int[] IS NULL OR a.user_id=ANY($3))",[runtime.shards,runtime.shard,runtime.baselineUsers||null]);
-    const quotes = {rows:runtime.getQuotes()};
+    const quotes = {rows:runtime.getQuotes().filter(quoteIsCurrent)};
     for (const rule of rules.rows) {
       let ast; try { ast = parsedRules.get(rule.query_text); if(!ast){ast=parseQuery(rule.query_text);if(parsedRules.size>=1000)parsedRules.delete(parsedRules.keys().next().value);parsedRules.set(rule.query_text,ast);} } catch (err) { console.error(`Invalid alert rule ${rule.id}:`, err.message); continue; }
       const touched=runtime.changedSymbols?quotes.rows.filter(q=>runtime.changedSymbols.includes(q.symbol)):quotes.rows;
@@ -341,7 +360,7 @@ async function scanActiveAlertRules() {
         const { rows: ownerRows } = await pool.query('SELECT whatsapp_opt_in FROM users WHERE id=$1 AND active=TRUE', [rule.user_id]);
         if (!ownerRows[0]) continue;
         const shouldQueue = ownerRows[0]?.whatsapp_opt_in && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME;
-        const detail = `${quote.name} (${quote.symbol}) matches: ${rule.query_text}. Last ${quote.price}; change ${Number(quote.change_pct).toFixed(2)}%; volume ${Math.round(quote.volume)}.`;
+        const detail = `${quote.name} (${quote.symbol}) matches: ${rule.query_text}. Last ${quote.price}; change ${quote.change_pct == null ? 'unavailable' : Number(quote.change_pct).toFixed(2)+'%'}; volume ${Math.round(quote.volume)}.`;
         const eventKey = crypto.createHash('sha256').update(`rule:${rule.id}:${quote.symbol}:${runtime.evaluationKey||new Date().toISOString().slice(0,16)}`).digest('hex');
         await pool.query(`INSERT INTO alerts(user_id,symbol,title,detail,source,status,event_key) VALUES($1,$2,$3,$4,'screener',$5,$6) ON CONFLICT(event_key) DO NOTHING`, [rule.user_id,quote.symbol,(isSimulated ? '[SIMULATED] ' : '') + rule.name,detail,isSimulated ? 'simulated' : shouldQueue ? 'queued' : 'logged',eventKey]);
       }
@@ -378,6 +397,50 @@ function onTrueDataRecord(record) {
 async function flushMarketQuotes() {
   while(providerRecords.length){const quote=providerRecords[0];await runtime.publish([quote]);providerRecords.shift();}
 }
+function quoteIsCurrent(quote) {
+  return marketProvider !== 'dhan' || Date.now() - Date.parse(quote.updated_at) <= 120000;
+}
+async function flushDhanQuotes() {
+  const client = marketRuntime.client;
+  if (!client?.isReady() || !dhanQuotes.size) return;
+  const quotes = [...dhanQuotes.values()];
+  dhanQuotes.clear();
+  const asOf = Math.max(Date.parse(marketRuntime.lastTickAt) || 0, ...quotes.map(q => Date.parse(q.updated_at)));
+  try { await runtime.publish(quotes, { receivedAt: new Date(asOf).toISOString() }); }
+  catch (err) {
+    if (client === marketRuntime.client && client.isReady()) for (const q of quotes) if (!dhanQuotes.has(q.symbol)) dhanQuotes.set(q.symbol, q);
+    throw err;
+  } finally { if (client !== marketRuntime.client || !client.isReady()) marketRuntime.connected = false; }
+}
+async function startDhanFeed() {
+  if (startingDhan || !marketEntitled() || runtime.stopping) return;
+  startingDhan = true;
+  marketRuntime.client?.stop?.(); marketRuntime.client = null;
+  marketRuntime.connected = false; dhanQuotes.clear();
+  marketRuntime.error = 'Resolving DhanHQ equity instruments.';
+  try {
+    const instruments = await dhan.resolveInstruments(process.env.DHAN_SYMBOLS);
+    if (runtime.stopping) return;
+    const symbols = instruments.map(i => ({ symbol:i.symbol, name:i.name, exchange:i.exchange, provider_symbol:`dhan:${i.segment}:${i.id}`, provider_symbol_id:i.id }));
+    await pool.transaction(async () => {
+      await pool.query('UPDATE market_symbols SET active=FALSE WHERE active=TRUE');
+      await pool.query(`INSERT INTO market_symbols(symbol,name,exchange,provider_symbol,provider_symbol_id,active,data_source)
+        SELECT symbol,name,exchange,provider_symbol,provider_symbol_id,TRUE,'licensed' FROM jsonb_to_recordset($1::jsonb) AS x(symbol text,name text,exchange text,provider_symbol text,provider_symbol_id text)
+        ON CONFLICT(symbol) DO UPDATE SET name=EXCLUDED.name,exchange=EXCLUDED.exchange,provider_symbol=EXCLUDED.provider_symbol,provider_symbol_id=EXCLUDED.provider_symbol_id,avg_volume=NULL,active=TRUE,data_source='licensed',updated_at=NOW()`, [JSON.stringify(symbols)]);
+    });
+    if (runtime.stopping) return;
+    runtime.symbolMeta = new Map(symbols.map(s => [s.symbol,s]));
+    for (const symbol of runtime.quotes.keys()) if (!runtime.symbolMeta.has(symbol)) runtime.quotes.delete(symbol);
+    runtime.refreshSymbols();
+    marketRuntime.client = dhan.connectFeed({ auth: dhan.credentials(), instruments,
+      onQuote: quote => { if (!runtime.stopping) dhanQuotes.set(quote.symbol,quote); },
+      onStatus: message => { marketRuntime.error = message; marketRuntime.connected = false; dhanQuotes.clear(); }
+    });
+  } catch (err) {
+    marketRuntime.error = /^(Set DHAN_SYMBOLS|Dhan equity symbols not found|Dhan changed the instrument directory)/.test(err.message) ? err.message : 'DhanHQ instrument setup is unavailable. The server will retry.';
+    console.error(marketRuntime.error);
+  } finally { startingDhan = false; }
+}
 async function startMarketFeed() {
   await pool.query('UPDATE market_symbols SET active=FALSE WHERE data_source <> $1', [isSimulated ? 'simulated' : 'licensed']);
   if (isSimulated) {
@@ -387,8 +450,9 @@ async function startMarketFeed() {
     runtime.every(3000,simulationTick);
     return;
   }
-  if (!marketEntitled()) { marketRuntime.connected = false; marketRuntime.error = 'Awaiting an approved market-data display/redistribution license.'; return; }
-  const rows = await pool.query('SELECT * FROM market_symbols WHERE active=TRUE');
+  if (!marketEntitled()) { marketRuntime.connected = false; marketRuntime.error = marketMessage(); return; }
+  if (marketProvider === 'dhan') return startDhanFeed();
+  const rows = await pool.query("SELECT * FROM market_symbols WHERE active=TRUE AND provider_symbol NOT LIKE 'dhan:%'");
   runtime.symbolMeta=new Map(rows.rows.map(s=>[s.symbol,s]));
   if (!rows.rows.length) { marketRuntime.error = 'Import the provider instrument master in Admin before connecting the feed.'; return; }
   try {
@@ -418,7 +482,7 @@ app.get('/api/admin/overview', requireAdminAuth, asyncRoute(async (req, res) => 
     pool.query('SELECT COUNT(*)::int AS count FROM alerts'),
     pool.query("SELECT * FROM alerts WHERE status='failed' ORDER BY created_at DESC LIMIT 20")
   ]);
-  res.json({ users: users.rows, customerCount: users.rows[0]?.customer_count || 0, eventCount: events.rows[0].count, failed: failures.rows, whatsappReady: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME), marketReady: marketEntitled() && marketRuntime.connected, marketConfigured: Boolean(isSimulated || (process.env.TRUEDATA_USERNAME && process.env.TRUEDATA_PASSWORD)), redistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', marketConnected: marketRuntime.connected, marketSymbolCount: marketRuntime.symbols.size, marketMode: process.env.MARKET_DATA_PROVIDER || 'simulated', simulated: isSimulated, dataLabel, simulationPaused: simulation?.paused });
+  res.json({ users: users.rows, customerCount: users.rows[0]?.customer_count || 0, eventCount: events.rows[0].count, failed: failures.rows, whatsappReady: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME), marketReady: marketEntitled() && marketRuntime.connected, marketConfigured: marketConfigured(), redistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', marketConnected: marketEntitled() && marketRuntime.connected, marketSymbolCount: runtime.symbolMeta?.size || 0, marketMode: providerName, marketProvider, marketMessage: marketMessage(), simulated: isSimulated, dataLabel, simulationPaused: simulation?.paused });
 }));
 app.patch('/api/admin/users/:id', requireAdminAuth, asyncRoute(async (req, res) => {
   const { active } = req.body || {};
@@ -467,9 +531,9 @@ app.delete('/api/drawings/:id', requireAuth, asyncRoute(async (req,res) => {
   if (!result.rowCount) return res.status(404).json({error:'Drawing not found.'}); res.json({ok:true});
 }));
 async function scanDrawingAlerts() {
-  const {rows} = await pool.query("SELECT d.*,q.price,u.whatsapp_opt_in FROM drawings d JOIN users u ON u.id=d.user_id JOIN market_quotes q ON q.symbol=d.symbol JOIN market_symbols s ON s.symbol=d.symbol WHERE u.active=TRUE AND u.role='customer' AND s.active=TRUE AND (d.user_id % $1)=$2 AND ($3::int[] IS NULL OR d.user_id=ANY($3)) AND ($4::text[] IS NULL OR d.symbol=ANY($4))",[runtime.shards,runtime.shard,runtime.baselineUsers||null,runtime.changedSymbols||null]);
+  const {rows} = await pool.query("SELECT d.*,u.whatsapp_opt_in FROM drawings d JOIN users u ON u.id=d.user_id JOIN market_symbols s ON s.symbol=d.symbol WHERE u.active=TRUE AND u.role='customer' AND s.active=TRUE AND (d.user_id % $1)=$2 AND ($3::int[] IS NULL OR d.user_id=ANY($3)) AND ($4::text[] IS NULL OR d.symbol=ANY($4))",[runtime.shards,runtime.shard,runtime.baselineUsers||null,runtime.changedSymbols||null]);
   for (const drawing of rows) {
-    if(!shardMatches(drawing.user_id))continue;const current=runtime.quotes.get(drawing.symbol);if(!current)continue;drawing.price=current.price;
+    if(!shardMatches(drawing.user_id))continue;const current=runtime.quotes.get(drawing.symbol);if(!current||!quoteIsCurrent(current))continue;drawing.price=current.price;
     const p = drawing.payload; if (!p.alertEnabled) continue;
     const time = isSimulated ? simulation.instruments.get(drawing.symbol)?.candles.at(-1).time : Date.now()/1000;
     const bounds = drawingBounds(drawing.kind,p,time); if(!bounds)continue;
@@ -489,7 +553,7 @@ async function scanDrawingAlerts() {
 }
 
 const errorHandler=(err, req, res, next) => { if(err.status)return res.status(err.status).json({error:err.message}); console.error(err.message); res.status(500).json({ error: 'The request could not be completed.' }); };
-runtime.evaluate=async()=>{await scanActiveAlertRules();await scanDrawingAlerts();await workspace.scan();};
+runtime.evaluate=async()=>{if(!marketEntitled()||!marketRuntime.connected||(marketProvider==='dhan'&&runtime.role==='standalone'&&!marketRuntime.client?.isReady()))return;await scanActiveAlertRules();await scanDrawingAlerts();await workspace.scan();};
 runtime.commandHandler=async(kind,payload,key)=>{
   if(kind==='simulation')return applySimulationAction(payload,key);
   if(kind==='feed_restart'){if(!isSimulated)await startMarketFeed();return {ok:true};}
@@ -514,7 +578,7 @@ async function start(){
   }
   // Render probes the replacement before retiring the previous instance.
   // Serve the persisted snapshot while waiting for exclusive worker ownership.
-  const shutdown=async()=>{if(runtime.stopping)return;runtime.stopping=true;const timeout=setTimeout(()=>process.exit(1),12000);timeout.unref();try{if(gateway)await gateway.close();if(server)await new Promise(resolve=>server.close(resolve));await runtime.stop();await pool.end();clearTimeout(timeout);process.exit(0);}catch(err){console.error(err.message);process.exit(1);}};
+  const shutdown=async()=>{if(runtime.stopping)return;runtime.stopping=true;marketRuntime.client?.stop?.();const timeout=setTimeout(()=>process.exit(1),12000);timeout.unref();try{if(gateway)await gateway.close();if(server)await new Promise(resolve=>server.close(resolve));await runtime.stop();await pool.end();clearTimeout(timeout);process.exit(0);}catch(err){console.error(err.message);process.exit(1);}};
   process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
   if(['standalone','ingestion','evaluator','relay'].includes(runtime.role)){
     const syncTimer=runtime.role==='standalone'?runtime.every(1000,()=>runtime.sync()):null;
@@ -525,7 +589,7 @@ async function start(){
     while(runtime.syncing)await new Promise(resolve=>setTimeout(resolve,25));
     await runtime.loadSnapshot();await runtime.claimLeadership(key);
   }
-  if(['standalone','ingestion'].includes(runtime.role)){await startMarketFeed();runtime.every(100,flushMarketQuotes);runtime.every(125,()=>runtime.processCommands());}
+  if(['standalone','ingestion'].includes(runtime.role)){await startMarketFeed();if(marketProvider==='dhan'){runtime.every(3000,flushDhanQuotes);runtime.every(60000,()=>{if(!marketRuntime.client)return startDhanFeed();});}else if(!isSimulated)runtime.every(100,flushMarketQuotes);runtime.every(125,()=>runtime.processCommands());}
   if(runtime.role==='evaluator')runtime.every(125,()=>runtime.evaluateEvents());
   if(['standalone','delivery'].includes(runtime.role))runtime.every(250,()=>processNotifications({pool,runtime,deliver:deliverWhatsAppAlert}));
   if(['standalone','evaluator'].includes(runtime.role)){await calendar.scan();runtime.every(15000,()=>calendar.scan());}

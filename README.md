@@ -65,6 +65,18 @@ No provider or Meta credentials are needed for this deployment. The Blueprint us
 
 ## Switch to licensed market data later
 
+### DhanHQ v2 live equity quotes
+
+Keep production on `MARKET_DATA_PROVIDER=simulated` until you have an active [DhanHQ Data API subscription](https://dhan.co/support/platforms/dhanhq-api/is-a-data-api-subscription-required/) and written approval for the shared market data shown to AlertPe customers. Dhan lists [separate individual and partner access](https://dhanhq.co/docs/v2/authentication/).
+
+1. Generate a Data API access token in Dhan Web. Enter the real `DHAN_CLIENT_ID` and `DHAN_ACCESS_TOKEN` in Render **Environment Variables**. Use separate values, not the credential-bearing WebSocket URL. Never commit or paste either value into public logs or chats. Access tokens generated in Dhan Web are valid for 24 hours; update the server token when needed.
+2. Optionally set `DHAN_SYMBOLS` to comma-separated equity symbols such as `NSE:RELIANCE,NSE:TCS,BSE:INFY`. The starter universe is 12 NSE/BSE listings. Up to 100 symbols are supported and resolved against the official Dhan instrument directory.
+3. Once approved, set `MARKET_DATA_PROVIDER=dhan`, `MARKET_DATA_MARKET=NSE,BSE`, and `MARKET_DATA_REDISPLAY_APPROVED=true`. Redeploy and check **Admin → Market data feed** for readiness. Verify quotes during the exchange session. To return to simulation, set `MARKET_DATA_PROVIDER=simulated` and redeploy.
+
+The server subscribes to the [DhanHQ v2 quote feed](https://dhanhq.co/docs/v2/live-market-feed/). AlertPe shows last price, daily change when previous close is available, volume and daily OHLC. The latest quote per symbol is published every three seconds; short movements between samples can be missed. Old trades are shown with their original timestamp and do not fire new Dhan screener alerts. The single-server deployment saves a market snapshot every two minutes. It does not archive every tick. Dhan powers the market overview, watchlist quotes and quote-based screener rules; the TradingView embed still supplies its own chart feed. Dhan historical candles, native indicator alerts, and order placement are outside this integration.
+
+### TrueData
+
 1. Obtain provider credentials and rights for your customer display/redistribution use case.
 2. Set `MARKET_DATA_PROVIDER=truedata`, `TRUEDATA_USERNAME`, `TRUEDATA_PASSWORD`, `MARKET_DATA_MARKET=NSE,BSE`, and `MARKET_DATA_REDISPLAY_APPROVED=true` only after approval.
 3. Restart the service and import your provider's instrument-master CSV through Admin. Simulated instruments are deactivated when switching provider.

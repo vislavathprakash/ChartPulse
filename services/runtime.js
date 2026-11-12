@@ -15,8 +15,10 @@ class Runtime extends EventEmitter {
     this.namespace='chartpulse:'+(process.env.MARKET_DATA_PROVIDER||'simulated');this.quotes=new Map();this.sequence=0;this.timers=[];this.stopping=false;
     this.evaluationKey=null;this.sourceEpoch=crypto.randomUUID();
     const checkpointMs=Number(process.env.SIMULATION_CHECKPOINT_MS||0);
-    this.simulationCheckpointMs=this.role==='standalone'&&this.isSimulated&&!process.env.REDIS_URL&&Number.isFinite(checkpointMs)&&checkpointMs>=60000?checkpointMs:0;
-    this.lastSimulationCheckpoint=0;
+    this.isDhan=process.env.MARKET_DATA_PROVIDER==='dhan';
+    const localFeed=this.role==='standalone'&&!process.env.REDIS_URL;
+    this.marketCheckpointMs=localFeed&&this.isDhan?120000:localFeed&&this.isSimulated&&Number.isFinite(checkpointMs)&&checkpointMs>=60000?checkpointMs:0;
+    this.lastMarketCheckpoint=0;
   }
   async setup(){
     await this.pool.query(`CREATE TABLE IF NOT EXISTS market_events(id BIGSERIAL PRIMARY KEY,event_key TEXT UNIQUE NOT NULL,payload JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -73,21 +75,21 @@ class Runtime extends EventEmitter {
   async loadSnapshot(){const {rows}=await this.pool.query('SELECT * FROM market_snapshot WHERE name=$1',[this.namespace]);if(!rows[0])return;
     const snapshot=rows[0].payload;this.sequence=Number(rows[0].sequence);this.quotes=new Map(snapshot.quotes.map(q=>[q.symbol,q]));
     if(this.simulation&&snapshot.simulation)restoreState(this.simulation,unpack(snapshot.simulation));
-    this.marketRuntime.connected=snapshot.connected!==false;this.marketRuntime.lastTickAt=snapshot.lastTickAt;
+    this.marketRuntime.connected=!(this.isDhan&&['standalone','ingestion'].includes(this.role))&&snapshot.connected!==false;this.marketRuntime.lastTickAt=snapshot.lastTickAt;
     this.sourceEpoch=snapshot.epoch;this.refreshSymbols();
   }
   refreshSymbols(){this.marketRuntime.symbols=new Map([...this.quotes.keys()].map(symbol=>[symbol,symbol]));for(const s of this.symbolMeta?.values()||[]){this.marketRuntime.symbols.set(s.provider_symbol,s.symbol);if(s.provider_symbol_id)this.marketRuntime.symbols.set(String(s.provider_symbol_id),s.symbol);}}
   getQuotes(){return [...this.quotes.values()];}
-  buildEvent(quotes,{bootstrap=false}={}){
+  buildEvent(quotes,{bootstrap=false,receivedAt=new Date().toISOString()}={}){
     const enriched=quotes.map(q=>({...q,...(this.simulation?this.simulation.technicals(q.symbol):{})}));
-    return {namespace:this.namespace,epoch:this.sourceEpoch,quotes:enriched,simulated:this.isSimulated,receivedAt:new Date().toISOString(),seed:this.simulation?.seed,paused:this.simulation?.paused,
+    return {namespace:this.namespace,epoch:this.sourceEpoch,quotes:enriched,simulated:this.isSimulated,receivedAt,seed:this.simulation?.seed,paused:this.simulation?.paused,
       ...(this.simulation?{candles:enriched.map(q=>{const i=this.simulation.instruments.get(q.symbol);return {symbol:q.symbol,candle:i.candles.at(-1),volume:i.volume,previousClose:i.previousClose};})}:{}),
       ...(bootstrap&&this.simulation?{bootstrap:pack(exportState(this.simulation))}:{})};
   }
   async publish(quotes,options={}){
     const started=performance.now();
-    const checkpoint=!this.simulationCheckpointMs||options.bootstrap||options.forceCheckpoint||options.key||Date.now()-this.lastSimulationCheckpoint>=this.simulationCheckpointMs;
-    const event=this.buildEvent(quotes,this.simulationCheckpointMs?{...options,bootstrap:false}:options);const key=options.key||crypto.randomUUID();
+    const checkpoint=!this.marketCheckpointMs||options.bootstrap||options.forceCheckpoint||options.key||Date.now()-this.lastMarketCheckpoint>=this.marketCheckpointMs;
+    const event=this.buildEvent(quotes,this.marketCheckpointMs?{...options,bootstrap:false}:options);const key=options.key||crypto.randomUUID();
     const previousQuotes=new Map(this.quotes), previousSequence=this.sequence;
     try { await this.pool.transaction(async()=>{
       await this.assertLeadership();
@@ -103,11 +105,17 @@ class Runtime extends EventEmitter {
         SELECT symbol,price,change_pct,volume,open,high,low,updated_at FROM jsonb_to_recordset($1::jsonb) AS x(symbol text,price double precision,change_pct double precision,volume double precision,open double precision,high double precision,low double precision,updated_at timestamptz)
         ON CONFLICT(symbol) DO UPDATE SET price=EXCLUDED.price,change_pct=EXCLUDED.change_pct,volume=EXCLUDED.volume,open=EXCLUDED.open,high=EXCLUDED.high,low=EXCLUDED.low,updated_at=EXCLUDED.updated_at`,[JSON.stringify([...new Map(event.quotes.map(q=>[q.symbol,q])).values()])]);
     }); } catch(err){this.quotes=previousQuotes;this.sequence=previousSequence;throw err;}
-    if(checkpoint)this.lastSimulationCheckpoint=Date.now();
+    if(checkpoint)this.lastMarketCheckpoint=Date.now();
     this.sequence=event.sequence;this.marketRuntime.connected=true;this.marketRuntime.lastTickAt=event.receivedAt;this.refreshSymbols();metrics.count('market_events');metrics.observe('market_commit_ms',performance.now()-started);
     this.emit('market',event);
     if(this.redis?.isReady){try{await this.redis.set(this.namespace+':quotes',JSON.stringify({sequence:this.sequence,quotes:this.getQuotes(),receivedAt:event.receivedAt}));await this.redis.publish(this.namespace+':market',JSON.stringify(event));}catch(err){this.error('broadcast',err);}}
-    if(this.role==='standalone'&&this.evaluate){if(!this.isSimulated&&event.quotes.length>1){for(let i=0;i<event.quotes.length;i++){this.quotes.set(event.quotes[i].symbol,event.quotes[i]);await this.evaluateCurrent('event:'+event.sequence+':'+i);}}else await this.evaluateCurrent('event:'+event.sequence);}
+    if(this.role==='standalone'&&this.evaluate){
+      if(this.isDhan){
+        const changed=event.quotes.filter(q=>Date.now()-Date.parse(q.updated_at)<=120000).map(q=>q.symbol);
+        if(changed.length)await this.evaluateCurrent('event:'+event.sequence,changed);
+      }else if(!this.isSimulated&&event.quotes.length>1){for(let i=0;i<event.quotes.length;i++){this.quotes.set(event.quotes[i].symbol,event.quotes[i]);await this.evaluateCurrent('event:'+event.sequence+':'+i);}}
+      else await this.evaluateCurrent('event:'+event.sequence);
+    }
     return event;
   }
   async receive(event){if(event.sequence<=this.sequence)return;
@@ -122,8 +130,8 @@ class Runtime extends EventEmitter {
   }finally{this.syncing=false;}}
   every(ms,fn){let running=false;const timer=setInterval(async()=>{if(running||this.stopping)return;running=true;try{await fn();}catch(err){this.error('worker',err);}finally{running=false;}},ms);this.timers.push(timer);return timer;}
   error(component,err){metrics.count(component+'_errors');console.error(component+': '+err.message);}
-  async evaluateCurrent(key='baseline:'+crypto.randomUUID()){
-    if(!this.evaluate)return;await this.pool.transaction(async()=>{this.evaluationKey=key;try{await this.assertLeadership();await this.evaluate();}finally{this.evaluationKey=null;}});
+  async evaluateCurrent(key='baseline:'+crypto.randomUUID(),changedSymbols=null){
+    if(!this.evaluate)return;await this.pool.transaction(async()=>{await this.assertLeadership();this.evaluationKey=key;this.changedSymbols=changedSymbols;try{await this.evaluate();}finally{this.evaluationKey=null;this.changedSymbols=null;}});
   }
   async requestEvaluation(userId){if(!userId)return;if(this.role==='standalone')return this.evaluateCurrent();await this.pool.query('INSERT INTO evaluation_requests(user_id,sequence) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET sequence=GREATEST(evaluation_requests.sequence,EXCLUDED.sequence),requested_at=NOW()',[userId,this.sequence]);}
   async evaluateRequests(){

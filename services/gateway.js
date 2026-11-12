@@ -45,7 +45,7 @@ function installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled
           if(!Array.isArray(message.symbols)||message.symbols.length>50||message.symbols.some(s=>typeof s!=='string'||!runtime.quotes.has(s))||!['1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','1D'].includes(message.interval||'1m')){send(ws,{type:'error',message:'Choose up to 50 active symbols and a supported interval.'});return;}
           const chartSymbols=message.charts??message.symbols.slice(0,1);
           if(!Array.isArray(chartSymbols)||chartSymbols.length>2||chartSymbols.some(s=>!message.symbols.includes(s))){send(ws,{type:'error',message:'Choose up to two chart symbols from your subscription.'});return;}
-          ws.symbols=new Set(message.symbols);ws.chartSymbols=chartSymbols;ws.awaitingUniverse=!ws.symbols.size&&!runtime.quotes.size;ws.interval=message.interval||'1m';snapshot(ws);
+          ws.symbols=new Set(message.symbols);ws.chartSymbols=chartSymbols;ws.awaitingUniverse=message.discover===true&&!ws.symbols.size;ws.interval=message.interval||'1m';snapshot(ws);
         } else if(message.type==='resync')snapshot(ws);
         else if(message.type==='ping')send(ws,{type:'pong',at:Date.now()});
         else send(ws,{type:'error',message:'Unknown message.'});
@@ -66,7 +66,7 @@ function installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled
     }metrics.count('socket_batches',batches.size);
   });
   const heartbeat=runtime.every(15000,async()=>{
-    for(const ws of clients){if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();if(ws.userId)send(ws,{type:'status',paused:runtime.simulation?.paused||false,stale:!runtime.marketRuntime.lastTickAt||Date.now()-Date.parse(runtime.marketRuntime.lastTickAt)>15000});}
+    for(const ws of clients){if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();if(ws.userId)send(ws,{type:'status',paused:runtime.simulation?.paused||false,connected:runtime.marketRuntime.connected,stale:!runtime.marketRuntime.lastTickAt||Date.now()-Date.parse(runtime.marketRuntime.lastTickAt)>15000});}
     const authenticated=[...clients].filter(ws=>ws.userId);const ids=[...new Set(authenticated.map(ws=>ws.userId))];const sids=[...new Set(authenticated.map(ws=>ws.sessionId))];
     const active=new Set(),sessions=new Set();
     for(let i=0;i<ids.length;i+=500){const {rows}=await pool.query("SELECT id FROM users WHERE id=ANY($1::int[]) AND active=TRUE AND role='customer'",[ids.slice(i,i+500)]);rows.forEach(u=>active.add(u.id));}
