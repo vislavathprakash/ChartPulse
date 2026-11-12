@@ -2,6 +2,22 @@ const state = { user: null, meta: null, authMode: 'login', currentPage: 'overvie
 const $ = (id) => document.getElementById(id);
 const html = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (value, digits = 2) => Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
+const terminalIcons = {
+  overview:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  screener:'<path d="M4 5h16M4 12h16M4 19h16"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="19" r="2"/>',
+  charts:'<path d="M5 2v5m0 8v5m7-16v8m0 6v4m7-20v3m0 8v5"/><rect x="3" y="7" width="4" height="8" rx="1"/><rect x="10" y="12" width="4" height="6" rx="1"/><rect x="17" y="5" width="4" height="8" rx="1"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 5h2m4 0h2"/>',
+  alerts:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+  account:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2"/>',
+  arrow:'<path d="M6 18 18 6M7 6h11v11"/>',
+  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>'
+};
+const terminalIcon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${terminalIcons[name]||''}</svg>`;
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('#mainNav [data-page]').forEach(button=>{const icon=button.querySelector('.nav-icon');if(icon&&terminalIcons[button.dataset.page]){icon.setAttribute('aria-hidden','true');icon.innerHTML=terminalIcon(button.dataset.page);}if(button.classList.contains('active'))button.setAttribute('aria-current','page');});
+  const notifications=document.querySelector('.notification-btn');if(notifications)notifications.innerHTML=terminalIcon('alerts')+'<i class="notification-dot"></i>';
+  $('sidebarToggle').innerHTML=terminalIcon('menu');
+});
 
 async function api(url, options = {}) {
   const res = await fetch(url, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
@@ -20,7 +36,8 @@ function showApp(user, meta) {
   const initial = (user.name || user.email || 'U').slice(0, 1).toUpperCase();
   $('userName').textContent = user.name || user.email; $('userRole').textContent = user.role; $('avatar').textContent = initial; $('topAvatar').textContent = initial;
   $('greetingName').textContent = (user.name || 'Trader').split(/\s+/)[0];
-  $('marketMode').textContent = meta.marketReady ? `${meta.marketMode} · connected` : (meta.marketConfigured ? `${meta.marketMode} · disconnected` : 'Market feed not connected');
+  liveMarket.status(meta.marketReady ? `${meta.marketMode} · connected` : (meta.marketConfigured ? `${meta.marketMode} · disconnected` : 'Market feed not connected'),meta.marketReady?(meta.simulated?'simulated':'streaming'):'warning');
+  $('terminalCoverage').textContent=meta.market?.split(',').map(s=>s.trim()).filter(Boolean).join(' / ')||'MARKET WORKSPACE';
   $('settingsMarketMode').textContent = meta.marketConfigured ? `${meta.marketMode} · ${meta.marketConnected ? 'connected' : 'disconnected'}` : 'Not configured'; $('settingsMarketCoverage').textContent = meta.market || 'Select exchanges';
   $('whatsappBadge').textContent = meta.whatsappReady ? 'CONNECTED' : 'NOT CONFIGURED';
   $('channelStatus').textContent = meta.whatsappReady ? 'Connected' : 'Setup needed';
@@ -63,7 +80,7 @@ function navigate(page) {
   $('crumb').textContent = ({ overview: 'Overview', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;
   if(page==='account')window.accountSettings?.load(); if(page==='calendar') { marketCalendar.renderPage(); marketCalendar.load(); } if (page === 'charts') mountTvChart(); if (page === 'screener') loadQueries(); if (page === 'alerts') loadAlerts(); if(page!=='charts')liveMarket.subscribe();
 }
-document.body.addEventListener('click', e => { const nav = e.target.closest('[data-page]'); if (nav) navigate(nav.dataset.page); });
+document.body.addEventListener('click', e => { const nav = e.target.closest('[data-page]'); if (nav) navigate(nav.dataset.page); const symbol=e.target.closest('[data-terminal-chart]')?.dataset.terminalChart;if(symbol&&state.user)window.stockWorkspace?.open({symbol}); });
 
 async function refreshCounts() {
   try { const data = await api('/api/alerts'); const count = data.alerts.length; $('alertCount').textContent = count; $('overviewAlertCount').textContent = count; }
@@ -72,24 +89,46 @@ async function refreshCounts() {
 function noProviderText(err) { return err.status === 503 ? err.message : 'Could not load market data. Check the configured provider.'; }
 async function loadWatch() {
   try {
-    const { data = [] } = await api('/api/stocks');
-    liveMarket.seed(data);renderMarketOverview(data);
+    const { data = [],lastTickAt } = await api('/api/stocks');
+    liveMarket.seed(data);renderMarketOverview(data,null,lastTickAt);
   } catch (err) {
-    $('marketWatchCount').textContent = '—'; $('moveCount').textContent = '—';
+    $('marketWatchCount').textContent = '—'; $('moveCount').textContent = '—'; $('marketQuoteTime').textContent='Quotes unavailable';
     $('watchTable').classList.add('empty-state'); $('watchTable').textContent = noProviderText(err);
     $('movers').classList.add('empty-state'); $('movers').textContent = noProviderText(err);
   }
 }
-function renderMarketOverview(data) {
-    $('marketWatchCount').textContent = data.length;
-    $('watchTable').classList.remove('empty-state'); $('watchTable').innerHTML = stockTable(data.slice(0, 6));
-    const declining = data.filter(s => Number(s.change_pct ?? s.change) < 0).sort((a,b) => Number(a.change_pct ?? a.change) - Number(b.change_pct ?? b.change)).slice(0, 4);
-    $('movers').classList.remove('empty-state'); $('movers').innerHTML = declining.length ? declining.map(s => `<div class="mover"><b>${html(s.symbol)}</b><span>${fmt(s.change_pct ?? s.change)}%</span><small>${html(s.name || '')}</small></div>`).join('') : '<p class="muted">No declining symbols.</p>';
-    $('moveCount').textContent = data.filter(s => Number(s.change_pct ?? s.change) <= -3).length;
+const changeValue = s => Number(s.change_pct ?? s.change ?? NaN);
+const changeText = n => Number.isFinite(n)?`${n>0?'+':''}${fmt(n)}%`:'—';
+const changeTone = n => n<0?'negative':n>0?'positive':'muted';
+const quotePrice = new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:2,maximumFractionDigits:2});
+const quoteTime = new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+function quoteCells(s){const price=Number(s.price??s.last_price??NaN),volume=Number(s.volume??NaN),change=changeValue(s);return [Number.isFinite(price)?quotePrice.format(price):'—',changeText(change),Number.isFinite(volume)?fmt(volume,0):'—',changeTone(change)];}
+function updateMarketWatch(host,data){
+  host.classList.toggle('empty-state',!data.length);
+  if(!data.length){host.textContent='Waiting for market quotes.';return;}
+  const rows=[...host.querySelectorAll('tbody tr')];
+  if(rows.length!==data.length||rows.some((row,i)=>row.querySelector('[data-terminal-chart]')?.dataset.terminalChart!==data[i].symbol)){host.innerHTML=stockTable(data);return;}
+  rows.forEach((row,i)=>{const [price,change,volume,tone]=quoteCells(data[i]);[price,change,volume].forEach((value,j)=>{if(row.cells[j+1].textContent!==value)row.cells[j+1].textContent=value;});row.cells[2].className=`mono ${tone}`;});
+}
+function renderMarketOverview(data,summary,asOf) {
+  const watch=$('watchTable'),movers=$('movers');
+  const focus=document.activeElement;
+  const region=watch.contains(focus)?watch:movers.contains(focus)?movers:null;
+  const selected=region&&focus?.dataset.terminalChart;
+  $('marketWatchCount').textContent = summary?.symbolCount ?? data.length;
+  $('moveCount').textContent = summary?.decliningCount ?? data.filter(s=>changeValue(s)<=-3).length;
+  const time=Date.parse(asOf);
+  $('marketQuoteTime').textContent=Number.isFinite(time)&&data.length?`As of ${quoteTime.format(time)} IST`:'Awaiting quotes';
+  updateMarketWatch(watch,data.slice(0,6));
+  const declining=(summary?.movers??data.filter(s=>changeValue(s)<0).sort((a,b)=>changeValue(a)-changeValue(b))).filter(s=>Number.isFinite(changeValue(s))&&changeValue(s)<0).slice(0,4);
+  const max=Math.max(1,...declining.map(s=>Math.abs(changeValue(s))));
+  movers.classList.toggle('empty-state',!declining.length);
+  movers.innerHTML=declining.length?`<div class="terminal-move-list">${declining.map(s=>`<button class="terminal-move" type="button" data-terminal-chart="${html(s.symbol)}" title="Open ${html(s.symbol)} chart"><span><b>${html(s.symbol)}</b><small>${html(s.name||'')}</small></span><span class="mono negative">${changeText(changeValue(s))}</span><progress aria-hidden="true" max="${max}" value="${Math.abs(changeValue(s))}"></progress></button>`).join('')}</div>`:data.length?'No declining symbols.':'Waiting for market quotes.';
+  if(selected&&!focus.isConnected)region.querySelector(`[data-terminal-chart="${CSS.escape(selected)}"]`)?.focus({preventScroll:true});
 }
 function stockTable(data) {
   if (!data.length) return '<div class="empty-state">No stocks match these conditions. Adjust your query or choose another Scan Example, then run again.</div>';
-  return `<table class="data-table"><thead><tr><th>SYMBOL</th><th>LAST PRICE</th><th>CHANGE</th><th>VOLUME</th></tr></thead><tbody>${data.map(s => `<tr><td><div class="symbol-cell"><span class="coin-dot">${html((s.exchange || '?').slice(0,2))}</span><span><b>${html(s.symbol)}</b><small>${html(s.name || '')}</small></span></div></td><td class="mono">₹ ${fmt(s.price ?? s.last_price)}</td><td class="mono ${Number(s.change_pct ?? s.change) < 0 ? 'negative' : 'positive'}">${fmt(s.change_pct ?? s.change)}%</td><td class="mono">${fmt(s.volume, 0)}</td></tr>`).join('')}</tbody></table>`;
+  return `<table class="data-table"><thead><tr><th scope="col">SYMBOL</th><th scope="col">LAST PRICE</th><th scope="col">CHANGE</th><th scope="col">VOLUME</th></tr></thead><tbody>${data.map(s => {const [price,change,volume,tone]=quoteCells(s);return `<tr><td><button class="symbol-cell terminal-symbol" type="button" data-terminal-chart="${html(s.symbol)}" aria-label="Open ${html(s.symbol)} chart" title="${html(s.name||s.symbol)}"><span class="coin-dot" aria-hidden="true">${html((s.exchange || '?').slice(0,2))}</span><span class="symbol-label"><b>${html(s.symbol)}</b><small>${html(s.name || '')}</small></span>${terminalIcon('arrow')}</button></td><td class="mono">${price}</td><td class="mono ${tone}">${change}</td><td class="mono">${volume}</td></tr>`;}).join('')}</tbody></table>`;
 }
 async function runQuery() {
   if(state.scanPending)return;

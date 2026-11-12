@@ -36,7 +36,7 @@ window.stockWorkspace={
   async add(symbol){const current=this.current();if(!current){this.nameDialog(null,()=>this.add(symbol));return;}if(current.symbols.includes(symbol)){toast('This stock is already in '+current.name+'.');return;}await api('/api/watchlists/'+current.id+'/items',{method:'POST',body:JSON.stringify({symbol})});await this.refresh();this.renderSearch();toast('Stock added to '+current.name+'.');},
   open(item,keepSearch=false){
     if(!keepSearch)this.closeSearch();const simulated=/^(NSE|BSE):SIM\d+$/.test(item.symbol);$('chartSource').value=simulated?'simulation':'tradingview';$('chartSymbol').value=item.symbol;
-    localStorage.setItem(simulated?'chartpulse_symbol':'chartpulse_tv_symbol',item.symbol);mountTvChart();this.render();
+    try{localStorage.setItem(simulated?'chartpulse_symbol':'chartpulse_tv_symbol',item.symbol);}catch{}if(state.currentPage==='charts')mountTvChart();else navigate('charts');this.render();
   },
   closeSearch(){this.request++;clearTimeout(this.searchTimer);this.controller?.abort();const host=$('stockSuggestions');if(host)host.classList.add('hidden');$('chartSymbol')?.setAttribute('aria-expanded','false');$('chartSymbol')?.removeAttribute('aria-activedescendant');this.highlight=-1;},
   async search(){
