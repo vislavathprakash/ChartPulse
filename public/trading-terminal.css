@@ -138,7 +138,7 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
 @media(max-width:850px) { .private-dhan-stats { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:620px) {
   body.dhan-terminal-open .content-wrap { padding:12px 10px 10px; }
-  #page-private-dhan .page-heading { flex-wrap:wrap; margin-bottom:10px; gap:5px 12px; }
+  #page-private-dhan .page-heading { display:flex; flex-direction:row; justify-content:space-between; flex-wrap:wrap; text-align:left; margin-bottom:10px; gap:5px 12px; }
   #page-private-dhan .page-heading h1 { font-size:23px; }
   #page-private-dhan .page-heading p { display:none; }
   .dhan-terminal-bar { flex-wrap:wrap; padding:6px 8px; gap:4px; }
@@ -146,7 +146,10 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
   .dhan-workspace-tabs button { flex:1; justify-content:center; padding-inline:5px; font-size:13px; }
   .dhan-workspace-tabs .terminal-icon { display:none; }
   .dhan-pane > .panel { padding:10px; }
-  #privateDhanPlot { min-height:140px; }
+  #dhan-pane-dashboard .panel-heading { margin-bottom:8px; }
+  #dhan-pane-dashboard .terminal-actions { gap:6px; }
+  #privateDhanPlot { order:1; flex:none; min-height:130px; }
+  #privateDhanStats { order:2; margin:8px 0 0; }
 }
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
