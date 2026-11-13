@@ -13,8 +13,12 @@ class MarketChartRenderer {
     const active=s.indicators.filter(i=>i.visible!==false),overlay=active.filter(i=>Technicals.catalog.find(c=>c.type===i.type)?.overlay),panes=active.filter(i=>!Technicals.catalog.find(c=>c.type===i.type)?.overlay && i.type!=='volume');
     const width=this.canvas.clientWidth;if(width<100)return;
     const showVolume=s.volume||active.some(i=>i.type==='volume');
-    const volumeHeight=showVolume?65:0,paneHeight=secondary?0:panes.length*110;
-    const priceHeight=secondary?310:o.chartHeight?Math.max(160,o.chartHeight()-65-volumeHeight-paneHeight):Math.max(270,Math.min(450,window.innerHeight-380)),height=priceHeight+65+volumeHeight+paneHeight,dpr=window.devicePixelRatio||1;
+    const available=o.chartHeight?.();
+    const volumeHeight=showVolume?(available&&available<450?46:65):0;
+    const studyHeight=available?Math.max(78,Math.min(110,Math.floor((available-200)/Math.max(1,panes.length)))):110;
+    const paneHeight=secondary?0:panes.length*studyHeight;
+    const priceHeight=secondary?310:available?Math.max(125,available-49-volumeHeight-paneHeight):Math.max(270,Math.min(450,window.innerHeight-380));
+    const height=priceHeight+(available?49:65)+volumeHeight+paneHeight,dpr=window.devicePixelRatio||1;
     this.canvas.style.height=height+'px';this.canvas.width=Math.round(width*dpr);this.canvas.height=Math.round(height*dpr);
     const ctx=this.ctx;ctx.setTransform(dpr,0,0,dpr,0,0);
     const light=s.theme==='light',bg=s.background||(light?'#f8fafc':'#101722'),text=light?'#475569':'#91a0b5',grid=light?'#dce3ed':'#223044';
@@ -67,7 +71,12 @@ class MarketChartRenderer {
     if(s.lastPrice){const price=o.quote?.price??source.at(-1).close,yy=y(price);if(yy>=top&&yy<=bottom){stroke(left,yy,right,yy,price>=source.at(-1).open?s.upColor:s.downColor,[3,3]);ctx.fillStyle=price>=source.at(-1).open?s.upColor:s.downColor;ctx.fillRect(right+2,yy-9,81,18);textAt(priceFormat(price),right+6,yy+4,light?'#ffffff':'#071b16');}}
     if(!secondary && !s.hideDrawings) {
       ctx.save();ctx.beginPath();ctx.rect(left,top,plotWidth,bottom-top);ctx.clip();
-      for(const drawing of drawings.filter(d=>!d.payload.hidden))this.drawObject(drawing,{ctx,x,y,left,right,top,bottom,visible,stroke,textAt});
+      for(const drawing of drawings.filter(d=>!d.payload.hidden)){
+        ctx.save();
+        if(drawing===o.preview)ctx.globalAlpha=.65;
+        this.drawObject(drawing,{ctx,x,y,left,right,top,bottom,visible,stroke,textAt});
+        ctx.restore();
+      }
       if(o.anchor){ctx.fillStyle='#c4b5fd';ctx.beginPath();ctx.arc(x(o.anchor.time),y(o.anchor.price),4,0,2*Math.PI);ctx.fill();}
       ctx.restore();
     }
@@ -76,12 +85,12 @@ class MarketChartRenderer {
     if(!secondary)for(const {spec,series} of allIndicators.filter(v=>panes.includes(v.spec))){
       const values=series.flatMap(line=>line.data.slice(start,end)).filter(Number.isFinite);let pmin=Math.min(...values),pmax=Math.max(...values);if(!values.length){pmin=0;pmax=1;}
       if(['rsi','stochastic'].includes(spec.type)){pmin=0;pmax=100;}else{const padding=(pmax-pmin)*.1||1;pmin-=padding;pmax+=padding;}
-      const pbottom=paneTop+88,py=value=>paneTop+20+(pmax-value)/(pmax-pmin)*(pbottom-paneTop-20);
-      stroke(left,paneTop-3,right,paneTop-3);textAt(spec.type.toUpperCase()+(spec.period?' '+spec.period:''),left,paneTop+10);
+      const pbottom=paneTop+studyHeight-22,py=value=>paneTop+20+(pmax-value)/(pmax-pmin)*(pbottom-paneTop-20);
+      stroke(left,paneTop-3,right,paneTop-3);textAt(spec.type.toUpperCase()+(spec.period?' '+spec.period:'')+(values.length?'':' · waiting for more candles'),left,paneTop+10);
       [pmin,(pmin+pmax)/2,pmax].forEach(value=>{if(s.grid)stroke(left,py(value),right,py(value));textAt(value.toFixed(2),right+9,py(value)+3);});
       if(['rsi','stochastic'].includes(spec.type)){stroke(left,py(30),right,py(30),'#69748c',[4,4]);stroke(left,py(70),right,py(70),'#69748c',[4,4]);}
       for(const line of series){ctx.strokeStyle=line.color;ctx.lineWidth=1.3;ctx.beginPath();let began=false;line.data.slice(start,end).forEach((value,i)=>{if(!Number.isFinite(value)){began=false;return;}const xx=x(visible[i].time),yy=py(value);if(line.histogram){ctx.fillStyle=value>=0?s.upColor:s.downColor;ctx.fillRect(xx-spacing*.28,Math.min(py(0),yy),Math.max(1,spacing*.56),Math.max(1,Math.abs(py(0)-yy)));}else{if(!began){ctx.moveTo(xx,yy);began=true;}else ctx.lineTo(xx,yy);}});ctx.stroke();}
-      paneTop+=110;
+      paneTop+=studyHeight;
     }
     const hover=o.hover;
     if(!secondary && hover && s.crosshair){const point=this.pricePoint(hover.x,hover.y);if(point){stroke(x(point.time),top,x(point.time),height-25,text,[3,4]);if(hover.y>=top&&hover.y<=bottom){stroke(left,hover.y,right,hover.y,text,[3,4]);ctx.fillStyle=light?'#334155':'#33465e';ctx.fillRect(right+2,hover.y-9,81,18);textAt(priceFormat(point.price),right+6,hover.y+4,'#ffffff');}}}

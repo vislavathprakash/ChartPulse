@@ -241,6 +241,15 @@ body.dhan-terminal-open .content-wrap { max-width:none; padding:8px; }
 .dhan-search-row small { display:block; color:var(--muted); }
 .dhan-search-create { margin-top:5px; }
 .dhan-drawing-rail .terminal-icon { width:20px; height:20px; vertical-align:middle; }
+.dhan-chart-desk canvas.dhan-drawing-active { cursor:crosshair; }
+.dhan-tool-selected .dhan-chart-hint { display:block; color:var(--green); }
+.dhan-indicator-legend { display:flex; gap:5px; padding:0 8px 4px; overflow-x:auto; }
+.dhan-indicator-chip { display:inline-flex; flex:none; align-items:center; gap:2px; border:1px solid var(--line); border-radius:5px; padding-left:6px; font-size:11px; }
+.dhan-indicator-chip button { min-height:23px; padding:0 5px; }
+.dhan-indicator-results { max-height:min(48vh,340px); overflow:auto; }
+.dhan-indicator-results button { display:flex; align-items:center; justify-content:space-between; width:100%; padding:9px 8px; border:0; border-bottom:1px solid var(--line); color:var(--text); background:transparent; text-align:left; }
+.dhan-indicator-results button:hover,.dhan-indicator-results button[aria-pressed="true"] { background:var(--panel2); }
+.dhan-indicator-results small { display:block; color:var(--muted); }
 .dhan-dock-heading { display:flex; align-items:center; justify-content:space-between; padding:5px 8px; border-bottom:1px solid var(--line); }
 .dhan-dock-alerts { min-height:0; overflow:auto; padding:8px; scrollbar-width:thin; }
 .dhan-alert-row { padding:8px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }

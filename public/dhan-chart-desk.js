@@ -28,6 +28,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     </div>
     <div class="dhan-chart-stage">
       <div class="dhan-chart-ohlc" aria-label="Candle data"></div>
+      <div class="dhan-indicator-legend hidden" aria-label="Active indicators"></div>
       <div class="dhan-canvas-box"><canvas aria-label="Interactive Dhan price chart" tabindex="0"></canvas><p class="dhan-chart-empty" role="status">Choose a symbol to load candles.</p></div>
       <div class="dhan-chart-bottom">
         <button type="button" data-dhan-chart="zoomOut" aria-label="Zoom out">−</button>
@@ -113,6 +114,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   const box=desk.querySelector('.dhan-canvas-box');
   const empty=desk.querySelector('.dhan-chart-empty');
   const ohlc=desk.querySelector('.dhan-chart-ohlc');
+  const legend=desk.querySelector('.dhan-indicator-legend');
   const watch=desk.querySelector('.dhan-watch-rows');
   const watchSelect=desk.querySelector('select');
   const search=desk.querySelector('.dhan-watch-search');
@@ -126,6 +128,20 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     if(ohlc.textContent!==text)ohlc.textContent=text;
   }};
   const renderer=new MarketChartRenderer(canvas,owner);
+  const indicatorKey=()=>`alertpe:dhan-indicators:${state.user?.id}`;
+  const indicatorCatalog=Technicals.catalog.filter(item=>item.type!=='volume');
+  const indicatorName=item=>item.type.toUpperCase()+(item.period?` ${item.period}`:'');
+  function updateIndicators(items,save=true) {
+    owner.settings.indicators=items;
+    if(save)try{localStorage.setItem(indicatorKey(),JSON.stringify(items));}catch{}
+    legend.innerHTML=items.map(item=>`<span class="dhan-indicator-chip"><b>${html(indicatorName(item))}</b><button type="button" data-remove-indicator="${item.type}" aria-label="Remove ${html(indicatorName(item))}">×</button></span>`).join('');
+    legend.classList.toggle('hidden',!items.length);
+    paint();
+  }
+  legend.addEventListener('click',event=>{
+    const type=event.target.closest('button')?.dataset.removeIndicator;
+    if(type)updateIndicators(owner.settings.indicators.filter(item=>item.type!==type));
+  });
   let candles=[],drawings=[],undo=[],redo=[],symbols=[],quotes=new Map(),lists=[],watchId='',loadedFor=null,loadingLists=null,listEpoch=0;
   let tool='cursor',drag=null,storageKey='',dockView=null,alertEpoch=0,searchDialog=null,refreshSearch=null;
   const chartPanel=host.closest('.private-dhan-chart');
@@ -139,7 +155,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     event.preventDefault();
     openSymbolSearch(event.key);
   });
-  const paint=()=>renderer.render(candles,drawings);
+  const paint=()=>renderer.render(candles,owner.preview?[...drawings,owner.preview]:drawings);
   new ResizeObserver(paint).observe(box);
   const persist=()=>{
     if(storageKey)try{localStorage.setItem(storageKey,JSON.stringify(drawings));}catch{}
@@ -156,26 +172,41 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   function setTool(next) {
     tool=next;
     owner.anchor=null;
+    owner.preview=null;
+    canvas.classList.toggle('dhan-drawing-active',next!=='cursor');
+    desk.classList.toggle('dhan-tool-selected',next!=='cursor');
     desk.querySelectorAll('[data-dhan-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.dhanTool===tool)));
     hint.textContent=tool==='cursor'?'Drag to pan · Scroll to zoom':['horizontal','vertical','text'].includes(tool)?'Select a point on the chart.':'Select two points on the chart.';
     paint();
   }
-  function drawAt(event) {
+  function chartPoint(event, clamp=false) {
     const g=renderer.geometry;
-    if(!g||event.offsetX<g.left||event.offsetX>g.right||event.offsetY<g.top||event.offsetY>g.bottom)return;
-    const point=renderer.pricePoint(event.offsetX,event.offsetY);
-    if(!point||point.price<=0)return;
-    const single=['horizontal','vertical','text'].includes(tool);
-    if(!single&&!owner.anchor){owner.anchor=point;paint();return;}
-    const start=owner.anchor||point;
-    if(['ray','extended'].includes(tool)&&start.time===point.time){hint.textContent='Select a point on a different candle.';return;}
-    const payload={time:start.time,price:start.price,color:'#8b5cf6',lineWidth:1.5};
-    if(!single)Object.assign(payload,{time2:point.time,price2:point.price});
+    if(!g)return null;
+    const bounds=canvas.getBoundingClientRect();
+    const x=event.clientX-bounds.left,y=event.clientY-bounds.top;
+    if(!clamp&&(x<g.left||x>=g.right||y<g.top||y>g.bottom))return null;
+    return renderer.pricePoint(Math.max(g.left,Math.min(g.right-1,x)),Math.max(g.top,Math.min(g.bottom,y)));
+  }
+  const singlePoint=()=>['horizontal','vertical','text'].includes(tool);
+  function drawingPayload(start,end) {
+    return {time:start.time,price:start.price,color:'#a78bfa',lineWidth:2,...(end?{time2:end.time,price2:end.price}:{})};
+  }
+  function finishDrawing(start,end) {
+    if(end&&['ray','extended'].includes(tool)&&start.time===end.time){
+      owner.anchor=start;
+      hint.textContent='Choose a different candle for the second point.';
+      return;
+    }
     const kind=tool;
     const key=storageKey;
-    const save=text=>{if(key===storageKey&&drawings.length<100)editDrawings([...drawings,{id:crypto.randomUUID(),kind,payload:{...payload,text}}]);};
+    const payload=drawingPayload(start,end);
+    const save=text=>{
+      if(key!==storageKey)return;
+      if(drawings.length>=100)throw new Error('Remove a drawing before adding another.');
+      editDrawings([...drawings,{id:crypto.randomUUID(),kind,payload:{...payload,text}}]);
+    };
     if(kind==='text')workspaceDialog('Text annotation','<label>Note<input name="note" required maxlength="100"></label>',async data=>save(data.get('note')));
-    else save();
+    else try{save();}catch(error){toast(error.message,true);}
     setTool('cursor');
   }
   function zoom(delta, anchor=.5) {
@@ -206,7 +237,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       if(touches.size===2){pinch=distance();drag=null;return;}
       if(touches.size>2)return;
     }
-    drag={x:event.offsetX,y:event.offsetY,offset:owner.offset,scale:event.offsetX>g.right,min:g.min,max:g.max,height:g.bottom-g.top};
+    drag={x:event.offsetX,y:event.offsetY,offset:owner.offset,scale:event.offsetX>g.right,min:g.min,max:g.max,height:g.bottom-g.top,point:chartPoint(event)};
   };
   canvas.onpointermove=event=>{
     if(touches.has(event.pointerId))touches.set(event.pointerId,{x:event.offsetX,y:event.offsetY});
@@ -215,6 +246,15 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       return;
     }
     owner.hover={x:event.offsetX,y:event.offsetY};
+    if(tool!=='cursor'){
+      const point=chartPoint(event,Boolean(drag?.point));
+      const start=owner.anchor||drag?.point;
+      const single=singlePoint();
+      const canPreview=single?tool!=='text':start&&(!['ray','extended'].includes(tool)||start.time!==point?.time);
+      owner.preview=point&&canPreview?{kind:tool,payload:drawingPayload(single?point:start,single?null:point)}:null;
+      paint();
+      return;
+    }
     if(drag&&tool==='cursor'&&renderer.geometry){
       if(drag.scale){
         const center=(drag.min+drag.max)/2;
@@ -231,12 +271,20 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     }
     paint();
   };
-  canvas.onpointerleave=()=>{owner.hover=null;paint();};
-  canvas.onpointercancel=event=>{touches.delete(event.pointerId);if(touches.size<2)pinch=null;drag=null;};
+  canvas.onpointerleave=()=>{owner.hover=null;owner.preview=null;paint();};
+  canvas.onpointercancel=event=>{touches.delete(event.pointerId);if(touches.size<2)pinch=null;drag=null;owner.preview=null;paint();};
   canvas.onpointerup=event=>{
     touches.delete(event.pointerId);
     if(pinch!==null){if(touches.size<2)pinch=null;return;}
-    if(drag&&tool!=='cursor'&&Math.hypot(event.offsetX-drag.x,event.offsetY-drag.y)<8)drawAt(event);
+    if(drag?.point&&tool!=='cursor'){
+      const point=chartPoint(event,true);
+      const moved=Math.hypot(event.offsetX-drag.x,event.offsetY-drag.y)>=8;
+      if(point){
+        if(singlePoint())finishDrawing(point);
+        else if(owner.anchor||moved)finishDrawing(owner.anchor||drag.point,point);
+        else {owner.anchor=point;hint.textContent='Choose the second point.';paint();}
+      }
+    }
     drag=null;
   };
   canvas.ondblclick=()=>{if(tool==='cursor'){owner.manualRange=null;paint();}};
@@ -479,13 +527,31 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     },
     indicators:()=>{
-      const catalog=Technicals.catalog.filter(item=>item.type!=='volume');
-      workspaceDialog('Chart indicators',catalog.map(item=>`<label class="consent-row"><input type="checkbox" name="indicator" value="${item.type}" ${owner.settings.indicators.some(i=>i.type===item.type)?'checked':''}> ${html(item.name)}</label>`).join(''),async data=>{
-        const chosen=catalog.filter(item=>data.getAll('indicator').includes(item.type));
-        if(chosen.length>4)throw new Error('Choose up to four indicators.');
-        owner.settings.indicators=chosen;
-        paint();
-      });
+      const dialog=workspaceDialog('Indicators','<label>Search indicators<input type="search" placeholder="SMA, RSI, MACD…"></label><div class="dhan-indicator-results"></div><p class="muted" role="status"></p>');
+      const input=dialog.querySelector('input'), results=dialog.querySelector('.dhan-indicator-results'), status=dialog.querySelector('[role=status]');
+      const render=()=>{
+        const term=input.value.trim().toLowerCase();
+        results.innerHTML=indicatorCatalog.filter(item=>`${indicatorName(item)} ${item.name}`.toLowerCase().includes(term)).map(item=>{
+          const active=owner.settings.indicators.some(i=>i.type===item.type);
+          return `<button type="button" data-study="${item.type}" aria-pressed="${active}"><span><b>${html(item.name)}</b><small>${html(indicatorName(item))} · ${item.overlay?'Price overlay':'Separate pane'}</small></span><span aria-hidden="true">${active?'✓':'+'}</span></button>`;
+        }).join('')||'<p class="muted">No matching indicators.</p>';
+      };
+      const toggle=type=>{
+        const study=indicatorCatalog.find(item=>item.type===type);
+        if(!study)return;
+        const active=owner.settings.indicators;
+        const exists=active.some(item=>item.type===type);
+        if(!exists&&active.length>=4){status.textContent='Remove an indicator before adding another. You can show up to four.';return;}
+        updateIndicators(exists?active.filter(item=>item.type!==type):[...active,{...study}]);
+        render();
+        results.querySelector(`[data-study="${type}"]`)?.focus({preventScroll:true});
+        status.textContent=`${study.name} ${exists?'removed':'added to the chart'}.`;
+      };
+      input.oninput=render;
+      input.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();toggle(results.querySelector('[data-study]')?.dataset.study);}};
+      results.onclick=event=>toggle(event.target.closest('[data-study]')?.dataset.study);
+      render();
+      input.focus();
     },
     newList:()=>listDialog(),
     rename:()=>{if(currentList())listDialog(true);},
@@ -527,6 +593,9 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
           if(Array.isArray(stored))favorites=stored;
         }catch{}
         renderIntervals();
+        let saved=[];
+        try {const items=JSON.parse(localStorage.getItem(indicatorKey())||'[]');if(Array.isArray(items))saved=items;}catch{}
+        updateIndicators(indicatorCatalog.filter(item=>saved.some(savedItem=>savedItem?.type===item.type)).slice(0,4),false);
       }
       symbols=items;
       if(searchDialog?.open)refreshSearch?.();
@@ -568,6 +637,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       loadedFor=null;loadingLists=null;lists=[];watchId='';watchSelect.replaceChildren();search.value='';
       this.updateQuotes([],[],null);
       this.show(null,'day',null,[],'Choose a symbol to load candles.');
+      favoriteOwner=undefined;
+      updateIndicators([],false);
     }
   };
 }
