@@ -3,7 +3,7 @@ const privateDhanLink = new URLSearchParams(location.search).get('view') === 'pr
 const privateDhanEntryTab = new URLSearchParams(location.search).get('tab');
 function privateDhanPath(path) {
   const query = new URLSearchParams({view:'private-dhan'});
-  if (['watch','research'].includes(privateDhanEntryTab)) query.set('tab',privateDhanEntryTab);
+  if (['watch','commodities','research'].includes(privateDhanEntryTab)) query.set('tab',privateDhanEntryTab);
   return `${path}?${query}`;
 }
 const $ = (id) => document.getElementById(id);

@@ -118,6 +118,8 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
 .dhan-symbol-control { display:flex; align-items:center; gap:8px; min-width:0; }
 .dhan-symbol-control label,.dhan-technical-interval { margin:0; color:var(--muted); }
 .dhan-symbol-control select,.dhan-technical-interval select { width:auto; max-width:100%; min-height:44px; margin:0; padding:8px 10px; }
+.dhan-symbol-control select { min-width:0; }
+.dhan-last-trade:empty { display:none; }
 .dhan-technical-interval { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .dhan-terminal-content { flex:1; min-height:0; display:flex; }
 .dhan-pane { flex:1; min-width:0; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; }
@@ -151,6 +153,7 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
   #privateDhanPlot { order:1; flex:none; min-height:130px; }
   #privateDhanStats { order:2; margin:8px 0 0; }
 }
+@media(max-width:390px) { .dhan-workspace-tabs button { font-size:11px; padding-inline:3px; } }
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
 .terminal-watch .data-table th { font: 10px/1.4 var(--mono); letter-spacing: .06em; background: var(--terminal-inset); color: var(--muted); }

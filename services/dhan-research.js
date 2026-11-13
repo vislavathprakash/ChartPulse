@@ -90,9 +90,10 @@ function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,cre
       const depth=snapshot(symbol);
       return res.json(depth?{data:depth,...(snapshotMessage().startsWith('Dhan quote snapshot.')?{}:{warning:snapshotMessage()})}:{error:snapshotMessage()||'No depth snapshot is available for this symbol.'});
     }
+    if(i.instrument==='FUTCOM'&&['company','news'].includes(view))return res.json({error:'This panel uses Dhan equity data. For MCX futures, use Market depth or Technicals.'});
     if(view==='company')return res.json(await cached(`company:${symbol}`,3600000,async()=>metricGroups(await fetchData('data/companyinfo',{...equity,metrics:['CO','RATIOS','SHP']}),company)));
     if(view==='technicals') {
-      if(i.segment!=='NSE_EQ')return res.json({error:'Dhan’s technical indicator API supports NSE equities, but not BSE equities.'});
+      if(i.segment!=='NSE_EQ')return res.json({error:'Dhan’s indicator endpoint is unavailable for this market.'});
       if(!['day','5','15'].includes(interval))return res.json({error:'Dhan provides technical indicators for the 5 min, 15 min and Daily intervals shown here.'});
       return res.json(await cached(`technicals:${symbol}:${interval}`,interval==='day'?300000:60000,async()=>metricGroups(await fetchData('data/technical',{...equity,timeframe:interval==='day'?'D':interval,indicators}),{Indicators:indicators})));
     }

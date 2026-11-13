@@ -3,6 +3,8 @@ const { createInterface } = require('node:readline');
 const WebSocket = require('ws');
 
 const MASTER = 'https://images.dhan.co/api-data/api-scrip-master.csv';
+const COMMODITY_MASTER = 'https://api.dhan.co/v2/instrument/MCX_COMM';
+const COMMODITIES = ['GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS', 'COPPER'];
 const EXCHANGES = { NSE: { segment: 'NSE_EQ', code: 1 }, BSE: { segment: 'BSE_EQ', code: 4 } };
 const DEFAULT_SYMBOLS = 'NSE:RELIANCE,NSE:TCS,NSE:INFY,NSE:HDFCBANK,NSE:SBIN,NSE:ICICIBANK,BSE:RELIANCE,BSE:TCS,BSE:INFY,BSE:HDFCBANK,BSE:SBIN,BSE:ICICIBANK';
 
@@ -60,6 +62,33 @@ async function resolveInstruments(input = DEFAULT_SYMBOLS) {
   return symbols.map(s => found.get(s));
 }
 
+async function resolveCommodityFutures(now = Date.now()) {
+  const response = await fetch(COMMODITY_MASTER, { signal: AbortSignal.timeout(10000), redirect: 'error' });
+  if (!response.ok || !response.body) throw new Error('Dhan MCX contract directory unavailable.');
+  const stream = Readable.fromWeb(response.body);
+  const lines = createInterface({ input: stream, crlfDelay: Infinity });
+  const today = new Date(now + 19800000).toISOString().slice(0, 10);
+  const contracts = new Map();
+  let columns;
+  try {
+    for await (const line of lines) {
+      if (!columns) {
+        const header = csvFields(line.replace(/^\uFEFF/, ''));
+        columns = ['SECURITY_ID','INSTRUMENT','SYMBOL_NAME','DISPLAY_NAME','SM_EXPIRY_DATE'].map(key=>header.indexOf(key));
+        if (columns.includes(-1)) throw new Error('Dhan MCX contract directory format changed.');
+        continue;
+      }
+      const fields = csvFields(line);
+      const [id,instrument,ticker,name,expiry] = columns.map(index=>fields[index]?.trim());
+      if (instrument!=='FUTCOM' || !COMMODITIES.includes(ticker) || !/^\d+$/.test(id) || !/^\d{4}-\d{2}-\d{2}$/.test(expiry) || expiry<today) continue;
+      if (contracts.has(ticker) && contracts.get(ticker).expiry<=expiry) continue;
+      contracts.set(ticker,{id,instrument,symbol:`MCX:${ticker}`,name,expiry,exchange:'MCX',segment:'MCX_COMM',code:5});
+    }
+  } finally { lines.close(); stream.destroy(); }
+  if (!contracts.size) throw new Error('No active MCX contracts were listed by Dhan.');
+  return COMMODITIES.map(ticker=>contracts.get(ticker)).filter(Boolean);
+}
+
 const positive = n => Number.isFinite(n) && n > 0 ? n : null;
 function decodePacket(buffer) {
   if (buffer.length < 8) return null;
@@ -107,7 +136,10 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       if (!active()) return;
       lastSignal = Date.now();
       onStatus('Subscribed to DhanHQ. Waiting for quotes.', false);
-      current.send(JSON.stringify({ RequestCode: 17, InstrumentCount: instruments.length, InstrumentList: instruments.map(i => ({ ExchangeSegment: i.segment, SecurityId: i.id })) }));
+      for (let offset = 0; offset < instruments.length; offset += 100) {
+        const batch = instruments.slice(offset, offset + 100);
+        current.send(JSON.stringify({ RequestCode: 17, InstrumentCount: batch.length, InstrumentList: batch.map(i => ({ ExchangeSegment: i.segment, SecurityId: i.id })) }));
+      }
       liveness = setInterval(() => { if (active() && Date.now() - lastSignal > 45000) current.terminate(); }, 10000);
       liveness.unref();
     });
@@ -190,4 +222,4 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
   } };
 }
 
-module.exports = { credentials, resolveInstruments, decodePacket, connectFeed };
+module.exports = { credentials, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };
