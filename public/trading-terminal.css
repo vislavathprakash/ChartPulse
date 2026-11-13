@@ -77,6 +77,30 @@ html[data-theme=midnight] {
 .private-dhan-svg g path { stroke:currentColor; }
 .private-dhan-svg rect { fill:currentColor; }
 .private-dhan-svg .private-volume { opacity:.45; }
+.dhan-research { margin-block: 16px; min-width: 0; }
+.dhan-research .panel-heading { flex-wrap: wrap; gap: 12px; }
+.dhan-research-nav, .dhan-research-filters { display:flex; flex-wrap:wrap; gap:8px; margin-block:12px; }
+.dhan-research-nav button { background:var(--terminal-inset); color:var(--muted); border:1px solid var(--line); border-radius:8px; min-height:44px; padding:8px 12px; font:inherit; cursor:pointer; }
+.dhan-research-nav button:hover, .dhan-research-nav button[aria-pressed="true"] { border-color:var(--green); color:var(--text); }
+.dhan-research-nav button[aria-pressed="true"] { background:color-mix(in srgb,var(--green) 11%,var(--terminal-inset)); }
+.dhan-research button:focus-visible, .dhan-research a:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+.dhan-research-filters label { display:flex; align-items:center; gap:8px; }
+.dhan-research-filters select { width:auto; margin:0; min-height:44px; }
+.dhan-research-status { margin:12px 0; font-size:13px; }
+.dhan-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr)); gap:8px; margin:0 0 12px; }
+.dhan-metrics div { min-width:0; padding:10px 12px; background:var(--terminal-inset); border:1px solid var(--line); border-radius:8px; }
+.dhan-metrics dt { color:var(--muted); font-size:12px; }
+.dhan-metrics dd { margin:4px 0 0; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.dhan-metric-section h3 { margin:16px 0 8px; font-size:15px; }
+.dhan-data-table :is(td,th) { white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+.dhan-data-table :is(td,th):first-child { text-align:left; }
+.dhan-bid { color:var(--green); }
+.dhan-ask { color:var(--red); }
+.dhan-data-table small,.dhan-headlines small { display:block; color:var(--muted); margin-top:4px; }
+.dhan-headlines { list-style:none; padding:0; margin:0; }
+.dhan-headlines li { padding:12px 0; border-top:1px solid var(--line); overflow-wrap:anywhere; }
+.dhan-headlines a { color:var(--green); }
+.dhan-no-data { margin:12px 0 0; }
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
 .terminal-watch .data-table th { font: 10px/1.4 var(--mono); letter-spacing: .06em; background: var(--terminal-inset); color: var(--muted); }

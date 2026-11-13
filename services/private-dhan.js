@@ -1,5 +1,6 @@
 const dhan = require('./dhan-feed');
 const { parseQuery, evaluateQuery } = require('../market-query');
+const { installDhanResearch, quoteDepth } = require('./dhan-research');
 const istDate = time => new Date(time + 19800000).toISOString().slice(0, 10);
 const positive = value => Number.isFinite(value) && value > 0 ? value : null;
 const number = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -66,7 +67,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
         for(const i of directory.values()) {
           const q=data?.[i.segment]?.[i.id], price=positive(number(q?.last_price)); if(!price)continue;
           const previous=positive(number(q.ohlc?.close));
-          snapshots.set(i.symbol,{symbol:i.symbol,name:i.name,exchange:i.exchange,price,previous_close:previous,change_pct:previous?(price/previous-1)*100:null,volume:number(q.volume),open:positive(number(q.ohlc?.open)),high:positive(number(q.ohlc?.high)),low:positive(number(q.ohlc?.low)),updated_at:tradeDate(q.last_trade_time),source:'snapshot'});
+          snapshots.set(i.symbol,{quote:{symbol:i.symbol,name:i.name,exchange:i.exchange,price,previous_close:previous,change_pct:previous?(price/previous-1)*100:null,volume:number(q.volume),open:positive(number(q.ohlc?.open)),high:positive(number(q.ohlc?.high)),low:positive(number(q.ohlc?.low)),updated_at:tradeDate(q.last_trade_time),source:'snapshot'}, depth:quoteDepth(q,number)});
         }
         snapshotStatus=snapshots.size?'Dhan quote snapshot. Exchange timestamps are shown when available.':'Dhan returned no quotes for the configured symbols.';
       }catch(err){snapshotStatus=err.message.startsWith('Dhan ')?err.message:'Dhan quote snapshot could not be reached.';nextSnapshot=Date.now()+60000;}
@@ -79,11 +80,13 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     if (!allows(req.session.user)) return res.status(404).json({ error: 'Not found.' });
     next();
   }
+  installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials:dhan.credentials,
+    instrument:symbol=>directory.get(symbol), refreshSnapshot, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
   app.get('/api/private-dhan/quotes', requireAuth, ownerOnly, asyncRoute(async (req, res) => {
     const query = req.query.query;
     const hasFreshStream = Boolean(client?.isReady() && [...quotes.values()].some(q=>Date.now()-Date.parse(q.updated_at)<120000));
     if (!hasFreshStream) await refreshSnapshot();
-    const merged=new Map(snapshots);
+    const merged=new Map([...snapshots].map(([symbol,snapshot])=>[symbol,snapshot.quote]));
     for(const q of quotes.values()){const fallback=merged.get(q.symbol);if(!fallback||Date.parse(q.updated_at)>=(Date.parse(fallback.updated_at)||0))merged.set(q.symbol,{...q,source:'stream'});}
     let rows = [...merged.values()];
     if (query !== undefined && query !== '') {
@@ -91,7 +94,8 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       try { const rule = parseQuery(query); rows = rows.filter(quote => evaluateQuery(rule, quote)); }
       catch (err) { return res.status(400).json({ error: err.message }); }
     }
-    res.json({ quotes: rows, symbols:[...directory.values()].map(({symbol,name})=>({symbol,name})), connected:hasFreshStream, stream:client?.diagnostics(), status:hasFreshStream?'Dhan WebSocket is streaming.':[snapshotStatus,status].filter(Boolean).join(' ') });
+    const selected=typeof req.query.symbol==='string'?merged.get(req.query.symbol):undefined;
+    res.json({ quotes: rows, selected, symbols:[...directory.values()].map(({symbol,name})=>({symbol,name})), connected:hasFreshStream, stream:client?.diagnostics(), status:hasFreshStream?'Dhan WebSocket is streaming.':[snapshotStatus,status].filter(Boolean).join(' ') });
   }));
 
   app.get('/api/private-dhan/history', requireAuth, ownerOnly, asyncRoute(async(req,res)=>{
