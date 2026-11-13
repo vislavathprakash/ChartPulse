@@ -1,6 +1,7 @@
 const dhan = require('./dhan-feed');
 const { parseQuery, evaluateQuery } = require('../market-query');
 const { installDhanResearch, quoteDepth } = require('./dhan-research');
+const { installDhanAlerts } = require('./dhan-alerts');
 const istDate = time => new Date(time + 19800000).toISOString().slice(0, 10);
 const positive = value => Number.isFinite(value) && value > 0 ? value : null;
 const number = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -100,6 +101,8 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     if (!allows(req.session.user)) return res.status(404).json({ error: 'Not found.' });
     next();
   }
+  const alerts=installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,quotes,
+    instrument:symbol=>directory.get(symbol),connected:()=>Boolean(configured&&client?.isReady())});
   function mergedQuotes() {
     const merged=new Map([...snapshots].map(([symbol,snapshot])=>[symbol,snapshot.quote]));
     for(const q of quotes.values()) {
@@ -159,7 +162,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     try{res.json(await requests.get(key));}catch(err){res.status(502).json({error:err.message.startsWith('Dhan ')?err.message:'Dhan historical data could not be reached.'});}
   }));
 
-  return { allows, hasSymbol: (user, symbol) => allows(user) && directory.has(symbol), start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
+  return { allows, hasSymbol: (user, symbol) => allows(user) && directory.has(symbol), alerts, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
 }
 
 module.exports = { installPrivateDhan };

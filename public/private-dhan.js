@@ -11,10 +11,10 @@
     <form class="panel query-panel" id="privateDhanFilter"><label for="privateDhanQuery">Filter configured live quotes</label><div class="query-box"><input id="privateDhanQuery" maxlength="2000" placeholder="change_pct &lt;= -3" autocomplete="off"><button class="button primary" type="submit">Apply filter</button><button class="button secondary" type="reset">Clear</button></div></form>
     <section class="panel terminal-watch"><div class="panel-heading"><div><h2>Market watch</h2><p class="muted" id="privateDhanStatus" role="status">Waiting for Dhan.</p></div></div><div id="privateDhanTable" class="table-wrap empty-state">Waiting for quotes.</div></section>`;
   const views = [
-    ['dashboard', 'Dashboard', 'overview'],
-    ['watch', 'Market watch', 'screener'],
-    ['commodities', 'Commodities', 'charts'],
-    ['research', 'Research', 'charts']
+    ['dashboard', 'Chart', 'charts'],
+    ['watch', 'Market watch', 'list'],
+    ['commodities', 'Commodities', 'commodity'],
+    ['research', 'Research', 'research']
   ];
   const chartPanel = page.querySelector('.private-dhan-chart');
   const tradeStatus = document.createElement('p');
@@ -28,7 +28,7 @@
   shell.innerHTML = `
     <div class="dhan-terminal-bar">
       <div class="dhan-workspace-tabs" role="tablist" aria-label="Dhan terminal">
-        ${views.map(([id,label,icon])=>`<button type="button" role="tab" id="dhan-tab-${id}" aria-controls="dhan-pane-${id}" aria-selected="false" tabindex="-1">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}
+        ${views.map(([id,label,icon])=>`<button type="button" role="tab" id="dhan-tab-${id}" aria-controls="dhan-pane-${id}" aria-label="${label}" title="${label}" aria-selected="false" tabindex="-1">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}
       </div>
       <div class="dhan-symbol-control"><label for="privateHistorySymbol">Symbol</label></div>
     </div>

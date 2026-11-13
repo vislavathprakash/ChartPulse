@@ -17,7 +17,12 @@ const terminalIcons = {
   alerts:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
   account:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v2"/>',
   arrow:'<path d="M6 18 18 6M7 6h11v11"/>',
-  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>'
+  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  fullscreen:'<path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/>',
+  layers:'<path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/>',
+  list:'<path d="M8 5h12M8 12h12M8 19h12M4 5h.01M4 12h.01M4 19h.01"/>',
+  commodity:'<path d="m4 15 4-7h8l4 7-1 2H5l-1-2Zm4-7 2 7h4l2-7"/>',
+  research:'<path d="M4 19h16M6 15l4-4 4 2 5-7M16 6h3v3"/>'
 };
 const terminalIcon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${terminalIcons[name]||''}</svg>`;
 document.addEventListener('DOMContentLoaded',()=>{

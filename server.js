@@ -321,7 +321,7 @@ app.post('/api/webhooks/tradingview/:token', asyncRoute(async (req, res) => {
 }));
 
 async function deliverWhatsAppAlert(alert) {
-  if (isSimulated) { await pool.query("UPDATE alerts SET status='simulated' WHERE id=$1", [alert.id]); return; }
+  if (isSimulated && alert.source!=='dhan') { await pool.query("UPDATE alerts SET status='simulated' WHERE id=$1", [alert.id]); return; }
   const { rows } = await pool.query('SELECT id,whatsapp_phone,whatsapp_opt_in FROM users WHERE id=$1 AND active=TRUE', [alert.user_id]);
   const user = rows[0];
   if (!user || !user.whatsapp_opt_in || !user.whatsapp_phone) {
@@ -572,7 +572,7 @@ app.get('/api/admin/delivery-jobs',requireAdminAuth,asyncRoute(async(req,res)=>{
 let server,gateway;
 async function start(){
   let release;while(!release){release=await pool.leadership(730010);if(!release)await new Promise(resolve=>setTimeout(resolve,500));}
-  try{await setup();await runtime.setup();await calendar.setup();await account.setup();}finally{await release();}
+  try{await setup();await runtime.setup();await calendar.setup();await account.setup();if(isSimulated&&runtime.role==='standalone')await privateDhan.alerts.setup();}finally{await release();}
   if(['standalone','api','gateway'].includes(runtime.role)){
     server=http.createServer(app);gateway=installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled:marketEntitled});app.use(errorHandler);
     await new Promise(resolve=>server.listen(PORT,resolve));console.log('ChartPulse '+runtime.role+' listening on '+PORT);
@@ -592,7 +592,7 @@ async function start(){
     await runtime.loadSnapshot();await runtime.claimLeadership(key);
   }
   if(['standalone','ingestion'].includes(runtime.role)){await startMarketFeed();if(marketProvider==='dhan'){runtime.every(3000,flushDhanQuotes);runtime.every(60000,()=>{if(!marketRuntime.client)return startDhanFeed();});}else if(!isSimulated)runtime.every(100,flushMarketQuotes);runtime.every(125,()=>runtime.processCommands());}
-  if(isSimulated&&runtime.role==='standalone'){void privateDhan.start();runtime.every(60000,privateDhan.start);}
+  if(isSimulated&&runtime.role==='standalone'){void privateDhan.start();runtime.every(60000,privateDhan.start);runtime.every(2500,privateDhan.alerts.scan);}
   if(runtime.role==='evaluator')runtime.every(125,()=>runtime.evaluateEvents());
   if(['standalone','delivery'].includes(runtime.role))runtime.every(250,()=>processNotifications({pool,runtime,deliver:deliverWhatsAppAlert}));
   if(['standalone','evaluator'].includes(runtime.role)){await calendar.scan();runtime.every(15000,()=>calendar.scan());}
