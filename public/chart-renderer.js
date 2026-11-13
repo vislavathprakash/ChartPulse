@@ -13,7 +13,8 @@ class MarketChartRenderer {
     const active=s.indicators.filter(i=>i.visible!==false),overlay=active.filter(i=>Technicals.catalog.find(c=>c.type===i.type)?.overlay),panes=active.filter(i=>!Technicals.catalog.find(c=>c.type===i.type)?.overlay && i.type!=='volume');
     const width=this.canvas.clientWidth;if(width<100)return;
     const showVolume=s.volume||active.some(i=>i.type==='volume');
-    const priceHeight=secondary?310:Math.max(270,Math.min(450,window.innerHeight-380)),volumeHeight=showVolume?65:0,height=priceHeight+65+volumeHeight+(secondary?0:panes.length*110),dpr=window.devicePixelRatio||1;
+    const volumeHeight=showVolume?65:0,paneHeight=secondary?0:panes.length*110;
+    const priceHeight=secondary?310:o.chartHeight?Math.max(160,o.chartHeight()-65-volumeHeight-paneHeight):Math.max(270,Math.min(450,window.innerHeight-380)),height=priceHeight+65+volumeHeight+paneHeight,dpr=window.devicePixelRatio||1;
     this.canvas.style.height=height+'px';this.canvas.width=Math.round(width*dpr);this.canvas.height=Math.round(height*dpr);
     const ctx=this.ctx;ctx.setTransform(dpr,0,0,dpr,0,0);
     const light=s.theme==='light',bg=s.background||(light?'#f8fafc':'#101722'),text=light?'#475569':'#91a0b5',grid=light?'#dce3ed':'#223044';
@@ -29,13 +30,21 @@ class MarketChartRenderer {
     const y=price=>top+(high-(log?Math.log(Math.max(price,.000001)):price))/(high-low)*(bottom-top);
     const inverseY=yy=>{const value=high-(yy-top)/(bottom-top)*(high-low);return log?Math.exp(value):value;};
     const stepTime=visible.length>1?visible[1].time-visible[0].time:60;
-    const x=time=>left+((time-visible[0].time)/stepTime+.5)*spacing;
+    const positions=o.compactSessions?new Map(visible.map((bar,index)=>[bar.time,index])):null;
+    const x=time=>{
+      if(!positions)return left+((time-visible[0].time)/stepTime+.5)*spacing;
+      if(positions.has(time))return left+(positions.get(time)+.5)*spacing;
+      let lo=0,hi=visible.length;
+      while(lo<hi){const mid=(lo+hi)>>1;if(visible[mid].time<time)lo=mid+1;else hi=mid;}
+      return left+(lo===0?-1:lo===visible.length?visible.length+1:lo)*spacing;
+    };
     this.geometry={visible,start,end,left,right,spacing,top,bottom,x,y,inverseY,min,max,height};
     const priceFormat=p=>p.toLocaleString('en-IN',{minimumFractionDigits:s.precision,maximumFractionDigits:s.precision});
     const textAt=(value,xx,yy,color=text)=>{ctx.fillStyle=color;ctx.fillText(value,xx,yy);};
     const stroke=(x1,y1,x2,y2,color=grid,dash=[])=>{ctx.strokeStyle=color;ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.setLineDash([]);};
     for(let i=0;i<=5;i++){const yy=top+(bottom-top)*i/5;if(s.grid)stroke(left,yy,right,yy);textAt(priceFormat(inverseY(yy)),right+9,yy+4);}
-    for(let i=0;i<6;i++){const index=Math.floor((visible.length-1)*i/5),c=visible[index],xx=x(c.time);if(s.grid)stroke(xx,top,xx,bottom);const label=new Date(c.time*1000).toLocaleTimeString('en-GB',{timeZone:s.timezone,hour:'2-digit',minute:'2-digit'});textAt(label,Math.max(left,Math.min(right-40,xx-17)),height-10);}
+    const daily=s.interval==='day'||s.interval==='1D';
+    for(let i=0;i<Math.min(6,visible.length);i++){const index=Math.floor((visible.length-1)*i/Math.max(1,Math.min(5,visible.length-1))),c=visible[index],xx=x(c.time);if(s.grid)stroke(xx,top,xx,bottom);const label=new Intl.DateTimeFormat('en-GB',{timeZone:s.timezone,...(daily?{month:'short',day:'numeric'}:{hour:'2-digit',minute:'2-digit'})}).format(c.time*1000);textAt(label,Math.max(left,Math.min(right-40,xx-17)),height-10);}
     if(s.watermark){ctx.save();ctx.globalAlpha=.09;ctx.fillStyle=text;ctx.font='bold 38px sans-serif';ctx.textAlign='center';ctx.fillText(secondary?(s.compareSymbol||'Comparison'):o.symbol,(left+right)/2,(top+bottom)/2);ctx.restore();}
     const linePlot=(data,color,transform=y,fill=false)=>{
       ctx.save();ctx.beginPath();ctx.rect(left,top,plotWidth,bottom-top);ctx.clip();ctx.strokeStyle=color;ctx.lineWidth=1.6;ctx.beginPath();let points=[];
@@ -55,7 +64,7 @@ class MarketChartRenderer {
     });
     ctx.restore();
     for(const {spec,series} of allIndicators.filter(v=>overlay.includes(v.spec)))for(const line of series)linePlot(line.data,line.color);
-    if(s.lastPrice){const price=source.at(-1).close,yy=y(price);if(yy>=top&&yy<=bottom){stroke(left,yy,right,yy,price>=source.at(-1).open?s.upColor:s.downColor,[3,3]);ctx.fillStyle=price>=source.at(-1).open?s.upColor:s.downColor;ctx.fillRect(right+2,yy-9,81,18);textAt(priceFormat(price),right+6,yy+4,light?'#ffffff':'#071b16');}}
+    if(s.lastPrice){const price=o.quote?.price??source.at(-1).close,yy=y(price);if(yy>=top&&yy<=bottom){stroke(left,yy,right,yy,price>=source.at(-1).open?s.upColor:s.downColor,[3,3]);ctx.fillStyle=price>=source.at(-1).open?s.upColor:s.downColor;ctx.fillRect(right+2,yy-9,81,18);textAt(priceFormat(price),right+6,yy+4,light?'#ffffff':'#071b16');}}
     if(!secondary && !s.hideDrawings) {
       ctx.save();ctx.beginPath();ctx.rect(left,top,plotWidth,bottom-top);ctx.clip();
       for(const drawing of drawings.filter(d=>!d.payload.hidden))this.drawObject(drawing,{ctx,x,y,left,right,top,bottom,visible,stroke,textAt});
@@ -76,7 +85,7 @@ class MarketChartRenderer {
     }
     const hover=o.hover;
     if(!secondary && hover && s.crosshair){const point=this.pricePoint(hover.x,hover.y);if(point){stroke(x(point.time),top,x(point.time),height-25,text,[3,4]);if(hover.y>=top&&hover.y<=bottom){stroke(left,hover.y,right,hover.y,text,[3,4]);ctx.fillStyle=light?'#334155':'#33465e';ctx.fillRect(right+2,hover.y-9,81,18);textAt(priceFormat(point.price),right+6,hover.y+4,'#ffffff');}}}
-    textAt((o.replay?'HISTORICAL REPLAY · ':'SIMULATED · ')+(s.chartType==='heikin'?'Heikin Ashi · ':'')+(secondary?s.compareSymbol:o.symbol)+' · '+s.interval,left,19,light?'#996715':'#e8bb67');
+    textAt((o.replay?'HISTORICAL REPLAY · ':o.sourceLabel?o.sourceLabel+' · ':'SIMULATED · ')+(s.chartType==='heikin'?'Heikin Ashi · ':'')+(secondary?s.compareSymbol:o.symbol)+' · '+(daily?'1D':s.interval),left,19,light?'#996715':'#e8bb67');
     if(!secondary)o.updateDataWindow(hover?this.pricePoint(hover.x,hover.y)?.index:source.length-1,candles,allIndicators);
   }
   drawObject(d,g) {

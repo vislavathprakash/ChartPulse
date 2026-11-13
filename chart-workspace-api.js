@@ -1,7 +1,7 @@
 const T = require('./public/technical-analysis');
 const D = require('./chart-domain');
 const directory = require('./services/symbol-directory');
-function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulated,deliveryStatus,requestEvaluation,shardMatches=()=>true,evaluationKey=()=>null,evaluationScope=()=>({})}) {
+function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulated,deliveryStatus,requestEvaluation,canWatchPrivateSymbol=()=>false,shardMatches=()=>true,evaluationKey=()=>null,evaluationScope=()=>({})}) {
   async function setup() {
     await pool.query(`CREATE TABLE IF NOT EXISTS chart_preferences (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, settings JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
       CREATE TABLE IF NOT EXISTS chart_layouts (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,name TEXT NOT NULL,symbol TEXT NOT NULL,settings JSONB NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
@@ -62,7 +62,7 @@ function installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulate
   app.delete('/api/watchlists/:id',requireAuth,asyncRoute(async(req,res)=>{const r=await pool.query('DELETE FROM watchlists WHERE id=$1 AND user_id=$2',[req.params.id,req.session.user.id]);res.status(r.rowCount?200:404).json(r.rowCount?{ok:true}:{error:'Watchlist not found.'});}));
   app.post('/api/watchlists/:id/items',requireAuth,asyncRoute(async(req,res)=>{
     const symbol=typeof req.body.symbol==='string'?req.body.symbol.trim().toUpperCase():'';
-    if(!directory.find(symbol))await requireSymbol(symbol);
+    if(!directory.find(symbol)&&!canWatchPrivateSymbol(req.session.user,symbol))await requireSymbol(symbol);
     await pool.transaction(async()=>{await ownWatchlist(req.params.id,req.session.user.id);
       await pool.query('SELECT id FROM watchlists WHERE id=$1 AND user_id=$2 FOR UPDATE',[req.params.id,req.session.user.id]);
       const {rows}=await pool.query('SELECT symbol FROM watchlist_items WHERE watchlist_id=$1',[req.params.id]);

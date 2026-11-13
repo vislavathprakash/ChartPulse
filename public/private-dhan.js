@@ -6,7 +6,7 @@
   const page = document.createElement('section');
   page.id = 'page-private-dhan'; page.className = 'page hidden';
   page.innerHTML = `<div class="page-heading"><div><div class="eyebrow">PRIVATE WORKSPACE · DHANHQ</div><h1>Live market terminal</h1><p class="muted">NSE and BSE equities, MCX futures, charts, and research.</p></div><span class="tag" id="privateDhanBadge">WAITING FOR QUOTES</span></div>
-    <section class="panel private-dhan-chart"><div class="panel-heading"><div><h2>Price history</h2><p class="muted" id="privateHistoryStatus" role="status">Loading the Dhan symbol list…</p></div><div class="terminal-actions"><select id="privateHistorySymbol" aria-label="Dhan symbol" disabled></select><select id="privateHistoryInterval" aria-label="Candle interval"><option value="day">Daily</option><option value="5">5 min</option><option value="15">15 min</option><option value="60">1 hour</option></select><button id="privateHistoryRefresh" type="button" class="button secondary">Refresh chart</button></div></div><div id="privateDhanStats" class="private-dhan-stats"></div><div id="privateDhanPlot" class="empty-state">Waiting for a symbol.</div></section>
+    <section class="panel private-dhan-chart"><div class="panel-heading"><div><h2>Price history</h2><p class="muted" id="privateHistoryStatus" role="status">Loading the Dhan symbol list…</p></div><div class="terminal-actions"><select id="privateHistorySymbol" aria-label="Dhan symbol" disabled></select><select id="privateHistoryInterval" aria-label="Candle interval"><option value="1">1 min</option><option value="5">5 min</option><option value="15">15 min</option><option value="25">25 min</option><option value="60">1 hour</option><option value="day" selected>Daily</option></select><button id="privateHistoryRefresh" type="button" class="button secondary">Refresh chart</button></div></div><div id="privateDhanStats" class="private-dhan-stats"></div><div id="privateDhanPlot" class="empty-state">Waiting for a symbol.</div></section>
     <section class="panel dhan-research" aria-labelledby="dhanResearchHeading"><div class="panel-heading"><div><div class="eyebrow">DHANHQ DATA</div><h2 id="dhanResearchHeading">Market intelligence</h2><p id="dhanResearchContext" class="muted"></p></div><button class="button secondary" type="button" id="dhanResearchRefresh">Refresh data</button></div><div class="dhan-research-nav" role="group" aria-label="Market intelligence views">${[['depth','Market depth'],['company','Fundamentals'],['technicals','Technicals'],['movers','Market movers'],['news','Stock news']].map(([value,label])=>`<button type="button" data-dhan-research="${value}" aria-pressed="${value==='depth'}">${label}</button>`).join('')}</div><div class="dhan-research-filters hidden" id="dhanMoversFilters"><label>Exchange <select id="dhanMoversExchange"><option value="NSE_EQ">NSE</option><option value="BSE_EQ">BSE</option></select></label><label>Ranking <select id="dhanMoversRanking"><option value="PRICE_GAINERS">Gainers</option><option value="PRICE_LOSERS">Losers</option></select></label></div><p class="muted dhan-research-status" id="dhanResearchStatus" role="status">Choose a symbol to start.</p><div id="dhanResearchBody"></div></section>
     <form class="panel query-panel" id="privateDhanFilter"><label for="privateDhanQuery">Filter configured live quotes</label><div class="query-box"><input id="privateDhanQuery" maxlength="2000" placeholder="change_pct &lt;= -3" autocomplete="off"><button class="button primary" type="submit">Apply filter</button><button class="button secondary" type="reset">Clear</button></div></form>
     <section class="panel terminal-watch"><div class="panel-heading"><div><h2>Market watch</h2><p class="muted" id="privateDhanStatus" role="status">Waiting for Dhan.</p></div></div><div id="privateDhanTable" class="table-wrap empty-state">Waiting for quotes.</div></section>`;
@@ -46,9 +46,14 @@
   technicalInterval.insertAdjacentHTML('beforeend', '<select aria-label="Technical indicator interval"></select>');
   const researchInterval = technicalInterval.querySelector('select');
   researchInterval.append(...Array.from(controls.querySelector('select').options, option=>option.cloneNode(true)));
+  researchInterval.value=$('privateHistoryInterval')?.value || controls.querySelector('select').value;
   researchPanel.querySelector('.dhan-research-nav').after(technicalInterval);
   page.append(shell);
   document.querySelector('.content-wrap').append(page);
+  const desk = createDhanChartDesk($('privateDhanPlot'), controls, symbol=>{
+    $('privateHistorySymbol').value=symbol;
+    $('privateHistorySymbol').dispatchEvent(new Event('change'));
+  });
   let timer, query = '', generation = 0, controller, historyController, symbolList = '';
   let researchView = 'depth', researchController, chartHistory;
   let terminalView = 'dashboard';
@@ -143,6 +148,7 @@
         if(select.value)selectTerminalView(terminalView,{syncUrl:false});
       }
       const chosen=data.selected?.symbol===select.value?data.selected:data.quotes.find(q=>q.symbol===select.value);
+      if(terminalView==='dashboard')desk.updateQuotes(data.symbols||[],data.quotes,select.value);
       const expiry=select.selectedOptions[0]?.dataset.expiry;
       const trade=Date.parse(chosen?.updated_at);
       tradeStatus.textContent=[expiry?`Expires ${expiry}`:null,Number.isFinite(trade)?`Last trade ${quoteTime.format(trade)} IST`:null].filter(Boolean).join(' · ');
@@ -157,24 +163,24 @@
       updateMarketWatch($('privateDhanTable'),[]);
       if (err.status === 400 || err.status === 404) return;
     }
-    if (current()) timer = setTimeout(refresh, 5000);
+    if (current()) {
+      if (terminalView==='dashboard' && chartHistory && Date.now()-chartHistory.loadedAt>60000 && !historyController?.pending) void loadHistory(true);
+      timer = setTimeout(refresh, 5000);
+    }
   }
-  function drawHistory(candles) {
-    const chart=$('privateDhanPlot'), bars=candles.slice(-100);
-    chart.classList.toggle('empty-state',!bars.length);
-    if(!bars.length){chart.textContent='No candles returned for this interval.';return;}
-    const high=Math.max(...bars.map(c=>c.high)),low=Math.min(...bars.map(c=>c.low)),span=Math.max(high-low,high*.001), y=value=>14+(high-value)*190/span;
-    const step=700/bars.length, volume=Math.max(1,...bars.map(c=>c.volume??0));
-    chart.innerHTML=`<svg class="private-dhan-svg" viewBox="0 0 790 268" role="img" aria-label="Dhan historical candlesticks and volume">${[0,1,2,3,4].map(i=>`<path d="M12 ${14+i*47.5}H720" class="private-grid"/><text x="726" y="${18+i*47.5}">${fmt(high-span*i/4)}</text>`).join('')}${bars.map((c,i)=>{const x=14+(i+.5)*step,w=Math.max(1,step*.64),color=c.close>=c.open?'up':'down',v=32*(c.volume||0)/volume;return `<g class="${color}"><title>${html(new Date(c.time*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}))} IST · O ${fmt(c.open)} H ${fmt(c.high)} L ${fmt(c.low)} C ${fmt(c.close)} · Volume ${fmt(c.volume||0,0)}</title><path d="M${x} ${y(c.high)}V${y(c.low)}"/><rect x="${x-w/2}" y="${Math.min(y(c.open),y(c.close))}" width="${w}" height="${Math.max(1,Math.abs(y(c.open)-y(c.close)))}"/><rect class="private-volume" x="${x-w/2}" y="${244-v}" width="${w}" height="${v}"/></g>`;}).join('')}<text x="14" y="261">${html(new Date(bars[0].time*1000).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'}))}</text><text x="720" y="261" text-anchor="end">${html(new Date(bars.at(-1).time*1000).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'}))} IST</text></svg>`;
+  function drawHistory(candles,message) {
+    const select=$('privateHistorySymbol');
+    desk.show(select.value,$('privateHistoryInterval').value,select.selectedOptions[0]?.dataset.expiry,candles,message);
   }
-  async function loadHistory(){
+  async function loadHistory(quiet=false){
     historyController?.abort();const symbol=$('privateHistorySymbol').value;if(!symbol||!active())return;
-    const request=new AbortController();historyController=request;
+    const request=new AbortController();historyController=request;request.pending=true;
     const current=()=>!request.signal.aborted&&active()&&historyController===request;
-    $('privateHistoryStatus').textContent=`Loading Dhan candles for ${symbol}…`;drawHistory([]);$('privateDhanPlot').textContent='Loading candles…';
+    if(!quiet){$('privateHistoryStatus').textContent=`Loading Dhan candles for ${symbol}…`;drawHistory([],'Loading candles…');}
     const interval=$('privateHistoryInterval').value;
-    try{const {candles}=await api('/api/private-dhan/history?'+new URLSearchParams({symbol,interval}),{signal:request.signal,cache:'no-store'});if(!current())return;chartHistory={symbol,interval,candles};drawHistory(candles);$('privateHistoryStatus').textContent=`${symbol} · Dhan historical data · ${Math.min(100,candles.length)} candles shown · IST`;if(researchView==='technicals')void loadResearch({quiet:true});}
-    catch(err){if(current()){$('privateHistoryStatus').textContent=err.message;$('privateDhanPlot').textContent='Historical candles unavailable.';}}
+    try{const {candles}=await api('/api/private-dhan/history?'+new URLSearchParams({symbol,interval}),{signal:request.signal,cache:'no-store'});if(!current())return;chartHistory={symbol,interval,candles,loadedAt:Date.now()};drawHistory(candles);$('privateHistoryStatus').textContent=`${symbol} · Dhan historical data · ${candles.length} candles available · IST`;if(researchView==='technicals')void loadResearch({quiet:true});}
+    catch(err){if(current()&&!quiet){$('privateHistoryStatus').textContent=err.message;drawHistory([],'Historical candles unavailable.');}}
+    finally { request.pending=false;if(quiet&&current()&&chartHistory)chartHistory.loadedAt=Date.now(); }
   }
   const researchNumber=(n,digits=2)=>n==null?'—':fmt(n,digits);
   const researchTime=value=>{const ms=typeof value==='number'?(value<1e12?value*1000:value):Date.parse(value);return Number.isFinite(ms)&&Math.abs(ms)<=864e13?`${quoteTime.format(ms)} IST`:'';};
@@ -251,7 +257,7 @@
   page.querySelector('.dhan-research-nav').addEventListener('click',event=>{const target=event.target.closest('[data-dhan-research]');if(!target||target.dataset.dhanResearch===researchView)return;researchView=target.dataset.dhanResearch;page.querySelectorAll('[data-dhan-research]').forEach(btn=>btn.setAttribute('aria-pressed',btn===target));void loadResearch();if(researchView==='technicals')void ensureHistory();});
   for(const id of ['dhanMoversExchange','dhanMoversRanking'])$(id).addEventListener('change',()=>void loadResearch());
   $('dhanResearchRefresh').addEventListener('click',()=>void loadResearch({quiet:true}));
-  document.addEventListener('visibilitychange',()=>{if(active()){void refresh();void loadResearch({quiet:true});}else {pause();researchController?.abort();}});
+  document.addEventListener('visibilitychange',()=>{if(active()){void refresh();if(terminalView==='dashboard')void ensureHistory();void loadResearch({quiet:true});}else {pause();researchController?.abort();}});
   function reset() { pause(); historyController?.abort();researchController?.abort();chartHistory=null;$('dhanResearchBody').replaceChildren();$('dhanResearchContext').textContent='';$('dhanResearchStatus').textContent='Choose a symbol to start.'; symbolList=''; query=''; nav.classList.add('hidden'); page.classList.add('hidden'); $('privateHistorySymbol').replaceChildren(); $('privateHistorySymbol').disabled=true; $('privateHistoryStatus').textContent='Loading the Dhan symbol list…'; $('privateDhanStats').replaceChildren();drawHistory([]); $('privateDhanPlot').textContent='Waiting for a symbol.'; $('privateDhanQuery').value=''; $('privateDhanBadge').textContent='WAITING FOR QUOTES'; $('privateDhanStatus').textContent='Waiting for Dhan.'; updateMarketWatch($('privateDhanTable'),[]); }
   window.privateDhanView = {
     reset,
@@ -262,6 +268,7 @@
     },
     navigate(target) {
       if(target==='private-dhan'){
+        desk.loadLists();
         selectTerminalView(new URLSearchParams(location.search).get('tab'));
         void refresh();
       } else {

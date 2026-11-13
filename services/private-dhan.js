@@ -137,7 +137,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   app.get('/api/private-dhan/history', requireAuth, ownerOnly, asyncRoute(async(req,res)=>{
     const symbol=typeof req.query.symbol==='string'?req.query.symbol:'';
     const i=directory.get(symbol), interval=req.query.interval??'day';
-    if(!i||!['day','5','15','60'].includes(interval))return res.status(400).json({error:'Choose a configured symbol and interval.'});
+    if(!i||!['day','1','5','15','25','60'].includes(interval))return res.status(400).json({error:'Choose a configured symbol and interval.'});
     const key=`${symbol}:${i.id}:${interval}`, now=Date.now(), cached=history.get(key);
     if(cached?.until>now)return res.json(cached.data);
     if(!requests.has(key)){
@@ -159,7 +159,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     try{res.json(await requests.get(key));}catch(err){res.status(502).json({error:err.message.startsWith('Dhan ')?err.message:'Dhan historical data could not be reached.'});}
   }));
 
-  return { allows, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
+  return { allows, hasSymbol: (user, symbol) => allows(user) && directory.has(symbol), start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
 }
 
 module.exports = { installPrivateDhan };
