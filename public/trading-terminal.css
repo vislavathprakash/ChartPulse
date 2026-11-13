@@ -228,6 +228,19 @@ body.dhan-terminal-open .content-wrap { max-width:none; padding:8px; }
 .dhan-right-rail button { width:32px; padding:5px; }
 .dhan-chart-actions .dhan-create-alert { display:inline-flex; align-items:center; gap:5px; background:var(--green); color:#0b1712; font-weight:700; }
 .dhan-chart-actions .dhan-create-alert:hover { background:var(--green); filter:brightness(1.08); }
+.dhan-symbol-search,.dhan-interval-favorites button,.private-dhan-chart .terminal-actions > button[title="Manage favorite intervals"] { min-height:34px; background:var(--terminal-inset); border:1px solid var(--line); border-radius:6px; padding:4px 8px; color:var(--text); white-space:nowrap; }
+.dhan-symbol-search { display:inline-flex; align-items:center; gap:6px; font-weight:650; }
+.dhan-interval-favorites { display:flex; gap:3px; }
+.dhan-interval-favorites button[aria-pressed="true"] { color:var(--green); background:var(--green2); }
+.dhan-search-results { max-height:min(45vh,320px); overflow:auto; }
+.dhan-search-row { display:flex; border-bottom:1px solid var(--line); }
+.dhan-search-row button { color:var(--text); border:0; background:transparent; padding:8px; }
+.dhan-search-row button:first-child { flex:1; text-align:left; }
+.dhan-search-row button:last-child { color:var(--green); min-width:44px; font-size:18px; }
+.dhan-search-row button:hover { background:var(--panel2); }
+.dhan-search-row small { display:block; color:var(--muted); }
+.dhan-search-create { margin-top:5px; }
+.dhan-drawing-rail .terminal-icon { width:20px; height:20px; vertical-align:middle; }
 .dhan-dock-heading { display:flex; align-items:center; justify-content:space-between; padding:5px 8px; border-bottom:1px solid var(--line); }
 .dhan-dock-alerts { min-height:0; overflow:auto; padding:8px; scrollbar-width:thin; }
 .dhan-alert-row { padding:8px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
@@ -256,6 +269,8 @@ body.dhan-chart-focused { overflow:hidden; }
   .dhan-chart-actions .dhan-create-alert { order:-1; }
   .dhan-chart-actions [data-dhan-chart="fullscreen"] { order:-2; }
   #privateHistoryRefresh { order:2; }
+  .dhan-interval-favorites { order:1; }
+  .dhan-symbol-search span { max-width:95px; overflow:hidden; text-overflow:ellipsis; }
 }
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }

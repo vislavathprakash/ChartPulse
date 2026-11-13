@@ -22,7 +22,8 @@ const terminalIcons = {
   layers:'<path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/>',
   list:'<path d="M8 5h12M8 12h12M8 19h12M4 5h.01M4 12h.01M4 19h.01"/>',
   commodity:'<path d="m4 15 4-7h8l4 7-1 2H5l-1-2Zm4-7 2 7h4l2-7"/>',
-  research:'<path d="M4 19h16M6 15l4-4 4 2 5-7M16 6h3v3"/>'
+  research:'<path d="M4 19h16M6 15l4-4 4 2 5-7M16 6h3v3"/>',
+  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>'
 };
 const terminalIcon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${terminalIcons[name]||''}</svg>`;
 document.addEventListener('DOMContentLoaded',()=>{

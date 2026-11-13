@@ -1,3 +1,20 @@
+function dhanDrawingIcon(id,fallback) {
+  const paths={
+    cursor:'<path d="m5 3 14 9-7 1-3 7L5 3Z"/>',
+    horizontal:'<path d="M3 12h18"/><circle cx="12" cy="12" r="2"/>',
+    vertical:'<path d="M12 3v18"/><circle cx="12" cy="12" r="2"/>',
+    trend:'<path d="m5 18 14-12"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="5" r="2"/>',
+    ray:'<path d="M4 20 20 4m-6 0h6v6"/>',
+    extended:'<path d="M3 21 21 3M3 15v6h6M15 3h6v6"/>',
+    rectangle:'<rect x="4" y="6" width="16" height="12" rx="1"/>',
+    fib:'<path d="M4 5h16M4 9h16M4 13h16M4 19h16M6 19 18 5"/>',
+    text:'<path d="M4 6h16m-8 0v14m-4 0h8"/>',
+    arrow:'<path d="m4 17 15-10m-6-1 6 1-1 6"/>',
+    measure:'<path d="m3 15 12-12 6 6L9 21l-6-6Zm5-5 2 2m1-5 2 2m1-5 2 2"/>'
+  };
+  return paths[id]?`<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${paths[id]}</svg>`:fallback;
+}
+
 function createDhanChartDesk(host, toolbar, selectSymbol) {
   host.classList.add('dhan-chart-host');
   host.classList.remove('empty-state');
@@ -5,7 +22,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   desk.className = 'dhan-chart-desk';
   desk.innerHTML = `
     <div class="dhan-drawing-rail" role="group" aria-label="Drawing tools">
-      ${drawingTools.filter(([id])=>id!=='channel').map(([id,icon,label])=>`<button type="button" data-dhan-tool="${id}" aria-label="${label}" title="${label}" aria-pressed="${id==='cursor'}">${icon}</button>`).join('')}
+      ${drawingTools.filter(([id])=>id!=='channel').map(([id,icon,label])=>`<button type="button" data-dhan-tool="${id}" aria-label="${label}" title="${label}" aria-pressed="${id==='cursor'}">${dhanDrawingIcon(id,icon)}</button>`).join('')}
       <button type="button" data-dhan-chart="undo" aria-label="Undo drawing" title="Undo drawing">↶</button>
       <button type="button" data-dhan-chart="redo" aria-label="Redo drawing" title="Redo drawing">↷</button>
     </div>
@@ -52,6 +69,46 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     <button type="button" data-dhan-chart="png">PNG</button>
     <button type="button" data-dhan-chart="csv">CSV</button>`;
   toolbar.append(tools);
+  const searchButton=document.createElement('button');
+  searchButton.type='button';
+  searchButton.className='dhan-symbol-search';
+  searchButton.setAttribute('aria-label','Search symbols');
+  searchButton.innerHTML=`${terminalIcon('search')} <span>Search symbols</span>`;
+  toolbar.prepend(searchButton);
+  const interval=toolbar.querySelector('#privateHistoryInterval');
+  const intervalLabels=Array.from(interval.options,option=>[option.value,option.text]);
+  const shortcuts=document.createElement('div');
+  shortcuts.className='dhan-interval-favorites';
+  shortcuts.setAttribute('aria-label','Favorite chart intervals');
+  interval.before(shortcuts);
+  const star=document.createElement('button');
+  star.type='button';
+  star.textContent='☆';
+  star.setAttribute('aria-label','Manage favorite intervals');
+  star.title='Manage favorite intervals';
+  interval.after(star);
+  const defaultIntervals=['5','15','60','day'];
+  let favorites=defaultIntervals;
+  let favoriteOwner;
+  const intervalKey=()=>`alertpe:dhan-intervals:${state.user?.id}`;
+  const renderIntervals=()=>{
+    shortcuts.innerHTML=intervalLabels.filter(([value])=>favorites.includes(value)).map(([value,label])=>
+      `<button type="button" aria-label="${html(label)}" title="${html(label)}" aria-pressed="${interval.value===value}" data-interval="${value}">${value==='day'?'D':value==='60'?'1h':value+'m'}</button>`).join('');
+  };
+  shortcuts.onclick=event=>{
+    const value=event.target.closest('button')?.dataset.interval;
+    if(!value||value===interval.value)return;
+    interval.value=value;
+    interval.dispatchEvent(new Event('change'));
+  };
+  interval.addEventListener('change',renderIntervals);
+  star.onclick=()=>workspaceDialog('Favorite intervals',intervalLabels.map(([value,label])=>
+    `<label class="consent-row"><input type="checkbox" name="favorite" value="${value}" ${favorites.includes(value)?'checked':''}> ${html(label)}</label>`).join(''),async data=>{
+    favorites=data.getAll('favorite');
+    try{localStorage.setItem(intervalKey(),JSON.stringify(favorites));}catch{}
+    renderIntervals();
+  });
+  renderIntervals();
   const canvas=desk.querySelector('canvas');
   const box=desk.querySelector('.dhan-canvas-box');
   const empty=desk.querySelector('.dhan-chart-empty');
@@ -73,6 +130,15 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   let tool='cursor',drag=null,storageKey='',dockView=null,alertEpoch=0;
   const chartPanel=host.closest('.private-dhan-chart');
   const fullscreenButton=tools.querySelector('[data-dhan-chart="fullscreen"]');
+  searchButton.onclick=()=>openSymbolSearch();
+  document.addEventListener('keydown',event=>{
+    if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||
+      chartPanel.closest('.page')?.classList.contains('hidden')||!chartPanel.getClientRects().length||
+      document.querySelector('dialog[open]')||event.target.closest?.('input,textarea,select,[contenteditable=true]'))return;
+    if(!/^[a-z0-9]$/i.test(event.key))return;
+    event.preventDefault();
+    openSymbolSearch(event.key);
+  });
   const paint=()=>renderer.render(candles,drawings);
   new ResizeObserver(paint).observe(box);
   const persist=()=>{
@@ -112,27 +178,68 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     else save();
     setTool('cursor');
   }
-  function zoom(delta) {
+  function zoom(delta, anchor=.5) {
+    const old=Math.min(owner.count,candles.length);
     owner.count=Math.min(Math.max(15,candles.length),Math.max(15,owner.count+delta));
-    owner.offset=Math.min(owner.offset,Math.max(0,candles.length-owner.count));
+    owner.offset=Math.max(0,Math.min(Math.max(0,candles.length-owner.count),Math.round(owner.offset+(old-owner.count)*(1-anchor))));
     paint();
   }
-  canvas.addEventListener('wheel',event=>{if(!candles.length)return;event.preventDefault();zoom(event.deltaY>0?10:-10);},{passive:false});
+  const touches=new Map();
+  let pinch=null;
+  const distance=()=>{const [a,b]=touches.values();return Math.hypot(a.x-b.x,a.y-b.y);};
+  canvas.addEventListener('wheel',event=>{
+    const g=renderer.geometry;
+    if(!candles.length||!g)return;
+    event.preventDefault();
+    if(event.shiftKey||Math.abs(event.deltaX)>Math.abs(event.deltaY)){
+      const delta=event.deltaX||event.deltaY;
+      owner.offset=Math.max(0,Math.min(Math.max(0,candles.length-owner.count),owner.offset+Math.sign(delta)*5));
+      paint();
+    } else zoom(event.deltaY>0?8:-8,Math.max(0,Math.min(1,(event.offsetX-g.left)/(g.right-g.left))));
+  },{passive:false});
   canvas.onpointerdown=event=>{
-    if(event.button!==0||!candles.length)return;
-    drag={x:event.offsetX,offset:owner.offset};
+    const g=renderer.geometry;
+    if(event.button!==0||!candles.length||!g)return;
     canvas.setPointerCapture(event.pointerId);
+    if(event.pointerType==='touch'){
+      touches.set(event.pointerId,{x:event.offsetX,y:event.offsetY});
+      if(touches.size===2){pinch=distance();drag=null;return;}
+      if(touches.size>2)return;
+    }
+    drag={x:event.offsetX,y:event.offsetY,offset:owner.offset,scale:event.offsetX>g.right,min:g.min,max:g.max,height:g.bottom-g.top};
   };
   canvas.onpointermove=event=>{
+    if(touches.has(event.pointerId))touches.set(event.pointerId,{x:event.offsetX,y:event.offsetY});
+    if(pinch!==null){
+      if(touches.size===2){const next=distance();if(Math.abs(next-pinch)>12){zoom(next>pinch?-6:6);pinch=next;}}
+      return;
+    }
     owner.hover={x:event.offsetX,y:event.offsetY};
     if(drag&&tool==='cursor'&&renderer.geometry){
-      owner.offset=Math.max(0,Math.min(Math.max(0,candles.length-owner.count),drag.offset+Math.round((event.offsetX-drag.x)/renderer.geometry.spacing)));
+      if(drag.scale){
+        const center=(drag.min+drag.max)/2;
+        const half=(drag.max-drag.min)/2*Math.exp(Math.max(-3,Math.min(3,(event.offsetY-drag.y)/150)));
+        owner.manualRange={min:Math.max(.000001,center-half),max:center+half};
+      }else{
+        owner.offset=Math.max(0,Math.min(Math.max(0,candles.length-owner.count),drag.offset+Math.round((event.offsetX-drag.x)/renderer.geometry.spacing)));
+        if(Math.abs(event.offsetY-drag.y)>4){
+          const shift=(event.offsetY-drag.y)*(drag.max-drag.min)/drag.height;
+          const min=Math.max(.000001,drag.min+shift);
+          owner.manualRange={min,max:min+drag.max-drag.min};
+        }
+      }
     }
     paint();
   };
   canvas.onpointerleave=()=>{owner.hover=null;paint();};
-  canvas.onpointercancel=()=>{drag=null;};
-  canvas.onpointerup=event=>{if(drag&&tool!=='cursor')drawAt(event);drag=null;};
+  canvas.onpointercancel=event=>{touches.delete(event.pointerId);if(touches.size<2)pinch=null;drag=null;};
+  canvas.onpointerup=event=>{
+    touches.delete(event.pointerId);
+    if(pinch!==null){if(touches.size<2)pinch=null;return;}
+    if(drag&&tool!=='cursor'&&Math.hypot(event.offsetX-drag.x,event.offsetY-drag.y)<8)drawAt(event);
+    drag=null;
+  };
+  canvas.ondblclick=()=>{if(tool==='cursor'){owner.manualRange=null;paint();}};
   canvas.onkeydown=event=>{
     if(event.key==='Escape')setTool('cursor');
     if(event.key==='+'||event.key==='-'){event.preventDefault();zoom(event.key==='+'?-10:10);}
@@ -177,6 +284,66 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     if(!user||loadedFor===user||loadingLists)return;
     const epoch=listEpoch;
     loadingLists=reloadLists().then(()=>{if(epoch===listEpoch)loadedFor=user;}).catch(error=>{if(epoch===listEpoch)toast(error.message,true);}).finally(()=>{if(epoch===listEpoch)loadingLists=null;});
+  }
+  function openSymbolSearch(initial='') {
+    const dialog=workspaceDialog('Symbol search',`
+      <label>Search stocks or futures<input class="dhan-search-input" type="search" placeholder="Symbol or company name" autocomplete="off"></label>
+      <label>Save to watchlist<select class="dhan-search-list"></select></label>
+      <div class="dhan-search-results"></div><p class="dhan-search-status muted" role="status"></p>`);
+    const field=dialog.querySelector('.dhan-search-input');
+    const results=dialog.querySelector('.dhan-search-results');
+    const listField=dialog.querySelector('.dhan-search-list');
+    const status=dialog.querySelector('.dhan-search-status');
+    const paintLists=()=>{
+      listField.innerHTML='<option value="">Choose a watchlist</option>'+choice(lists.map(list=>[String(list.id),list.name]),watchId);
+      listField.value=watchId;
+    };
+    const render=()=>{
+      const query=field.value.trim().toLowerCase();
+      const list=lists.find(item=>String(item.id)===listField.value);
+      const found=symbols.filter(item=>`${item.symbol} ${item.name}`.toLowerCase().includes(query));
+      results.innerHTML=found.map(item=>{
+        const saved=list?.symbols.includes(item.symbol);
+        return `<div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}"><strong>${html(item.symbol)}</strong><small>${html(item.name)}${item.expiry?' · '+html(item.expiry):''}</small></button>
+          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>`;
+      }).join('')||'<p class="muted">No matching instruments in the connected Dhan feed.</p>';
+    };
+    function open(symbol){dialog.close();dialog.remove();selectSymbol(symbol);canvas.focus({preventScroll:true});}
+    field.value=initial;
+    paintLists();
+    render();
+    field.focus();
+    field.setSelectionRange(initial.length,initial.length);
+    reloadLists().then(()=>{if(dialog.open){paintLists();render();}}).catch(error=>{status.textContent=error.message;});
+    field.oninput=render;
+    listField.onchange=render;
+    field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();const first=results.querySelector('[data-open-symbol]');if(first)open(first.dataset.openSymbol);}};
+    results.onclick=async event=>{
+      const button=event.target.closest('button');
+      if(!button)return;
+      if(button.dataset.openSymbol){open(button.dataset.openSymbol);return;}
+      const symbol=button.dataset.saveSymbol;
+      if(!symbol)return;
+      if(!listField.value){
+        if(!lists.length){listDialog(false,async()=>{if(dialog.open){paintLists();render();}});}
+        else {listField.focus();status.textContent='Choose a watchlist to save this symbol.';}
+        return;
+      }
+      const target=listField.value;
+      button.disabled=true;
+      try {
+        await api(`/api/watchlists/${target}/items`,{method:'POST',body:JSON.stringify({symbol})});
+        watchId=target;
+        await reloadLists();
+        if(!dialog.open)return;
+        listField.value=target;
+        render();
+        showDock('watch');
+        status.textContent=`${symbol} added to ${currentList()?.name||'watchlist'}.`;
+      }catch(error){status.textContent=error.message;button.disabled=false;}
+    };
+    listField.insertAdjacentHTML('afterend','<button type="button" class="dhan-search-create button secondary">New watchlist</button>');
+    dialog.querySelector('.dhan-search-create').onclick=()=>listDialog(false,async()=>{if(dialog.open){paintLists();render();}});
   }
   function renderObjects() {
     objects.innerHTML=drawings.map((drawing,index)=>`<div class="dhan-object"><span>${html(drawingTools.find(([id])=>id===drawing.kind)?.[2]||drawing.kind)}</span><span>${drawing.kind==='horizontal'?`<button type="button" data-dhan-level="${drawing.payload.price}" title="Create alert at this level" aria-label="Create alert at drawing ${index+1}">${terminalIcon('alerts')}</button>`:''}<button type="button" data-dhan-object="${html(drawing.id)}" aria-label="Remove drawing ${index+1}">×</button></span></div>`).join('')||'<p class="muted">Drawings for this instrument appear here.</p>';
@@ -234,12 +401,13 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       } finally { submit.disabled=false; }
     });
   }
-  function listDialog(rename=false) {
+  function listDialog(rename=false,onSaved) {
     const list=currentList();
     workspaceDialog(rename?'Rename watchlist':'Create watchlist',`<label>Name<input name="name" required maxlength="60" value="${html(rename?list.name:'')}"></label>`,async data=>{
       const response=await api('/api/watchlists'+(rename?'/'+list.id:''),{method:rename?'PATCH':'POST',body:JSON.stringify({name:data.get('name')})});
       watchId=String(response.watchlist.id);
       await reloadLists();
+      await onSaved?.();
     });
   }
   function showDock(view) {
@@ -278,7 +446,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   tools.querySelector('select').onchange=event=>{owner.settings.chartType=event.target.value;paint();};
   const actions={
     zoomOut:()=>zoom(20),zoomIn:()=>zoom(-20),
-    resetZoom:()=>{owner.count=Math.max(15,candles.length);owner.offset=0;paint();},
+    resetZoom:()=>{owner.count=Math.max(15,candles.length);owner.offset=0;owner.manualRange=null;paint();},
     undo:()=>{if(undo.length){redo.push(drawings);drawings=undo.pop();persist();}},
     redo:()=>{if(redo.length){undo.push(drawings);drawings=redo.pop();persist();}},
     theme:button=>{owner.settings.theme=owner.settings.theme==='light'?'dark':'light';button.textContent=owner.settings.theme==='light'?'Dark chart':'Light chart';paint();},
@@ -345,7 +513,17 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   return {
     loadLists,
     updateQuotes(items,liveQuotes,symbol) {
+      if(favoriteOwner!==state.user?.id){
+        favoriteOwner=state.user?.id;
+        favorites=defaultIntervals;
+        try {
+          const stored=JSON.parse(localStorage.getItem(intervalKey())||'null');
+          if(Array.isArray(stored))favorites=stored;
+        }catch{}
+        renderIntervals();
+      }
       symbols=items;
+      searchButton.querySelector('span').textContent=symbol||'Search symbols';
       quotes=new Map(liveQuotes.map(q=>[q.symbol,q]));
       owner.quote=owner.symbol===symbol?quotes.get(symbol):null;
       renderWatch();
@@ -353,7 +531,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     },
     show(symbol,interval,expiry,data,message) {
       const key=symbol?`alertpe:dhan-drawings:${state.user?.id}:${symbol}:${expiry||''}`:'';
-      if(key!==storageKey||interval!==owner.settings.interval){owner.offset=0;owner.count=105;owner.hover=null;setTool('cursor');}
+      if(key!==storageKey||interval!==owner.settings.interval){owner.offset=0;owner.count=105;owner.hover=null;owner.manualRange=null;setTool('cursor');}
       if(key!==storageKey){
         storageKey=key;
         drawings=[];undo=[];redo=[];
@@ -363,6 +541,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       if(symbol!==owner.symbol)owner.quote=null;
       owner.symbol=symbol;
       owner.settings.interval=interval;
+      renderIntervals();
       candles=data;
       if(!data.length)renderer.geometry=null;
       canvas.classList.toggle('hidden',!data.length);
