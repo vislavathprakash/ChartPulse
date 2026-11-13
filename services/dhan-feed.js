@@ -63,7 +63,15 @@ async function resolveInstruments(input = DEFAULT_SYMBOLS) {
 }
 
 async function resolveCommodityFutures(now = Date.now()) {
-  const response = await fetch(COMMODITY_MASTER, { signal: AbortSignal.timeout(10000), redirect: 'error' });
+  const signal = AbortSignal.timeout(10000);
+  let response = await fetch(COMMODITY_MASTER, { signal, redirect: 'manual' });
+  if (response.status===302) {
+    const download = new URL(response.headers.get('location') ?? COMMODITY_MASTER);
+    if (download.origin!=='https://s3.ap-south-1.amazonaws.com' || download.pathname!=='/dhan-prod-images/api-data/scrip-master_MCX_COMM.csv') {
+      throw new Error('Dhan returned an unexpected MCX directory location.');
+    }
+    response = await fetch(download, { signal, redirect:'error' });
+  }
   if (!response.ok || !response.body) throw new Error('Dhan MCX contract directory unavailable.');
   const stream = Readable.fromWeb(response.body);
   const lines = createInterface({ input: stream, crlfDelay: Infinity });
