@@ -67,8 +67,13 @@ function decodePacket(buffer) {
   if (code === 50 && buffer.length >= 10) return { code, reason: buffer.readInt16LE(8) };
   if (code === 6 && buffer.length >= 16) return { code, segment, id, previousClose: positive(buffer.readFloatLE(8)) };
   if (!((code === 4 && buffer.length >= 50) || (code === 8 && buffer.length >= 62))) return null;
-  const price = positive(buffer.readFloatLE(8)), tradeTime = buffer.readUInt32LE(14);
-  if (!price || !tradeTime || tradeTime * 1000 > Date.now() + 60000) return null;
+  const price = positive(buffer.readFloatLE(8));
+  let tradeTime = buffer.readUInt32LE(14);
+  const now = Math.floor(Date.now()/1000), offset = tradeTime-now;
+  // The live feed can encode IST wall time as an epoch. Only correct the
+  // observed IST offset; arbitrary future timestamps are still rejected.
+  if (offset>=19800-120&&offset<=19800+60) tradeTime-=19800;
+  if (!price || !tradeTime || tradeTime > now+60) return null;
   const depthOffset = code === 8 ? 12 : 0;
   return { code, segment, id, price, tradeTime, volume: buffer.readUInt32LE(22), open: positive(buffer.readFloatLE(34+depthOffset)), high: positive(buffer.readFloatLE(42+depthOffset)), low: positive(buffer.readFloatLE(46+depthOffset)) };
 }
@@ -118,11 +123,7 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       }
       response.resume(); current.terminate();
     });
-    current.on('message', (raw, binary) => {
-      if (!active()) return;
-      lastSignal = Date.now();
-      if (!binary) { frames.text++; return; }
-      frames.binary++;
+    function consume(raw) {
       const packet = decodePacket(raw);
       if (!packet) {
         frames.unparsed++;
@@ -158,6 +159,19 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       onQuote({ symbol: instrument.symbol, exchange: instrument.exchange, name: instrument.name, price: quote.price, previous_close: close,
         change_pct: close ? (quote.price - close) / close * 100 : null, volume: quote.volume, avg_volume: null,
         open: quote.open, high: quote.high, low: quote.low, updated_at: new Date(quote.tradeTime * 1000).toISOString() });
+    }
+    current.on('message', (raw, binary) => {
+      if (!active()) return;
+      lastSignal = Date.now();
+      if (!binary) { frames.text++; return; }
+      frames.binary++;
+      // A WebSocket message can carry multiple Dhan response packets.
+      const lengths = {2:16,4:50,5:12,6:16,8:162,50:10};
+      for(let at=0;at+8<=raw.length&&active()&&current.readyState===WebSocket.OPEN;){
+        const size=lengths[raw[at]]||raw.readUInt16LE(at+1);
+        if(size<8||at+size>raw.length){consume(raw.subarray(at));break;}
+        consume(raw.subarray(at,at+size));at+=size;
+      }
     });
     current.on('error', () => { if (active() && !message) message = 'Could not open the DhanHQ market feed. Check credentials and Data API access.'; });
     current.on('close', () => {
