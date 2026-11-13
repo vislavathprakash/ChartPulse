@@ -1,4 +1,5 @@
 const state = { user: null, meta: null, authMode: 'login', currentPage: 'overview', lastQuery: '', queryResults: [] };
+const privateDhanLink = new URLSearchParams(location.search).get('view') === 'private-dhan';
 const $ = (id) => document.getElementById(id);
 const html = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (value, digits = 2) => Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
@@ -29,7 +30,7 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?'/app/login?view=private-dhan':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
   history.replaceState(null,'','/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
@@ -60,7 +61,7 @@ function setAuthMode(mode) {
   $('authError').classList.add('hidden');
 }
 async function bootstrap() {
-  try { const me = await api('/api/me'); state.meta = me; if (me.user) showApp(me.user, me); else showAuth(); }
+  try { const me = await api('/api/me'); state.meta = me; if (me.user) {showApp(me.user, me);if(privateDhanLink&&me.privateDhan)navigate('private-dhan');} else showAuth(); }
   catch { showAuth(); }
 }
 document.querySelectorAll('.auth-tab').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.auth)));
@@ -68,7 +69,7 @@ $('authForm').addEventListener('submit', async e => {
   e.preventDefault(); const form = new FormData(e.currentTarget); const body = Object.fromEntries(form.entries());
   try {
     const result = await api(state.authMode === 'register' ? '/api/register' : '/api/login', { method: 'POST', body: JSON.stringify(body) });
-    const meta = await api('/api/me'); showApp(result.user, meta); navigate('overview');
+    const meta = await api('/api/me'); showApp(result.user, meta); navigate(privateDhanLink&&meta.privateDhan?'private-dhan':'overview');
   } catch (err) { $('authError').textContent = err.message; $('authError').classList.remove('hidden'); }
 });
 $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); state.user = null; showAuth(); });
@@ -76,6 +77,8 @@ $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', 
 function navigate(page) {
   if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
   state.currentPage = page; document.body.classList.toggle('chart-workspace-open',page==='charts'); if(page!=='charts')simulationChart.dispose();
+  if(page==='private-dhan')history.replaceState(null,'','/app?view=private-dhan');
+  else if(new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('hidden', p.id !== `page-${page}`));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   $('crumb').textContent = ({ overview: 'Overview', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;

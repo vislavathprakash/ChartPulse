@@ -83,13 +83,14 @@ const stopReasons = new Set([804, 806, 807, 808, 809, 810, 813, 814]);
 function connectFeed({ auth, instruments, onQuote, onStatus }) {
   const instrumentByKey = new Map(instruments.map(item => [`${item.code}:${Number(item.id)}`, item]));
   let socket, reconnect, liveness, stopped = false, blocked = false, attempts = 0, message = '', ready = false;
+  let frames = {binary:0,text:0,quote:0,previousClose:0,unmatched:0,unparsed:0};
 
   function open() {
     if (stopped || blocked) return;
     const url = new URL('wss://api-feed.dhan.co/');
     url.search = new URLSearchParams({ version: '2', token: auth.token, clientId: auth.clientId, authType: '2' });
     const closes = new Map(), latest = new Map();
-    ready = false; message = '';
+    ready = false; message = ''; frames = {binary:0,text:0,quote:0,previousClose:0,unmatched:0,unparsed:0};
     onStatus('Connecting to DhanHQ.', false);
     const current = new WebSocket(url, { handshakeTimeout: 10000, maxPayload: 64 * 1024, followRedirects: false, perMessageDeflate: false });
     socket = current;
@@ -116,10 +117,12 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       response.resume(); current.terminate();
     });
     current.on('message', (raw, binary) => {
-      if (!active() || !binary) return;
+      if (!active()) return;
       lastSignal = Date.now();
+      if (!binary) { frames.text++; return; }
+      frames.binary++;
       const packet = decodePacket(raw);
-      if (!packet) return;
+      if (!packet) { frames.unparsed++; return; }
       if (packet.code === 50) {
         message = disconnectMessages[packet.reason] || `Dhan disconnected the market feed (${packet.reason}).`;
         blocked = stopReasons.has(packet.reason);
@@ -128,7 +131,8 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
         return;
       }
       const key = `${packet.segment}:${packet.id}`, instrument = instrumentByKey.get(key);
-      if (!instrument) return;
+      if (!instrument) { frames.unmatched++; return; }
+      if(packet.code===4)frames.quote++;else if(packet.code===6)frames.previousClose++;
       if (packet.code === 6) {
         if (!packet.previousClose || closes.get(key) === packet.previousClose) return;
         closes.set(key, packet.previousClose);
@@ -156,7 +160,7 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
     });
   }
   open();
-  return { isReady: () => ready && !stopped && socket?.readyState === WebSocket.OPEN, stop() {
+  return { diagnostics: () => ({open:socket?.readyState===WebSocket.OPEN,...frames}), isReady: () => ready && !stopped && socket?.readyState === WebSocket.OPEN, stop() {
     stopped = true; ready = false; clearTimeout(reconnect); clearInterval(liveness); socket?.terminate();
   } };
 }

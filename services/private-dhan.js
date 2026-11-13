@@ -91,7 +91,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       try { const rule = parseQuery(query); rows = rows.filter(quote => evaluateQuery(rule, quote)); }
       catch (err) { return res.status(400).json({ error: err.message }); }
     }
-    res.json({ quotes: rows, symbols:[...directory.values()].map(({symbol,name})=>({symbol,name})), connected:hasFreshStream, status:hasFreshStream?'Dhan WebSocket is streaming.':snapshotStatus||status });
+    res.json({ quotes: rows, symbols:[...directory.values()].map(({symbol,name})=>({symbol,name})), connected:hasFreshStream, stream:client?.diagnostics(), status:hasFreshStream?'Dhan WebSocket is streaming.':[snapshotStatus,status].filter(Boolean).join(' ') });
   }));
 
   app.get('/api/private-dhan/history', requireAuth, ownerOnly, asyncRoute(async(req,res)=>{
