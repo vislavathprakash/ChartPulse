@@ -60,6 +60,23 @@ html[data-theme=midnight] {
 .terminal-watch .table-wrap { overflow-x: auto; }
 #page-private-dhan .query-box { flex-wrap: wrap; }
 #privateDhanQuery { flex: 1 1 16rem; min-width: 0; margin: 0; }
+.private-dhan-chart { margin-bottom: 16px; }
+.private-dhan-chart .panel-heading { flex-wrap: wrap; }
+.private-dhan-chart select { width: auto; margin: 0; }
+.private-dhan-stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(115px,1fr)); gap: 8px; margin-bottom: 14px; }
+.private-dhan-stats div { border: 1px solid var(--line); border-radius: 8px; padding: 9px; background: var(--terminal-inset); }
+.private-dhan-stats span,.private-dhan-stats strong { display: block; }
+.private-dhan-stats span { font-size: 11px; color: var(--muted); }
+.private-dhan-stats strong { font: 500 14px/1.6 var(--mono); }
+#privateDhanPlot:not(.empty-state) { overflow-x: auto; }
+.private-dhan-svg { width: 100%; min-width: 440px; display:block; background:var(--terminal-inset); border:1px solid var(--line); border-radius:8px; }
+.private-dhan-svg .private-grid { stroke:var(--line); }
+.private-dhan-svg text { fill:var(--muted); font:10px var(--mono); }
+.private-dhan-svg .up { color:var(--green); }
+.private-dhan-svg .down { color:var(--red); }
+.private-dhan-svg g path { stroke:currentColor; }
+.private-dhan-svg rect { fill:currentColor; }
+.private-dhan-svg .private-volume { opacity:.45; }
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
 .terminal-watch .data-table th { font: 10px/1.4 var(--mono); letter-spacing: .06em; background: var(--terminal-inset); color: var(--muted); }
