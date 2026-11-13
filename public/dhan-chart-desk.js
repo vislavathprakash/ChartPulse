@@ -29,6 +29,11 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     <div class="dhan-chart-stage">
       <div class="dhan-chart-ohlc" aria-label="Candle data"></div>
       <div class="dhan-indicator-legend hidden" aria-label="Active indicators"></div>
+      <div class="dhan-drawing-actions hidden" role="group" aria-label="Selected drawing">
+        <span></span>
+        <button type="button" data-dhan-chart="drawingAlert" aria-label="Create alert at this level" title="Create alert at this level">${terminalIcon('alerts')}</button>
+        <button type="button" data-dhan-chart="deleteDrawing" aria-label="Delete drawing" title="Delete drawing (Delete)">${terminalIcon('trash')}</button>
+      </div>
       <div class="dhan-canvas-box"><canvas aria-label="Interactive Dhan price chart" tabindex="0"></canvas><p class="dhan-chart-empty" role="status">Choose a symbol to load candles.</p></div>
       <div class="dhan-chart-bottom">
         <button type="button" data-dhan-chart="zoomOut" aria-label="Zoom out">−</button>
@@ -49,14 +54,13 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
         <button type="button" data-dhan-chart="addSymbol">Add chart symbol</button>
         <div class="dhan-watch-rows"></div>
       </div>
-      <div class="dhan-dock-objects hidden"></div>
       <div class="dhan-dock-alerts hidden"></div>
     </aside>`;
   const rail = document.createElement('div');
   rail.className='dhan-right-rail';
   rail.setAttribute('role','group');
   rail.setAttribute('aria-label','Chart panels');
-  rail.innerHTML=[['watch','Watchlist','list'],['alerts','Alerts','alerts'],['objects','Drawings','layers']].map(([key,label,icon])=>
+  rail.innerHTML=[['watch','Watchlist','list'],['alerts','Alerts','alerts']].map(([key,label,icon])=>
     `<button type="button" data-dhan-dock="${key}" aria-controls="dhan-dock-content" aria-pressed="false" aria-label="${label}" title="${label}">${terminalIcon(icon)}</button>`).join('');
   desk.append(rail);
   host.replaceChildren(desk);
@@ -118,7 +122,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   const watch=desk.querySelector('.dhan-watch-rows');
   const watchSelect=desk.querySelector('select');
   const search=desk.querySelector('.dhan-watch-search');
-  const objects=desk.querySelector('.dhan-dock-objects');
+  const drawingActions=desk.querySelector('.dhan-drawing-actions');
   const alertsPanel=desk.querySelector('.dhan-dock-alerts');
   const hint=desk.querySelector('.dhan-chart-hint');
   const owner={settings:{...chartDefaults(),indicators:[],watermark:false},compactSessions:true,sourceLabel:'DHANHQ',chartHeight:()=>box.clientHeight,count:105,offset:0,updateDataWindow(index,candles){
@@ -159,7 +163,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   new ResizeObserver(paint).observe(box);
   const persist=()=>{
     if(storageKey)try{localStorage.setItem(storageKey,JSON.stringify(drawings));}catch{}
-    renderObjects();
+    if(!selectedDrawing())owner.selectedDrawing=null;
+    renderDrawingActions();
     paint();
   };
   function editDrawings(next) {
@@ -173,6 +178,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     tool=next;
     owner.anchor=null;
     owner.preview=null;
+    if(next!=='cursor')selectDrawing(null);
     canvas.classList.toggle('dhan-drawing-active',next!=='cursor');
     desk.classList.toggle('dhan-tool-selected',next!=='cursor');
     desk.querySelectorAll('[data-dhan-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.dhanTool===tool)));
@@ -203,7 +209,9 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     const save=text=>{
       if(key!==storageKey)return;
       if(drawings.length>=100)throw new Error('Remove a drawing before adding another.');
-      editDrawings([...drawings,{id:crypto.randomUUID(),kind,payload:{...payload,text}}]);
+      const drawing={id:crypto.randomUUID(),kind,payload:{...payload,text}};
+      editDrawings([...drawings,drawing]);
+      selectDrawing(drawing);
     };
     if(kind==='text')workspaceDialog('Text annotation','<label>Note<input name="note" required maxlength="100"></label>',async data=>save(data.get('note')));
     else try{save();}catch(error){toast(error.message,true);}
@@ -276,7 +284,10 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   canvas.onpointerup=event=>{
     touches.delete(event.pointerId);
     if(pinch!==null){if(touches.size<2)pinch=null;return;}
-    if(drag?.point&&tool!=='cursor'){
+    if(drag?.point&&tool==='cursor'&&Math.hypot(event.offsetX-drag.x,event.offsetY-drag.y)<8){
+      selectDrawing(drawingAtEvent(event));
+      canvas.focus({preventScroll:true});
+    }else if(drag?.point&&tool!=='cursor'){
       const point=chartPoint(event,true);
       const moved=Math.hypot(event.offsetX-drag.x,event.offsetY-drag.y)>=8;
       if(point){
@@ -288,8 +299,16 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     drag=null;
   };
   canvas.ondblclick=()=>{if(tool==='cursor'){owner.manualRange=null;paint();}};
+  canvas.oncontextmenu=event=>{
+    const drawing=drawingAtEvent(event);
+    if(!drawing)return;
+    event.preventDefault();
+    setTool('cursor');
+    selectDrawing(drawing);
+    drawingActions.querySelector('[data-dhan-chart="deleteDrawing"]').focus({preventScroll:true});
+  };
   canvas.onkeydown=event=>{
-    if(event.key==='Escape')setTool('cursor');
+    if(event.key==='Escape'){setTool('cursor');selectDrawing(null);}
     if(event.key==='+'||event.key==='-'){event.preventDefault();zoom(event.key==='+'?-10:10);}
     if(['ArrowLeft','ArrowRight'].includes(event.key)){
       event.preventDefault();
@@ -399,9 +418,33 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     listField.insertAdjacentHTML('afterend','<button type="button" class="dhan-search-create button secondary">New watchlist</button>');
     dialog.querySelector('.dhan-search-create').onclick=()=>listDialog(false,async()=>{if(dialog.open){paintLists();render();}});
   }
-  function renderObjects() {
-    objects.innerHTML=drawings.map((drawing,index)=>`<div class="dhan-object"><span>${html(drawingTools.find(([id])=>id===drawing.kind)?.[2]||drawing.kind)}</span><span>${drawing.kind==='horizontal'?`<button type="button" data-dhan-level="${drawing.payload.price}" title="Create alert at this level" aria-label="Create alert at drawing ${index+1}">${terminalIcon('alerts')}</button>`:''}<button type="button" data-dhan-object="${html(drawing.id)}" aria-label="Remove drawing ${index+1}">×</button></span></div>`).join('')||'<p class="muted">Drawings for this instrument appear here.</p>';
+  const selectedDrawing=()=>drawings.find(drawing=>drawing.id===owner.selectedDrawing);
+  function drawingAtEvent(event) {
+    const rect=canvas.getBoundingClientRect();
+    return renderer.drawingAt(drawings,event.clientX-rect.left,event.clientY-rect.top,event.pointerType==='touch'?13:8);
   }
+  function renderDrawingActions() {
+    const drawing=selectedDrawing();
+    drawingActions.classList.toggle('hidden',!drawing);
+    drawingActions.querySelector('span').textContent=drawing?drawingTools.find(([id])=>id===drawing.kind)?.[2]||drawing.kind:'';
+    drawingActions.querySelector('[data-dhan-chart="drawingAlert"]').classList.toggle('hidden',drawing?.kind!=='horizontal');
+  }
+  function selectDrawing(drawing) {
+    owner.selectedDrawing=drawing?.id??null;
+    renderDrawingActions();
+    paint();
+  }
+  function deleteDrawing() {
+    const drawing=selectedDrawing();
+    if(!drawing)return;
+    editDrawings(drawings.filter(item=>item.id!==drawing.id));
+    canvas.focus({preventScroll:true});
+  }
+  desk.addEventListener('keydown',event=>{
+    if(event.key!=='Delete'||event.target.closest('input,textarea,select,[contenteditable=true]')||!selectedDrawing())return;
+    event.preventDefault();
+    deleteDrawing();
+  });
   const priceConditions=chartConditions.slice(0,5);
   const conditionLabel=key=>priceConditions.find(([value])=>value===key)?.[1]||key;
   async function loadAlerts() {
@@ -470,11 +513,9 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     desk.classList.toggle('dhan-dock-closed',!open);
     desk.querySelector('.dhan-dock').classList.toggle('hidden',!open);
     rail.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.dhanDock===view)));
-    desk.querySelector('.dhan-dock-heading b').textContent={watch:'Watchlist',objects:'Drawings',alerts:'Dhan alerts'}[view]||'';
+    desk.querySelector('.dhan-dock-heading b').textContent={watch:'Watchlist',alerts:'Dhan alerts'}[view]||'';
     desk.querySelector('.dhan-dock-watch').classList.toggle('hidden',view!=='watch');
-    objects.classList.toggle('hidden',view!=='objects');
     alertsPanel.classList.toggle('hidden',view!=='alerts');
-    if(view==='objects')renderObjects();
     if(view==='alerts')void loadAlerts();
   }
   const narrow=matchMedia('(max-width: 900px)');
@@ -517,6 +558,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       }
     },
     createAlert:()=>createAlert(),
+    deleteDrawing,
+    drawingAlert:()=>{const drawing=selectedDrawing();if(drawing?.kind==='horizontal')createAlert(drawing.payload.price);},
     png:()=>{if(candles.length)simulationChart.download(canvas.toDataURL('image/png'),`${owner.symbol.replace(':','-')}-dhan.png`);},
     csv:()=>{
       if(!candles.length)return;
@@ -565,13 +608,11 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   function click(event) {
     const button=event.target.closest('button');
     if(!button)return;
-    const {dhanTool,dhanChart,dhanDock,dhanSymbol,dhanRemove,dhanObject}=button.dataset;
+    const {dhanTool,dhanChart,dhanDock,dhanSymbol,dhanRemove}=button.dataset;
     if(dhanTool)setTool(dhanTool);
     if(dhanChart)Promise.resolve().then(()=>actions[dhanChart](button)).catch(error=>toast(error.message,true));
     if(dhanDock)showDock(dockView===dhanDock?null:dhanDock);
     if(dhanSymbol){selectSymbol(dhanSymbol);if(narrow.matches)showDock(null);}
-    if(dhanObject)editDrawings(drawings.filter(drawing=>drawing.id!==dhanObject));
-    if(button.dataset.dhanLevel)createAlert(Number(button.dataset.dhanLevel));
     if(button.dataset.dhanRule){
       button.disabled=true;
       api('/api/private-dhan/alerts/'+button.dataset.dhanRule,{method:'PATCH',body:JSON.stringify({enabled:button.dataset.enable==='true'})})
@@ -581,7 +622,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   }
   desk.addEventListener('click',click);
   tools.addEventListener('click',click);
-  renderObjects();
+  renderDrawingActions();
   return {
     loadLists,
     updateQuotes(items,liveQuotes,symbol) {
@@ -612,7 +653,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
         storageKey=key;
         drawings=[];undo=[];redo=[];
         if(key)try{drawings=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(drawings))drawings=[];}catch{}
-        renderObjects();
+        selectDrawing(null);
       }
       if(symbol!==owner.symbol)owner.quote=null;
       owner.symbol=symbol;

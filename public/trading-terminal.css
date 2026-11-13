@@ -164,7 +164,10 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
 .dhan-chart-desk { display:grid; grid-template-columns:42px minmax(0,1fr) minmax(210px,245px); height:100%; position:relative; overflow:hidden; }
 .dhan-chart-desk.dhan-dock-closed { grid-template-columns:42px minmax(0,1fr); }
 .dhan-drawing-rail { display:flex; flex-direction:column; align-items:center; overflow:auto; scrollbar-width:thin; padding:4px; gap:2px; border-right:1px solid var(--line); }
-.dhan-chart-stage { min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--terminal-inset); }
+.dhan-chart-stage { position:relative; min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--terminal-inset); }
+.dhan-drawing-actions { position:absolute; z-index:2; top:54px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:4px; padding:3px 5px 3px 10px; border:1px solid var(--line); border-radius:7px; background:var(--panel); box-shadow:0 4px 14px #0005; white-space:nowrap; }
+.dhan-drawing-actions span { font-size:12px; }
+.dhan-drawing-actions button { min-width:32px; }
 .dhan-chart-ohlc { padding:7px 10px; min-height:32px; font:11px var(--mono); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .dhan-canvas-box { position:relative; flex:1; min-height:0; overflow:auto; }
 .dhan-canvas-box canvas { display:block; width:100%; touch-action:none; cursor:crosshair; }

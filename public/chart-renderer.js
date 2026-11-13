@@ -7,6 +7,29 @@ class MarketChartRenderer {
     if(this.owner.settings.magnet){const bar=g.visible[index];price=[bar.open,bar.high,bar.low,bar.close].sort((a,b)=>Math.abs(a-price)-Math.abs(b-price))[0];}
     return {time:g.visible[index].time,price,index:g.start+index};
   }
+  drawingAt(drawings,px,py,tolerance=8) {
+    const g=this.geometry;
+    if(!g||px<g.left||px>g.right||py<g.top||py>g.bottom)return null;
+    const nearLine=(x1,y1,x2,y2)=>{
+      if(![x1,y1,x2,y2].every(Number.isFinite))return false;
+      const dx=x2-x1,dy=y2-y1;
+      const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/(dx*dx+dy*dy||1)));
+      return Math.hypot(px-x1-t*dx,py-y1-t*dy)<=tolerance;
+    };
+    for(const drawing of [...drawings].reverse()){
+      if(drawing.payload.hidden)continue;
+      let hit=false;
+      const rect=(x,y,w,h)=>{if(px>=x-tolerance&&px<=x+w+tolerance&&py>=y-tolerance&&py<=y+h+tolerance)hit=true;};
+      // Use the same line and label positions as the canvas renderer.
+      const ctx={strokeRect:rect,fillRect:rect,beginPath(){},arc(){},fill(){},moveTo(){},lineTo(){},closePath(){}};
+      this.drawObject(drawing,{...g,ctx,
+        stroke:(...args)=>{if(nearLine(...args))hit=true;},
+        textAt:(text,x,y)=>rect(x,y-13,this.ctx.measureText(text).width+5,16)
+      });
+      if(hit)return drawing;
+    }
+    return null;
+  }
   render(candles,drawings=[],secondary=false) {
     if(!candles.length||!this.canvas.isConnected)return;
     const o=this.owner,s=o.settings;
