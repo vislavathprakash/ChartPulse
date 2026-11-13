@@ -1,5 +1,11 @@
 const state = { user: null, meta: null, authMode: 'login', currentPage: 'overview', lastQuery: '', queryResults: [] };
 const privateDhanLink = new URLSearchParams(location.search).get('view') === 'private-dhan';
+const privateDhanEntryTab = new URLSearchParams(location.search).get('tab');
+function privateDhanPath(path) {
+  const query = new URLSearchParams({view:'private-dhan'});
+  if (['watch','research'].includes(privateDhanEntryTab)) query.set('tab',privateDhanEntryTab);
+  return `${path}?${query}`;
+}
 const $ = (id) => document.getElementById(id);
 const html = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (value, digits = 2) => Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
@@ -30,10 +36,10 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?'/app/login?view=private-dhan':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
-  history.replaceState(null,'','/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
+  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
   window.privateDhanView?.configure(meta.privateDhan);
   const initial = (user.name || user.email || 'U').slice(0, 1).toUpperCase();
   $('userName').textContent = user.name || user.email; $('userRole').textContent = user.role; $('avatar').textContent = initial; $('topAvatar').textContent = initial;
@@ -53,6 +59,7 @@ function showApp(user, meta) {
   $('chartSource').value='tradingview'; $('chartSource').querySelector('[value=simulation]').disabled=!meta.simulated; $('chartProviderLabel').textContent='TradingView · exchange data availability varies'; $('chartSymbol').value=localStorage.getItem('chartpulse_tv_symbol')||'BSE:RELIANCE';
   if(meta.simulated) { $('whatsappBadge').textContent='SIMULATED'; $('channelStatus').textContent='Simulated'; $('channelHint').textContent='Test events only; no WhatsApp messages sent'; }
   refreshCounts(); loadQueries(); loadAlerts(); loadWatch(); liveMarket.start(); window.syncIntegrationPreferences?.();
+  if (privateDhanLink && !meta.privateDhan) toast('Dhan terminal access is limited to the linked AlertPe account.', true);
 }
 function setAuthMode(mode) {
   state.authMode = mode;
@@ -77,12 +84,13 @@ $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', 
 function navigate(page) {
   if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
   state.currentPage = page; document.body.classList.toggle('chart-workspace-open',page==='charts'); if(page!=='charts')simulationChart.dispose();
-  if(page==='private-dhan')history.replaceState(null,'','/app?view=private-dhan');
-  else if(new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
+  document.body.classList.toggle('dhan-terminal-open',page==='private-dhan');
+  $('simulationBanner').classList.toggle('hidden',page==='private-dhan'||!state.meta?.simulated);
+  if(page!=='private-dhan'&&new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('hidden', p.id !== `page-${page}`));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   $('crumb').textContent = ({ overview: 'Overview', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;
-  if(page==='private-dhan')$('crumb').textContent='Private live quotes';
+  if(page==='private-dhan')$('crumb').textContent='Dhan terminal';
   window.privateDhanView?.navigate(page);
   if(page==='account')window.accountSettings?.load(); if(page==='calendar') { marketCalendar.renderPage(); marketCalendar.load(); } if (page === 'charts') mountTvChart(); if (page === 'screener') loadQueries(); if (page === 'alerts') loadAlerts(); if(page!=='charts')liveMarket.subscribe();
 }
