@@ -67,6 +67,8 @@ No provider or Meta credentials are needed for this deployment. The Blueprint us
 
 ### DhanHQ v2 live equity quotes
 
+For a private view on a standalone deployment, keep `MARKET_DATA_PROVIDER=simulated` and set `DHAN_PRIVATE_OWNER_ID` and `DHAN_PRIVATE_OWNER_EMAIL` to the verified existing customer. With the Dhan credentials configured, that customer gets **Private live quotes** and a quote filter. Both identity fields must match the active customer on every request. Private quotes stay in server memory and are separate from the shared screener, chart feed, and alert engine.
+
 Keep production on `MARKET_DATA_PROVIDER=simulated` until you have an active [DhanHQ Data API subscription](https://dhan.co/support/platforms/dhanhq-api/is-a-data-api-subscription-required/) and written approval for the shared market data shown to AlertPe customers. Dhan lists [separate individual and partner access](https://dhanhq.co/docs/v2/authentication/).
 
 1. Generate a Data API access token in Dhan Web. Enter the real `DHAN_CLIENT_ID` and `DHAN_ACCESS_TOKEN` in Render **Environment Variables**. Use separate values, not the credential-bearing WebSocket URL. Never commit or paste either value into public logs or chats. Access tokens generated in Dhan Web are valid for 24 hours; update the server token when needed.

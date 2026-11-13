@@ -12,6 +12,7 @@ const metrics = require('./services/metrics');
 const { createPool } = require('./database');
 const { SimulatedMarket } = require('./simulated-market');
 const dhan = require('./services/dhan-feed');
+const { installPrivateDhan } = require('./services/private-dhan');
 const marketProvider = process.env.MARKET_DATA_PROVIDER || 'simulated';
 const isSimulated = marketProvider === 'simulated';
 const providerName = { simulated: 'Simulated', truedata: 'TrueData', dhan: 'DhanHQ' }[marketProvider] || 'Unknown provider';
@@ -139,6 +140,7 @@ function requirePortal(role) { return asyncRoute(async (req, res, next) => {
   next();
 }); }
 const requireAuth = requirePortal('customer'), requireAdminAuth = requirePortal('admin');
+const privateDhan = installPrivateDhan({app,pool,requireAuth,asyncRoute,enabled:isSimulated&&runtime.role==='standalone'});
 function publicUser(user) { return { id: user.id, email: user.email, name: user.name, role: user.role, emailVerified:user.email_verified===true,emailOptIn:user.email_opt_in===true,googleLinked:Boolean(user.google_sub),whatsappPhone: user.whatsapp_phone || '', whatsappOptIn: user.whatsapp_opt_in || false, webhookToken: user.webhook_token || '' }; }
 function regenerateSession(req) { return new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve())); }
 function deliveryStatus(optIn,notification='whatsapp') { return isSimulated ? 'simulated' : ['whatsapp','all'].includes(notification) && optIn && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME ? 'queued' : 'logged'; }
@@ -162,7 +164,7 @@ function marketMessage() {
   return marketRuntime.connected ? `${providerName} feed connected.` : marketRuntime.error || `Waiting for ${providerName} quotes.`;
 }
 function portalMetadata() { return { simulated: isSimulated, dataLabel, whatsappMode: isSimulated ? 'simulated delivery' : 'WhatsApp Business', marketMode: providerName, market: process.env.MARKET_DATA_MARKET || null, marketReady: marketEntitled() && marketRuntime.connected, marketConfigured: marketConfigured(), marketRedistributionApproved: process.env.MARKET_DATA_REDISPLAY_APPROVED === 'true', marketConnected: marketEntitled() && marketRuntime.connected, whatsappReady: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME), chartMode: isSimulated ? 'Interactive simulated chart' : 'TradingView embedded chart' }; }
-app.get('/api/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'customer'),...portalMetadata(),googleReady:googleReady(),emailReady:emailReady(),emailSimulated:!externalEmailEnabled()})));
+app.get('/api/me', asyncRoute(async (req,res) => {const user=await sessionUser(req,'customer');res.set('Cache-Control','private, no-store');res.json({user,...portalMetadata(),privateDhan:privateDhan.allows(user),googleReady:googleReady(),emailReady:emailReady(),emailSimulated:!externalEmailEnabled()});}));
 app.get('/api/admin/me', asyncRoute(async (req,res) => res.json({user:await sessionUser(req,'admin'),...portalMetadata()})));
 
 app.post('/api/register', asyncRoute(async (req, res) => {
@@ -579,7 +581,7 @@ async function start(){
   // Render probes the replacement before retiring the previous instance.
   // Serve the persisted snapshot while waiting for exclusive worker ownership.
   const shutdown=async()=>{if(runtime.stopping)return;runtime.stopping=true;marketRuntime.client?.stop?.();const timeout=setTimeout(()=>process.exit(1),12000);timeout.unref();try{if(gateway)await gateway.close();if(server)await new Promise(resolve=>server.close(resolve));await runtime.stop();await pool.end();clearTimeout(timeout);process.exit(0);}catch(err){console.error(err.message);process.exit(1);}};
-  process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
+  process.once('SIGTERM',()=>{privateDhan.stop();return shutdown();});process.once('SIGINT',()=>{privateDhan.stop();return shutdown();});
   if(['standalone','ingestion','evaluator','relay'].includes(runtime.role)){
     const syncTimer=runtime.role==='standalone'?runtime.every(1000,()=>runtime.sync()):null;
     const key=runtime.role==='evaluator'?731000+runtime.shard:runtime.role==='relay'?732000:730020;
@@ -590,6 +592,7 @@ async function start(){
     await runtime.loadSnapshot();await runtime.claimLeadership(key);
   }
   if(['standalone','ingestion'].includes(runtime.role)){await startMarketFeed();if(marketProvider==='dhan'){runtime.every(3000,flushDhanQuotes);runtime.every(60000,()=>{if(!marketRuntime.client)return startDhanFeed();});}else if(!isSimulated)runtime.every(100,flushMarketQuotes);runtime.every(125,()=>runtime.processCommands());}
+  if(isSimulated&&runtime.role==='standalone'){void privateDhan.start();runtime.every(60000,privateDhan.start);}
   if(runtime.role==='evaluator')runtime.every(125,()=>runtime.evaluateEvents());
   if(['standalone','delivery'].includes(runtime.role))runtime.every(250,()=>processNotifications({pool,runtime,deliver:deliverWhatsAppAlert}));
   if(['standalone','evaluator'].includes(runtime.role)){await calendar.scan();runtime.every(15000,()=>calendar.scan());}

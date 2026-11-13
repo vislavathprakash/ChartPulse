@@ -58,6 +58,8 @@ html[data-theme=midnight] {
 .terminal-market-grid .panel-heading p { font-size: 12px; margin: 4px 0 0; }
 .terminal-timestamp { font: 10px/1.4 var(--mono); color: var(--muted); white-space: nowrap; }
 .terminal-watch .table-wrap { overflow-x: auto; }
+#page-private-dhan .query-box { flex-wrap: wrap; }
+#privateDhanQuery { flex: 1 1 16rem; min-width: 0; margin: 0; }
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
 .terminal-watch .data-table th { font: 10px/1.4 var(--mono); letter-spacing: .06em; background: var(--terminal-inset); color: var(--muted); }

@@ -29,10 +29,11 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'','/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
   history.replaceState(null,'','/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
+  window.privateDhanView?.configure(meta.privateDhan);
   const initial = (user.name || user.email || 'U').slice(0, 1).toUpperCase();
   $('userName').textContent = user.name || user.email; $('userRole').textContent = user.role; $('avatar').textContent = initial; $('topAvatar').textContent = initial;
   $('greetingName').textContent = (user.name || 'Trader').split(/\s+/)[0];
@@ -73,11 +74,13 @@ $('authForm').addEventListener('submit', async e => {
 $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); state.user = null; showAuth(); });
 
 function navigate(page) {
-  if (!['overview','screener','charts','alerts','calendar','settings','account'].includes(page)) return;
+  if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
   state.currentPage = page; document.body.classList.toggle('chart-workspace-open',page==='charts'); if(page!=='charts')simulationChart.dispose();
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('hidden', p.id !== `page-${page}`));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   $('crumb').textContent = ({ overview: 'Overview', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;
+  if(page==='private-dhan')$('crumb').textContent='Private live quotes';
+  window.privateDhanView?.navigate(page);
   if(page==='account')window.accountSettings?.load(); if(page==='calendar') { marketCalendar.renderPage(); marketCalendar.load(); } if (page === 'charts') mountTvChart(); if (page === 'screener') loadQueries(); if (page === 'alerts') loadAlerts(); if(page!=='charts')liveMarket.subscribe();
 }
 document.body.addEventListener('click', e => { const nav = e.target.closest('[data-page]'); if (nav) navigate(nav.dataset.page); const symbol=e.target.closest('[data-terminal-chart]')?.dataset.terminalChart;if(symbol&&state.user)window.stockWorkspace?.open({symbol}); });
