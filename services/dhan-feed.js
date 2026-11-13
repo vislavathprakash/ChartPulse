@@ -66,10 +66,11 @@ function decodePacket(buffer) {
   const code = buffer.readUInt8(0), segment = buffer.readUInt8(3), id = buffer.readInt32LE(4);
   if (code === 50 && buffer.length >= 10) return { code, reason: buffer.readInt16LE(8) };
   if (code === 6 && buffer.length >= 16) return { code, segment, id, previousClose: positive(buffer.readFloatLE(8)) };
-  if (code !== 4 || buffer.length < 50) return null;
+  if (!((code === 4 && buffer.length >= 50) || (code === 8 && buffer.length >= 62))) return null;
   const price = positive(buffer.readFloatLE(8)), tradeTime = buffer.readUInt32LE(14);
   if (!price || !tradeTime || tradeTime * 1000 > Date.now() + 60000) return null;
-  return { code, segment, id, price, tradeTime, volume: buffer.readUInt32LE(22), open: positive(buffer.readFloatLE(34)), high: positive(buffer.readFloatLE(42)), low: positive(buffer.readFloatLE(46)) };
+  const depthOffset = code === 8 ? 12 : 0;
+  return { code, segment, id, price, tradeTime, volume: buffer.readUInt32LE(22), open: positive(buffer.readFloatLE(34+depthOffset)), high: positive(buffer.readFloatLE(42+depthOffset)), low: positive(buffer.readFloatLE(46+depthOffset)) };
 }
 
 const disconnectMessages = {
@@ -83,14 +84,15 @@ const stopReasons = new Set([804, 806, 807, 808, 809, 810, 813, 814]);
 function connectFeed({ auth, instruments, onQuote, onStatus }) {
   const instrumentByKey = new Map(instruments.map(item => [`${item.code}:${Number(item.id)}`, item]));
   let socket, reconnect, liveness, stopped = false, blocked = false, attempts = 0, message = '', ready = false;
-  let frames = {binary:0,text:0,quote:0,previousClose:0,unmatched:0,unparsed:0};
+  const counters = () => ({binary:0,text:0,quote:0,previousClose:0,unmatched:0,unparsed:0,shapes:{},futureOffsetSeconds:null});
+  let frames = counters();
 
   function open() {
     if (stopped || blocked) return;
     const url = new URL('wss://api-feed.dhan.co/');
     url.search = new URLSearchParams({ version: '2', token: auth.token, clientId: auth.clientId, authType: '2' });
     const closes = new Map(), latest = new Map();
-    ready = false; message = ''; frames = {binary:0,text:0,quote:0,previousClose:0,unmatched:0,unparsed:0};
+    ready = false; message = ''; frames = counters();
     onStatus('Connecting to DhanHQ.', false);
     const current = new WebSocket(url, { handshakeTimeout: 10000, maxPayload: 64 * 1024, followRedirects: false, perMessageDeflate: false });
     socket = current;
@@ -122,7 +124,16 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       if (!binary) { frames.text++; return; }
       frames.binary++;
       const packet = decodePacket(raw);
-      if (!packet) { frames.unparsed++; return; }
+      if (!packet) {
+        frames.unparsed++;
+        const type=raw[0], shape=`${type}:${raw.length}`;
+        if (Object.hasOwn(frames.shapes,shape)||Object.keys(frames.shapes).length<16) frames.shapes[shape]=(frames.shapes[shape]||0)+1;
+        if ((type===4||type===8)&&raw.length>=18) {
+          const offset=raw.readUInt32LE(14)-Math.floor(Date.now()/1000);
+          if (offset>60) frames.futureOffsetSeconds=offset;
+        }
+        return;
+      }
       if (packet.code === 50) {
         message = disconnectMessages[packet.reason] || `Dhan disconnected the market feed (${packet.reason}).`;
         blocked = stopReasons.has(packet.reason);
@@ -132,7 +143,7 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       }
       const key = `${packet.segment}:${packet.id}`, instrument = instrumentByKey.get(key);
       if (!instrument) { frames.unmatched++; return; }
-      if(packet.code===4)frames.quote++;else if(packet.code===6)frames.previousClose++;
+      if(packet.code===6)frames.previousClose++;else frames.quote++;
       if (packet.code === 6) {
         if (!packet.previousClose || closes.get(key) === packet.previousClose) return;
         closes.set(key, packet.previousClose);
