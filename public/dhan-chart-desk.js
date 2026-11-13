@@ -127,7 +127,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   }};
   const renderer=new MarketChartRenderer(canvas,owner);
   let candles=[],drawings=[],undo=[],redo=[],symbols=[],quotes=new Map(),lists=[],watchId='',loadedFor=null,loadingLists=null,listEpoch=0;
-  let tool='cursor',drag=null,storageKey='',dockView=null,alertEpoch=0;
+  let tool='cursor',drag=null,storageKey='',dockView=null,alertEpoch=0,searchDialog=null,refreshSearch=null;
   const chartPanel=host.closest('.private-dhan-chart');
   const fullscreenButton=tools.querySelector('[data-dhan-chart="fullscreen"]');
   searchButton.onclick=()=>openSymbolSearch();
@@ -290,6 +290,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       <label>Search stocks or futures<input class="dhan-search-input" type="search" placeholder="Symbol or company name" autocomplete="off"></label>
       <label>Save to watchlist<select class="dhan-search-list"></select></label>
       <div class="dhan-search-results"></div><p class="dhan-search-status muted" role="status"></p>`);
+    searchDialog=dialog;
     const field=dialog.querySelector('.dhan-search-input');
     const results=dialog.querySelector('.dhan-search-results');
     const listField=dialog.querySelector('.dhan-search-list');
@@ -302,12 +303,17 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       const query=field.value.trim().toLowerCase();
       const list=lists.find(item=>String(item.id)===listField.value);
       const found=symbols.filter(item=>`${item.symbol} ${item.name}`.toLowerCase().includes(query));
-      results.innerHTML=found.map(item=>{
+      const markup=found.map(item=>{
         const saved=list?.symbols.includes(item.symbol);
         return `<div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}"><strong>${html(item.symbol)}</strong><small>${html(item.name)}${item.expiry?' · '+html(item.expiry):''}</small></button>
           <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>`;
-      }).join('')||'<p class="muted">No matching instruments in the connected Dhan feed.</p>';
+      }).join('')||`<p class="muted">${symbols.length?'No matching instruments in the connected Dhan feed.':'Loading Dhan instruments…'}</p>`;
+      if(results.dataset.markup!==markup){
+        results.innerHTML=markup;
+        results.dataset.markup=markup;
+      }
     };
+    refreshSearch=render;
     function open(symbol){dialog.close();dialog.remove();selectSymbol(symbol);canvas.focus({preventScroll:true});}
     field.value=initial;
     paintLists();
@@ -523,6 +529,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
         renderIntervals();
       }
       symbols=items;
+      if(searchDialog?.open)refreshSearch?.();
       searchButton.querySelector('span').textContent=symbol||'Search symbols';
       quotes=new Map(liveQuotes.map(q=>[q.symbol,q]));
       owner.quote=owner.symbol===symbol?quotes.get(symbol):null;
@@ -552,6 +559,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       paint();
     },
     reset() {
+      searchDialog=null;
+      refreshSearch=null;
       alertEpoch++;
       showDock(null);
       exitFocus();
