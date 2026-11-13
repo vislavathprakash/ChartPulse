@@ -192,6 +192,25 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
   .dhan-dock { position:absolute; inset:0 0 0 auto; width:min(265px,calc(100% - 36px)); box-shadow:-8px 0 22px #0004; }
   .dhan-chart-hint { display:none; }
 }
+@media(max-width:720px) {
+  #dhan-pane-dashboard .private-dhan-chart > .panel-heading { gap:4px; padding:5px 7px; }
+  #dhan-pane-dashboard .private-dhan-chart > .panel-heading h2 { display:none; }
+  #dhan-pane-dashboard .private-dhan-chart > .panel-heading p { margin:0; font-size:11px; }
+  #dhan-pane-dashboard .private-dhan-chart > .panel-heading .terminal-actions,
+  .dhan-chart-actions { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; min-width:0; }
+  .dhan-chart-actions { flex:none; overflow:visible; }
+  #dhan-pane-dashboard .terminal-actions > *,.dhan-chart-actions > * { flex:none; white-space:nowrap; }
+  #dhan-pane-dashboard .terminal-actions select,#privateHistoryRefresh { min-height:34px; margin:0; padding:5px 8px; }
+  .dhan-chart-ohlc { min-height:26px; padding-block:5px; }
+}
+@media(max-height:650px) {
+  body.dhan-terminal-open .content-wrap { padding-block:6px; }
+  #page-private-dhan .page-heading { margin-bottom:6px; }
+  #page-private-dhan .page-heading .eyebrow { display:none; }
+  #page-private-dhan .page-heading h1 { margin:4px 0; font-size:20px; }
+  .dhan-terminal-bar { padding-block:3px; }
+  .dhan-workspace-tabs button,.dhan-symbol-control select { min-height:36px; }
+}
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
 .terminal-watch .data-table th { font: 10px/1.4 var(--mono); letter-spacing: .06em; background: var(--terminal-inset); color: var(--muted); }

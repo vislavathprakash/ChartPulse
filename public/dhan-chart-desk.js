@@ -36,7 +36,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
       </div>
       <div class="dhan-dock-objects hidden"></div>
     </aside>`;
-  host.append(desk);
+  host.replaceChildren(desk);
   const tools = document.createElement('div');
   tools.className = 'dhan-chart-actions';
   tools.innerHTML = `<select aria-label="Dhan chart type">${choice([['candles','Candles'],['bars','OHLC bars'],['line','Line'],['area','Area'],['heikin','Heikin Ashi']],'candles')}</select>
@@ -64,7 +64,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
   }};
   const renderer=new MarketChartRenderer(canvas,owner);
   let candles=[],drawings=[],undo=[],redo=[],symbols=[],quotes=new Map(),lists=[],watchId='',loadedFor=null,loadingLists=null,listEpoch=0;
-  let tool='cursor',drag=null,storageKey='',isDockOpen=true;
+  let tool='cursor',drag=null,storageKey='',isDockOpen=true,dockPreference=null;
   const paint=()=>renderer.render(candles,drawings);
   new ResizeObserver(paint).observe(box);
   const persist=()=>{
@@ -187,7 +187,9 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     desk.querySelector('.dhan-dock').classList.toggle('hidden',!open);
     tools.querySelector('[data-dhan-chart="toggleDock"]').setAttribute('aria-expanded',String(open));
   }
-  if(matchMedia('(max-width: 900px)').matches)toggleDock(false);
+  const narrow=matchMedia('(max-width: 900px)');
+  toggleDock(!narrow.matches);
+  narrow.addEventListener('change',()=>{if(dockPreference===null)toggleDock(!narrow.matches);});
   watchSelect.onchange=()=>{watchId=watchSelect.value;renderWatch();};
   search.oninput=renderWatch;
   tools.querySelector('select').onchange=event=>{owner.settings.chartType=event.target.value;paint();};
@@ -197,7 +199,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol) {
     undo:()=>{if(undo.length){redo.push(drawings);drawings=undo.pop();persist();}},
     redo:()=>{if(redo.length){undo.push(drawings);drawings=redo.pop();persist();}},
     theme:button=>{owner.settings.theme=owner.settings.theme==='light'?'dark':'light';button.textContent=owner.settings.theme==='light'?'Dark chart':'Light chart';paint();},
-    toggleDock:()=>toggleDock(!isDockOpen),
+    toggleDock:()=>{dockPreference=!isDockOpen;toggleDock(dockPreference);},
     fullscreen:async()=>{if(document.fullscreenElement)await document.exitFullscreen();else await host.closest('.private-dhan-chart').requestFullscreen();},
     png:()=>{if(candles.length)simulationChart.download(canvas.toDataURL('image/png'),`${owner.symbol.replace(':','-')}-dhan.png`);},
     csv:()=>{
