@@ -18,7 +18,7 @@ async function fetchData(route, body) {
   const data = await response.json().catch(()=>null);
   const code = String(data?.errorCode ?? data?.data?.errorCode ?? '');
   if (!response.ok || !data || data.status === 'failure' || /^DH-\d{3}$/.test(code)) {
-    if (code==='DH-901'||response.status===401) throw new Error('Dhan did not authenticate the request. Check the Client ID and renew the access token.');
+    if (code==='DH-901'||response.status===401) throw new Error('Dhan did not authenticate this endpoint. Check endpoint access and token validity in Dhan.');
     if (code==='DH-902'||response.status===403) throw new Error('Dhan denied Data API access. Check the subscription and account access.');
     throw new Error(`Dhan data request failed (${/^DH-\d{3}$/.test(code)?code:response.status}).`);
   }
@@ -80,14 +80,24 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     if (!allows(req.session.user)) return res.status(404).json({ error: 'Not found.' });
     next();
   }
+  function mergedQuotes() {
+    const merged=new Map([...snapshots].map(([symbol,snapshot])=>[symbol,snapshot.quote]));
+    for(const q of quotes.values()) {
+      const fallback=merged.get(q.symbol);
+      if(!fallback||Date.parse(q.updated_at)>=(Date.parse(fallback.updated_at)||0)) {
+        const previous=q.previous_close??fallback?.previous_close;
+        merged.set(q.symbol,{...q,previous_close:previous??null,change_pct:previous?(q.price/previous-1)*100:null,source:'stream'});
+      }
+    }
+    return merged;
+  }
   installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials:dhan.credentials,
-    instrument:symbol=>directory.get(symbol), refreshSnapshot, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
+    instrument:symbol=>directory.get(symbol), refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
   app.get('/api/private-dhan/quotes', requireAuth, ownerOnly, asyncRoute(async (req, res) => {
     const query = req.query.query;
     const hasFreshStream = Boolean(client?.isReady() && [...quotes.values()].some(q=>Date.now()-Date.parse(q.updated_at)<120000));
-    if (!hasFreshStream) await refreshSnapshot();
-    const merged=new Map([...snapshots].map(([symbol,snapshot])=>[symbol,snapshot.quote]));
-    for(const q of quotes.values()){const fallback=merged.get(q.symbol);if(!fallback||Date.parse(q.updated_at)>=(Date.parse(fallback.updated_at)||0))merged.set(q.symbol,{...q,source:'stream'});}
+    if (!hasFreshStream||!snapshots.size) await refreshSnapshot();
+    const merged=mergedQuotes();
     let rows = [...merged.values()];
     if (query !== undefined && query !== '') {
       if (typeof query !== 'string' || query.length > 2000) return res.status(400).json({ error: 'Use a query of up to 2,000 characters.' });

@@ -49,7 +49,7 @@ function quoteDepth(q, number) {
     buyQuantity:number(q.buy_quantity), sellQuantity:number(q.sell_quantity), lastQuantity:number(q.last_quantity) };
 }
 
-function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials,instrument,refreshSnapshot,snapshot,snapshotMessage}) {
+function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials,instrument,refreshSnapshot,mergedQuotes,snapshot,snapshotMessage}) {
   const cache=new Map(), pending=new Map();
   async function cached(key,ttl,read) {
     const entry=cache.get(key);
@@ -70,11 +70,17 @@ function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,cre
     if(!['depth','company','technicals','movers','news'].includes(view))return res.status(400).json({error:'Choose a research view.'});
     if(view==='movers') {
       if(!['NSE_EQ','BSE_EQ'].includes(segment)||!['PRICE_GAINERS','PRICE_LOSERS'].includes(category))return res.status(400).json({error:'Choose an exchange and ranking.'});
-      return res.json(await cached(`movers:${segment}:${category}`,60000,async()=>resultRows(await fetchData('data/marketmovers',{exchangeSegment:segment,instrument:['EQUITY'],category,universe:'ALL',limit:15}),row=>{
+      const result=await cached(`movers:${segment}:${category}`,60000,async()=>resultRows(await fetchData('data/marketmovers',{exchangeSegment:segment,instrument:['EQUITY'],category,universe:'ALL',limit:15}),row=>{
         const symbol=pick(row,'symbol','tradingSymbol','displaySymbol','customSymbol','ticker','semTradingSymbol','scripName','securityId');
         if(symbol===null)return null;
         return {symbol,name:pick(row,'name','companyName','company','displayName'),price:asNumber(pick(row,'lastPrice','lastTradedPrice','ltp','price','close')),change:asNumber(pick(row,'changePct','changePercent','percentageChange','priceChangePercent','pChange','percentChange','changePercentage','perChange','priceChangePct')),volume:asNumber(pick(row,'volume','tradedVolume','totalTradedVolume','totalVolume'))};
-      },15)));
+      },15));
+      if(result.data?.length)return res.json(result);
+      await refreshSnapshot();
+      const gains=category==='PRICE_GAINERS';
+      const matching=[...mergedQuotes().values()].filter(q=>q.symbol.startsWith(`${segment.slice(0,3)}:`)&&Number.isFinite(q.change_pct));
+      const data=matching.filter(q=>gains?q.change_pct>0:q.change_pct<0).sort((a,b)=>gains?b.change_pct-a.change_pct:a.change_pct-b.change_pct).slice(0,15).map(q=>({symbol:q.symbol,price:q.price,change:q.change_pct,volume:q.volume,name:q.name}));
+      return res.json({data, fallback:true, warning:matching.length?`Exchange ranking unavailable. Ranked ${matching.length} configured ${segment.slice(0,3)} listings with a reported previous close.`:'Exchange ranking unavailable, and no configured quotes have a previous close.'});
     }
     const i=typeof symbol==='string'?instrument(symbol):null;
     if(!i)return res.status(400).json({error:'Choose a configured Dhan symbol.'});

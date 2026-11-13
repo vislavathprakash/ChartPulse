@@ -67,7 +67,7 @@ No provider or Meta credentials are needed for this deployment. The Blueprint us
 
 ### DhanHQ v2 live equity quotes
 
-For a private view on a standalone deployment, keep `MARKET_DATA_PROVIDER=simulated` and set `DHAN_PRIVATE_OWNER_ID` and `DHAN_PRIVATE_OWNER_EMAIL` to the verified existing customer. With the Dhan credentials configured, that customer gets **Private live quotes** and a quote filter. Both identity fields must match the active customer on every request. Private quotes stay in server memory and are separate from the shared screener, chart feed, and alert engine.
+For a private view on a standalone deployment, keep `MARKET_DATA_PROVIDER=simulated` and set `DHAN_PRIVATE_OWNER_ID` and `DHAN_PRIVATE_OWNER_EMAIL` to the verified existing customer. With the Dhan credentials configured, that customer gets **Private live quotes** (`/app?view=private-dhan`): a quote filter, Dhan historical candles, up to five levels of market depth, company fundamentals, technical indicators, market movers, and stock news when available from Dhan. If Dhan does not return technicals or market movers, AlertPe can calculate indicators from completed Dhan candles or rank configured quotes; the terminal labels both fallbacks. Both identity fields must match the customer on every request. The private feed and research stay separate from the shared screener, chart feed, and alert engine.
 
 Keep production on `MARKET_DATA_PROVIDER=simulated` until you have an active [DhanHQ Data API subscription](https://dhan.co/support/platforms/dhanhq-api/is-a-data-api-subscription-required/) and written approval for the shared market data shown to AlertPe customers. Dhan lists [separate individual and partner access](https://dhanhq.co/docs/v2/authentication/).
 
