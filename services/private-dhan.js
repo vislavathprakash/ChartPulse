@@ -19,7 +19,7 @@ async function fetchData(route, body) {
   const data = await response.json().catch(()=>null);
   const code = String(data?.errorCode ?? data?.data?.errorCode ?? '');
   if (!response.ok || !data || data.status === 'failure' || /^DH-\d{3}$/.test(code)) {
-    if (code==='DH-901'||response.status===401) throw new Error('Dhan did not authenticate this endpoint. Check endpoint access and token validity in Dhan.');
+    if (code==='DH-901'||response.status===401) throw Object.assign(new Error('Dhan rejected the access token. Renew it in Render to reconnect.'),{code:'DHAN_AUTH'});
     if (code==='DH-902'||response.status===403) throw new Error('Dhan denied Data API access. Check the subscription and account access.');
     throw new Error(`Dhan data request failed (${/^DH-\d{3}$/.test(code)?code:response.status}).`);
   }
@@ -33,7 +33,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   const allows = user => Boolean(configured && user?.role === 'customer' && String(user.id) === ownerId && user.email?.toLowerCase() === ownerEmail);
   const quotes = new Map();
   const snapshots = new Map(), history = new Map(), requests = new Map();
-  let directory = new Map(), snapshotStatus = '', nextSnapshot = 0, snapshotRequest;
+  let directory = new Map(), snapshotStatus = '', snapshotError = null, nextSnapshot = 0, snapshotRequest;
   let client, starting = false, stopped = false, status = 'Waiting for the Dhan feed to start.';
   let commodityStatus = '', nextContractCheck = 0;
 
@@ -84,6 +84,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       try {
         const {data}=await fetchData('marketfeed/quote',body);
         if(stopped||requested!==directory)return;
+        snapshotError=null;
         for(const i of directory.values()) {
           const q=data?.[i.segment]?.[i.id], price=positive(number(q?.last_price)); if(!price)continue;
           const change=number(q.net_change);
@@ -91,7 +92,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
           snapshots.set(i.symbol,{quote:{symbol:i.symbol,name:i.name,exchange:i.exchange,price,previous_close:previous,change_pct:previous?(price/previous-1)*100:null,volume:number(q.volume),open:positive(number(q.ohlc?.open)),high:positive(number(q.ohlc?.high)),low:positive(number(q.ohlc?.low)),updated_at:tradeDate(q.last_trade_time),source:'snapshot'}, depth:quoteDepth(q,number)});
         }
         snapshotStatus=snapshots.size?'Dhan quote snapshot. Exchange timestamps are shown when available.':'Dhan returned no quotes for the configured symbols.';
-      }catch(err){snapshotStatus=err.message.startsWith('Dhan ')?err.message:'Dhan quote snapshot could not be reached.';nextSnapshot=Date.now()+60000;}
+      }catch(err){snapshotError=err.code==='DHAN_AUTH'?'authentication':'unavailable';snapshotStatus=err.message.startsWith('Dhan ')?err.message:'Dhan quote snapshot could not be reached.';nextSnapshot=Date.now()+60000;}
     })();
     try {await snapshotRequest;} finally{snapshotRequest=null;}
   }
@@ -132,7 +133,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     res.json({
       quotes: rows, selected, connected:hasFreshStream, selectedLive:fresh(quotes.get(req.query.symbol)),
       symbols:[...directory.values()].map(({symbol,name,expiry})=>({symbol,name,expiry})),
-      commodityStatus, stream:client?.diagnostics(),
+      commodityStatus, feedIssue:hasFreshStream?null:snapshotError, stream:client?.diagnostics(),
       status:hasFreshStream?'Dhan WebSocket is streaming.':[snapshotStatus,status].filter(Boolean).join(' ')
     });
   }));

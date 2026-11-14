@@ -108,6 +108,7 @@ body.dhan-terminal-open .app-footer, body.dhan-terminal-open .top-actions .marke
 #page-private-dhan .page-heading { align-items:center; gap:12px; margin:0 0 16px; }
 #privateDhanBadge { white-space:nowrap; padding:7px 10px; font-size:11px; }
 #privateDhanBadge.dhan-live { color:var(--green); background:var(--green2); }
+#privateDhanBadge.dhan-feed-issue { color:var(--orange); background:var(--terminal-warm); }
 .dhan-terminal-shell { display:flex; flex:1; flex-direction:column; min-height:0; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
 .dhan-terminal-bar { display:flex; justify-content:space-between; align-items:center; gap:8px 16px; padding:8px 12px; border-bottom:1px solid var(--line); }
 .dhan-workspace-tabs { display:flex; gap:4px; }

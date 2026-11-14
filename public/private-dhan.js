@@ -125,9 +125,10 @@
       const badge = $('privateDhanBadge');
       const activeRows = isWatch()?shown:data.selected?[data.selected]:data.quotes;
       const live = isWatch() ? data.connected && activeRows.some(q=>q.source==='stream'&&Date.now()-Date.parse(q.updated_at)<120000) : data.selected ? data.selectedLive : data.connected;
-      badge.textContent = live ? 'Live · DhanHQ' : activeRows.some(q=>q.source==='snapshot') ? 'Quote snapshot' : activeRows.length ? 'Last known quotes' : 'Waiting for quotes';
+      badge.textContent = live ? 'Live · DhanHQ' : data.feedIssue==='authentication' ? 'Dhan token needs renewal' : data.feedIssue ? 'Feed unavailable' : activeRows.some(q=>q.source==='snapshot') ? 'Quote snapshot' : activeRows.length ? 'Last known quotes' : 'Waiting for quotes';
       badge.classList.toggle('dhan-live', live);
-      const status = terminalView==='commodities'?(data.commodityStatus||'Nearest expiry contracts · MCX'):data.status;
+      badge.classList.toggle('dhan-feed-issue',Boolean(data.feedIssue));
+      const status = terminalView==='commodities'&&!data.feedIssue?(data.commodityStatus||'Nearest expiry contracts · MCX'):data.status;
       const statusText = status + (latest ? ` Latest shown trade: ${quoteTime.format(latest)} IST.` : '');
       if ($('privateDhanStatus').textContent !== statusText) $('privateDhanStatus').textContent = statusText;
       updateMarketWatch($('privateDhanTable'),shown);
@@ -158,6 +159,7 @@
       if (err.status !== 400) {
         $('privateDhanBadge').textContent = 'Quotes unavailable';
         $('privateDhanBadge').classList.remove('dhan-live');
+        $('privateDhanBadge').classList.add('dhan-feed-issue');
       }
       $('privateDhanStatus').textContent = err.message;
       updateMarketWatch($('privateDhanTable'),[]);
@@ -176,10 +178,19 @@
     historyController?.abort();const symbol=$('privateHistorySymbol').value;if(!symbol||!active())return;
     const request=new AbortController();historyController=request;request.pending=true;
     const current=()=>!request.signal.aborted&&active()&&historyController===request;
-    if(!quiet){$('privateHistoryStatus').textContent=`Loading Dhan candles for ${symbol}…`;drawHistory([],'Loading candles…');}
     const interval=$('privateHistoryInterval').value;
+    const previous=chartHistory?.symbol===symbol&&chartHistory?.interval===interval?chartHistory:null;
+    if(!quiet){
+      $('privateHistoryStatus').textContent=`Loading Dhan candles for ${symbol}…`;
+      if(!previous)drawHistory([],'Loading candles…');
+    }
     try{const {candles}=await api('/api/private-dhan/history?'+new URLSearchParams({symbol,interval}),{signal:request.signal,cache:'no-store'});if(!current())return;chartHistory={symbol,interval,candles,loadedAt:Date.now()};drawHistory(candles);$('privateHistoryStatus').textContent=`${symbol} · Dhan historical data · ${candles.length} candles available · IST`;if(researchView==='technicals')void loadResearch({quiet:true});}
-    catch(err){if(current()&&!quiet){$('privateHistoryStatus').textContent=err.message;drawHistory([],'Historical candles unavailable.');}}
+    catch(err){
+      if(current()){
+        $('privateHistoryStatus').textContent=previous?`Showing last loaded candles · ${err.message}`:err.message;
+        if(!previous)drawHistory([],err.message);
+      }
+    }
     finally { request.pending=false;if(quiet&&current()&&chartHistory)chartHistory.loadedAt=Date.now(); }
   }
   const researchNumber=(n,digits=2)=>n==null?'—':fmt(n,digits);
