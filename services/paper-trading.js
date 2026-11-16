@@ -77,7 +77,7 @@ function ticketQuote(item,quote) {
   return {symbol:item.symbol,name:item.name,kind:item.kind,lotSize:item.lotSize,expiry:item.expiry,last:rupees(quotePrice(quote)),quoteAt:quote?.updated_at??null,fresh:fresh(quote),expired:Date.now()>=expiryAt(item)};
 }
 
-function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) {
+function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,practiceChart}) {
   async function setup() {
     await pool.query("CREATE TABLE IF NOT EXISTS paper_accounts (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, cash BIGINT NOT NULL, realized BIGINT NOT NULL DEFAULT 0)");
     await pool.query("CREATE TABLE IF NOT EXISTS paper_positions (user_id INTEGER NOT NULL REFERENCES paper_accounts(user_id) ON DELETE CASCADE, source TEXT NOT NULL, symbol TEXT NOT NULL, instrument JSONB NOT NULL, quantity INTEGER NOT NULL, entry_value BIGINT NOT NULL, capital BIGINT NOT NULL, stop_loss BIGINT, take_profit BIGINT, protected_at TIMESTAMPTZ, mark BIGINT, mark_at TIMESTAMPTZ, PRIMARY KEY(user_id,source,symbol))");
@@ -88,7 +88,8 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
       await pool.query('ALTER TABLE paper_positions DROP CONSTRAINT paper_positions_pkey');
       await pool.query('ALTER TABLE paper_positions ADD PRIMARY KEY(user_id,source,symbol,product)');
     });
-    await pool.query("ALTER TABLE paper_orders ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'delivery', ADD COLUMN IF NOT EXISTS session_end TIMESTAMPTZ");
+    await pool.query('ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS mark_chart_time BIGINT');
+    await pool.query("ALTER TABLE paper_orders ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'delivery', ADD COLUMN IF NOT EXISTS session_end TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS chart_time BIGINT");
     await pool.query("CREATE INDEX IF NOT EXISTS paper_pending_user ON paper_orders(user_id) WHERE state='pending'");
     await pool.query("CREATE INDEX IF NOT EXISTS paper_order_history ON paper_orders(user_id,id DESC)");
   }
@@ -123,7 +124,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
       [userId,input.requestId??null,input.source,input.symbol,JSON.stringify(item),input.side,input.type,quantity,input.level,input.stop??null,input.target??null,reserved,reason,input.product??'delivery',input.sessionEnd??null]);
     return row;
   }
-  async function fill(userId,order,p,current,price,plan,markAt) {
+  async function fill(userId,order,p,current,price,plan,markAt,chartTime) {
     const keep=Number(p?.quantity??0)+plan.quantity*plan.direction;
     const oldCap=Number(p?.capital??0), oldEntry=Number(p?.entry_value??0);
     const capital=plan.closing?oldCap-plan.release:oldCap+plan.required;
@@ -131,13 +132,13 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
     if(keep===0)await query('DELETE FROM paper_positions WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$4',[userId,order.source,order.symbol,order.product]);
     else {
       const stop=amount(order.stop_loss)??amount(p?.stop_loss),target=amount(order.take_profit)??amount(p?.take_profit);
-      await query("INSERT INTO paper_positions(user_id,source,symbol,instrument,quantity,entry_value,capital,stop_loss,take_profit,mark,mark_at,protected_at,product,session_end) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(user_id,source,symbol,product) DO UPDATE SET quantity=EXCLUDED.quantity,entry_value=EXCLUDED.entry_value,capital=EXCLUDED.capital,stop_loss=EXCLUDED.stop_loss,take_profit=EXCLUDED.take_profit,mark=EXCLUDED.mark,mark_at=EXCLUDED.mark_at,protected_at=EXCLUDED.protected_at",
-        [userId,order.source,order.symbol,JSON.stringify(order.instrument),keep,entryValue,capital,stop,target,price,markAt,plan.closing?p.protected_at:new Date(),order.product,order.session_end]);
+      await query("INSERT INTO paper_positions(user_id,source,symbol,instrument,quantity,entry_value,capital,stop_loss,take_profit,mark,mark_at,protected_at,product,session_end,mark_chart_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(user_id,source,symbol,product) DO UPDATE SET quantity=EXCLUDED.quantity,entry_value=EXCLUDED.entry_value,capital=EXCLUDED.capital,stop_loss=EXCLUDED.stop_loss,take_profit=EXCLUDED.take_profit,mark=EXCLUDED.mark,mark_at=EXCLUDED.mark_at,mark_chart_time=EXCLUDED.mark_chart_time,protected_at=EXCLUDED.protected_at",
+        [userId,order.source,order.symbol,JSON.stringify(order.instrument),keep,entryValue,capital,stop,target,price,markAt,plan.closing?p.protected_at:new Date(),order.product,order.session_end,chartTime??null]);
     }
     const cashChange=plan.closing?plan.release+plan.pnl:-plan.required;
     await query('UPDATE paper_accounts SET cash=cash+$2,realized=realized+$3 WHERE user_id=$1',[userId,cashChange,plan.pnl]);
     current.cash=Number(current.cash)+cashChange;
-    const {rows:[filled]}=await query("UPDATE paper_orders SET state='filled',fill_price=$2,filled_at=NOW(),pnl=$3,reserved=0 WHERE id=$1 RETURNING *",[order.id,price,plan.closing?plan.pnl:null]);
+    const {rows:[filled]}=await query("UPDATE paper_orders SET state='filled',fill_price=$2,filled_at=NOW(),pnl=$3,chart_time=$4,reserved=0 WHERE id=$1 RETURNING *",[order.id,price,plan.closing?plan.pnl:null,chartTime??(order.instrument.practice?null:Math.floor(Date.parse(markAt)/1000)||null)]);
     if(keep===0)await query("UPDATE paper_orders SET state='cancelled',reason='Position closed',reserved=0 WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$4 AND state='pending'",[userId,order.source,order.symbol,order.product]);
     return filled;
   }
@@ -162,6 +163,19 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
     const term=typeof req.query.q==='string'?req.query.q.slice(0,80):'';
     const rows=practice(kind,term);
     res.json({items:rows.slice(0,50),total:rows.length});
+  }));
+  app.get(ROUTE+'/chart',requireAuth,asyncRoute(async(req,res)=>{
+    const {source,symbol,interval}=req.query, user=req.session.user;
+    const data=await getMarket(user,source,symbol);
+    if(!data)throw fail('Choose a supported paper instrument.',404);
+    const {item,quote}=data;
+    if(!['1m','5m','15m','1h','1D'].includes(interval))throw fail('Choose a supported chart interval.');
+    const from=Math.max(0,Number.parseInt(req.query.since,10)||0);
+    const candles=item.practice?practiceChart?.(symbol,interval,from):undefined;
+    const {rows}=await query("SELECT id,side,fill_price,filled_at,chart_time FROM paper_orders WHERE user_id=$1 AND source=$2 AND symbol=$3 AND state='filled' ORDER BY filled_at DESC,id DESC LIMIT 200",[user.id,source,symbol]);
+    const fills=rows.map(row=>({id:row.id,side:row.side,price:rupees(row.fill_price),filledAt:row.filled_at,
+      chartTime:amount(row.chart_time)??(item.practice?null:Math.floor(Date.parse(row.filled_at)/1000))}));
+    res.json({instrument:ticketQuote(item,quote),candles, fills});
   }));
   app.get(ROUTE+'/instrument',requireAuth,asyncRoute(async(req,res)=>{
     const {source,symbol}=req.query;
@@ -210,7 +224,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
       const available=Number(wallet.cash)-await lockedFunds(user.id);
       if(plan.required>0&&plan.required>available)throw fail('Insufficient virtual funds for this order.',409);
       const order=await insertOrder(user.id,t,data.item,plan.quantity,canFill?0:plan.required);
-      return canFill?fill(user.id,order,p,wallet,fillPrice,plan,data.quote.updated_at):order;
+      return canFill?fill(user.id,order,p,wallet,fillPrice,plan,data.quote.updated_at,data.quote.chart_time):order;
     });
     res.status(201).json({order:publicOrder(result)});
   }));
@@ -300,23 +314,23 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
         const end=Date.parse(p.session_end);
         if(Number.isFinite(end)&&Date.now()>=end&&end<=expiry){
           const saved=Date.parse(p.mark_at), near=ms=>ms<=end&&ms>end-900000;
-          const mark=(price&&near(at))?{price,at}:near(saved)?{price:Number(p.mark),at:saved}:fresh(quote)?{price,at}:null;
-          if(mark?.price)await autoExit(id,p,wallet,mark.price,mark.at>end?'Intraday square-off (next eligible quote)':'Intraday square-off',new Date(mark.at));
+          const mark=(price&&near(at))?{price,at,chartTime:quote.chart_time}:near(saved)?{price:Number(p.mark),at:saved,chartTime:amount(p.mark_chart_time)}:fresh(quote)?{price,at,chartTime:quote.chart_time}:null;
+          if(mark?.price)await autoExit(id,p,wallet,mark.price,mark.at>end?'Intraday square-off (next eligible quote)':'Intraday square-off',new Date(mark.at),mark.chartTime);
           continue;
         }
         if(Date.now()>=expiry){
           const valid=ms=>ms<=expiry&&ms>expiry-900000;
           const mark=price&&valid(at)?price:valid(Date.parse(p.mark_at))?Number(p.mark):null;
-          if(mark)await autoExit(id,p,wallet,mark,'Expiry settlement (last eligible quote)',new Date(price&&valid(at)?at:Date.parse(p.mark_at)));
+          if(mark)await autoExit(id,p,wallet,mark,'Expiry settlement (last eligible quote)',new Date(price&&valid(at)?at:Date.parse(p.mark_at)),price&&valid(at)?quote.chart_time:amount(p.mark_chart_time));
           continue;
         }
         if(!fresh(quote))continue;
-        if((p.instrument.expiry||p.session_end)&&at>Date.parse(p.mark_at)&&price!==Number(p.mark))await query('UPDATE paper_positions SET mark=$4,mark_at=$5 WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$6',[id,p.source,p.symbol,price,quote.updated_at,p.product]);
+        if((p.instrument.expiry||p.session_end)&&at>Date.parse(p.mark_at)&&price!==Number(p.mark))await query('UPDATE paper_positions SET mark=$4,mark_at=$5,mark_chart_time=$7 WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$6',[id,p.source,p.symbol,price,quote.updated_at,p.product,quote.chart_time??null]);
         if(at<=Date.parse(p.protected_at))continue;
         const direction=Math.sign(p.quantity);
         const stop=p.stop_loss!=null&&(price-Number(p.stop_loss))*direction<=0;
         const target=p.take_profit!=null&&(price-Number(p.take_profit))*direction>=0;
-        if(stop||target)await autoExit(id,p,wallet,price,stop?'Stop loss':'Take profit',quote.updated_at);
+        if(stop||target)await autoExit(id,p,wallet,price,stop?'Stop loss':'Take profit',quote.updated_at,quote.chart_time);
       }
       for(const original of pending){
         const {rows:[order]}=await query("SELECT * FROM paper_orders WHERE user_id=$1 AND id=$2 AND state='pending'",[id,original.id]);
@@ -342,17 +356,17 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) 
           if(error.status!==409)await updatePending(order.id,'rejected',error.message);
           continue;
         }
-        await fill(id,order,p,wallet,price,plan,quote.updated_at);
+        await fill(id,order,p,wallet,price,plan,quote.updated_at,quote.chart_time);
       }
     });
   }
   async function updatePending(id,state,reason) {
     await query('UPDATE paper_orders SET state=$2,reason=$3,reserved=0 WHERE id=$1',[id,state,reason]);
   }
-  async function autoExit(id,p,wallet,price,reason,markAt) {
+  async function autoExit(id,p,wallet,price,reason,markAt,chartTime) {
     const t={product:p.product,source:p.source,symbol:p.symbol,side:p.quantity>0?'sell':'buy',type:'market',quantity:Math.abs(p.quantity),level:null,stop:null,target:null};
     const order=await insertOrder(id,t,p.instrument,t.quantity,0,reason);
-    await fill(id,order,p,wallet,price,executionPlan(p.instrument,t,p,price),markAt);
+    await fill(id,order,p,wallet,price,executionPlan(p.instrument,t,p,price),markAt,chartTime);
   }
   return {setup,scan};
 }

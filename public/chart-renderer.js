@@ -103,6 +103,22 @@ class MarketChartRenderer {
       if(o.anchor){ctx.fillStyle='#c4b5fd';ctx.beginPath();ctx.arc(x(o.anchor.time),y(o.anchor.price),4,0,2*Math.PI);ctx.fill();}
       ctx.restore();
     }
+    if(!secondary&&o.markers?.length){
+      ctx.save();
+      ctx.beginPath();ctx.rect(left,top,plotWidth,bottom-top);ctx.clip();
+      const byTime=new Set(visible.map(bar=>bar.time));
+      ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      for(const marker of o.markers){
+        if(!byTime.has(marker.time))continue;
+        const buy=marker.side==='buy';
+        const xx=Math.min(right-9,Math.max(left+9,x(marker.time)+(buy?-7:7)));
+        const yy=Math.min(bottom-10,Math.max(top+10,y(marker.price)+(buy?11:-11)));
+        ctx.fillStyle=buy?'#20866a':'#c44053';
+        ctx.beginPath();ctx.arc(xx,yy,8,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#fff';ctx.fillText(buy?'B':'S',xx,yy);
+      }
+      ctx.restore();
+    }
     let paneTop=bottom+14;
     if(showVolume){const maxVol=Math.max(...visible.map(c=>c.volume),1);textAt('Volume',left,paneTop+11);visible.forEach(c=>{ctx.fillStyle=c.close>=c.open?s.upColor:s.downColor;ctx.globalAlpha=.55;ctx.fillRect(x(c.time)-spacing*.3,paneTop+volumeHeight-c.volume/maxVol*(volumeHeight-18),Math.max(1,spacing*.6),c.volume/maxVol*(volumeHeight-18));ctx.globalAlpha=1;});paneTop+=volumeHeight+8;}
     if(!secondary)for(const {spec,series} of allIndicators.filter(v=>panes.includes(v.spec))){

@@ -36,3 +36,38 @@
   .paper-row-actions button { min-height:44px; }
   .paper-panel [role=tab] { min-height:44px; }
 }
+
+.paper-chart-toolbar,.paper-chart-info,.paper-chart-trade,.paper-chart-legend { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.paper-chart-toolbar { margin:12px 0; }
+.paper-page:has(#paper-tab-chart[aria-selected=true]) .paper-wallet .paper-grid { grid-template-columns:repeat(6,minmax(0,1fr)); }
+.paper-page:has(#paper-tab-chart[aria-selected=true]) .paper-wallet dd { font-size:clamp(15px,1.6vw,21px); }
+.paper-chart-toolbar .button { min-height:36px; padding:6px 12px; }
+.paper-chart-toolbar label { display:flex; align-items:center; gap:6px; margin:0; }
+.paper-chart-toolbar select { width:auto; min-height:36px; margin:0; padding:6px 8px; }
+.paper-chart-toolbar [data-paper-chart=symbol] span { max-width:24ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.paper-chart-trade { margin-left:auto; }
+.paper-chart-trade .paper-chart-sell { color:var(--red); border-color:var(--red); }
+.paper-chart-info { min-height:30px; gap:6px 16px; margin-bottom:6px; font-variant-numeric:tabular-nums; }
+#paperChartOHLC,#paperChartQuote { font-size:12px; color:var(--muted); }
+#paperChartQuote { margin-left:auto; }
+.paper-chart-box { position:relative; height:clamp(390px,58vh,660px); overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--panel2); }
+.paper-chart-box canvas { display:block; width:100%; cursor:crosshair; }
+.paper-chart-message { margin:0; padding:16px; }
+.paper-chart-message:empty { display:none; }
+.paper-chart-overlay { position:absolute; bottom:5px; left:8px; max-width:80%; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel); }
+.paper-chart-legend,.paper-chart-fills { font-size:12px; margin-top:8px; }
+.paper-chart-study-list { display:grid; gap:6px; }
+.paper-chart-study-list label { display:flex; align-items:center; gap:10px; margin:0; }
+.paper-chart-study-list input { width:auto; margin:0; min-height:28px; }
+#paper-chart:is(:fullscreen,.paper-chart-expanded) { background:var(--bg); padding:10px; width:100%; height:100%; display:flex; flex-direction:column; }
+#paper-chart:is(:fullscreen,.paper-chart-expanded) .paper-chart-box { flex:1; height:auto; }
+#paper-chart.paper-chart-expanded { position:fixed; inset:0; z-index:90; }
+@media(max-width:800px){
+  .paper-page:has(#paper-tab-chart[aria-selected=true]) .paper-wallet .paper-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media(max-width:640px){
+  .paper-chart-box { height:415px; }
+  .paper-chart-toolbar .button { min-height:44px; }
+  .paper-chart-trade { margin-left:0; }
+  #paperChartQuote { margin-left:0; }
+}

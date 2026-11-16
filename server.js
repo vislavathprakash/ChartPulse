@@ -14,7 +14,7 @@ const { SimulatedMarket } = require('./simulated-market');
 const dhan = require('./services/dhan-feed');
 const { installPrivateDhan } = require('./services/private-dhan');
 const { installPaperTrading } = require('./services/paper-trading');
-const { practiceDirectory, practiceMarket } = require('./services/paper-practice-market');
+const { practiceDirectory, practiceMarket, practiceCandles } = require('./services/paper-practice-market');
 const marketProvider = process.env.MARKET_DATA_PROVIDER || 'simulated';
 const isSimulated = marketProvider === 'simulated';
 const providerName = { simulated: 'Simulated', truedata: 'TrueData', dhan: 'DhanHQ' }[marketProvider] || 'Unknown provider';
@@ -143,7 +143,7 @@ function requirePortal(role) { return asyncRoute(async (req, res, next) => {
 }); }
 const requireAuth = requirePortal('customer'), requireAdminAuth = requirePortal('admin');
 const privateDhan = installPrivateDhan({app,pool,requireAuth,asyncRoute,enabled:isSimulated&&runtime.role==='standalone'});
-const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,practice:simulation?(kind,term)=>practiceDirectory(simulation,kind,term):null,market:async(user,source,symbol,ensure)=>{
+const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,practice:simulation?(kind,term)=>practiceDirectory(simulation,kind,term):null,practiceChart:simulation?(...args)=>practiceCandles(simulation,...args):null,market:async(user,source,symbol,ensure)=>{
   if(typeof symbol!=='string'||symbol.length>100)return null;
   if(source==='dhan')return privateDhan.paperMarket(user,symbol,ensure);
   if(source!=='workspace'||!marketEntitled())return null;
@@ -151,7 +151,8 @@ const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,practice:simu
   const quote=runtime.quotes.get(symbol);
   const known=runtime.symbolMeta?.get(symbol)??simulation?.instruments.get(symbol);
   if(!known)return null;
-  return {item:{symbol,name:known.name??symbol,kind:'equity',lotSize:1,practice:isSimulated},quote:marketRuntime.connected?quote:null};
+  const chartTime=simulation?.instruments.get(symbol)?.candles.at(-1)?.time;
+  return {item:{symbol,name:known.name??symbol,kind:'equity',lotSize:1,practice:isSimulated},quote:marketRuntime.connected&&quote?{...quote,chart_time:chartTime}:null};
 }});
 function publicUser(user) { return { id: user.id, email: user.email, name: user.name, role: user.role, emailVerified:user.email_verified===true,emailOptIn:user.email_opt_in===true,googleLinked:Boolean(user.google_sub),whatsappPhone: user.whatsapp_phone || '', whatsappOptIn: user.whatsapp_opt_in || false, webhookToken: user.webhook_token || '' }; }
 function regenerateSession(req) { return new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve())); }

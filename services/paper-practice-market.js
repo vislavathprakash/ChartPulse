@@ -43,7 +43,7 @@ function practiceDirectory(simulation,kind,term,now=Date.now()) {
   return rows.filter(item=>[item.symbol,item.name,item.expiry].some(value=>value?.toUpperCase().includes(q)));
 }
 
-function practiceMarket(simulation,quotes,symbol,now=Date.now()) {
+function practiceContract(simulation,symbol,now) {
   const match=/^(PAPERFUT|PAPEROPT):((?:NSE|BSE):SIM\d{3}):(\d{4}-\d{2}-\d{2})(?::(\d{1,5}):(CE|PE))?$/.exec(symbol);
   if(!match)return null;
   const [,type,base,expiry,strikeValue,right]=match;
@@ -54,12 +54,46 @@ function practiceMarket(simulation,quotes,symbol,now=Date.now()) {
   const kind=type==='PAPEROPT'?'options':'futures';
   const item=contract(stock,kind,expiry,strike,right);
   if(item.symbol!==symbol)return null;
+  return {item,base,expiry,strike,right};
+}
+
+function practicePrice({expiry,strike,right},price,asOf) {
+  const remaining=Math.max(0,(expires(expiry)-asOf)/DAY);
+  const intrinsic=right?Math.max(0,(price-strike)*(right==='CE'?1:-1)):0;
+  const timeValue=price*.025*Math.sqrt(Math.min(14,remaining)/14);
+  const mark=right?intrinsic+timeValue:price*(1+remaining*.00015);
+  return Math.max(.01,Math.round(mark*100)/100);
+}
+function practiceMarket(simulation,quotes,symbol,now=Date.now()) {
+  const contract=practiceContract(simulation,symbol,now);
+  if(!contract)return null;
+  const {item,base}=contract;
   const underlying=quotes?.get(base);
   if(!underlying?.price)return {item,quote:null,underlying:null};
-  const remaining=Math.max(0,(expires(expiry)-Date.parse(underlying.updated_at))/DAY);
-  const intrinsic=right?Math.max(0,(underlying.price-strike)*(right==='CE'?1:-1)):0;
-  const timeValue=underlying.price*.025*Math.sqrt(Math.min(14,remaining)/14);
-  const mark=right?intrinsic+timeValue:underlying.price*(1+remaining*.00015);
-  return {item,quote:{price:Math.max(.01,Math.round(mark*100)/100),updated_at:underlying.updated_at},underlying};
+  const chartTime=simulation.instruments.get(base).candles.at(-1)?.time;
+  return {item,quote:{price:practicePrice(contract,underlying.price,Date.parse(underlying.updated_at)),updated_at:underlying.updated_at,chart_time:chartTime},underlying};
 }
-module.exports={practiceDirectory,practiceMarket};
+
+function practiceCandles(simulation,symbol,interval,since,now=Date.now()) {
+  const contract=practiceContract(simulation,symbol,now);
+  const base=simulation.instruments.get(contract?.base??symbol);
+  if(!base)return null;
+  const seconds={'1m':60,'5m':300,'15m':900,'1h':3600,'1D':86400}[interval];
+  const bars=new Map();
+  for(const bar of base.candles){
+    const time=Math.floor(bar.time/seconds)*seconds;
+    if(time<since)continue;
+    const prices=contract?[bar.open,bar.high,bar.low,bar.close].map(price=>practicePrice(contract,price,now)):[bar.open,bar.high,bar.low,bar.close];
+    const [open,,,close]=prices;
+    const low=Math.min(...prices), high=Math.max(...prices);
+    const existing=bars.get(time);
+    if(existing){
+      existing.high=Math.max(existing.high,high);
+      existing.low=Math.min(existing.low,low);
+      existing.close=close;
+      if(!contract)existing.volume+=bar.volume;
+    }else bars.set(time,{time,open,high,low,close,volume:contract?0:bar.volume});
+  }
+  return [...bars.values()].slice(-600);
+}
+module.exports={practiceDirectory,practiceMarket,practiceCandles};
