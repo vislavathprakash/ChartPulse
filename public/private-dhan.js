@@ -162,7 +162,7 @@
         if(select.value)selectTerminalView(terminalView,{syncUrl:false});
       }
       const chosen=data.selected?.symbol===select.value?data.selected:data.quotes.find(q=>q.symbol===select.value);
-      if(terminalView==='dashboard')desk.updateQuotes(data.symbols||[],data.quotes,select.value);
+      if(terminalView==='dashboard')desk.updateQuotes(data.symbols||[],data.quotes,select.value,data.selectedLive===true);
       const expiry=select.selectedOptions[0]?.dataset.expiry;
       const trade=Date.parse(chosen?.updated_at);
       tradeStatus.textContent=[expiry?`Expires ${expiry}`:null,Number.isFinite(trade)?`Last trade ${quoteTime.format(trade)} IST`:null].filter(Boolean).join(' · ');

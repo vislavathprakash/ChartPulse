@@ -26,7 +26,11 @@ const terminalIcons = {
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
   trash:'<path d="M4 6h16m-14 0 1 14h10l1-14M9 6V3h6v3m-5 4v6m4-6v6"/>',
   more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
-  refresh:'<path d="M20 11a8 8 0 1 0-2 6m2-12v6h-6"/>'
+  refresh:'<path d="M20 11a8 8 0 1 0-2 6m2-12v6h-6"/>',
+  magnet:'<path d="M4 5h5v9a3 3 0 0 0 6 0V5h5v9a8 8 0 0 1-16 0V5Zm0 5h5m6 0h5"/>',
+  lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/>',
+  eye:'<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2"/>',
+  settings:'<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="17" r="2"/>'
 };
 const terminalIcon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${terminalIcons[name]||''}</svg>`;
 document.addEventListener('DOMContentLoaded',()=>{

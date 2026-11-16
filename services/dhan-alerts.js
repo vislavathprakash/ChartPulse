@@ -5,6 +5,17 @@ const freshTrade = quote => {
   const age = Date.now()-Date.parse(quote?.updated_at);
   return Number.isFinite(quote?.price) && quote.price>0 && age>=-60000 && age<120000;
 };
+function readRule(body, instrument) {
+  const {symbol,condition,target,repeat,channel,expiresAt,message,name}=body??{};
+  const contract=typeof symbol==='string'?instrument(symbol):null;
+  const expiry=expiresAt==null||expiresAt===''?null:typeof expiresAt==='string'?new Date(expiresAt):new Date(NaN);
+  if(!contract||!conditions.has(condition)||!Number.isFinite(target)||target<=0||target>1e9||
+    typeof repeat!=='boolean'||!channels.has(channel)||typeof name!=='string'||!name.trim()||name.length>100||
+    typeof message!=='string'||message.length>500||(expiry&&!(expiry.getTime()>Date.now()))){
+    throw Object.assign(new Error('Choose a symbol, condition, positive target, and a future expiration if supplied.'),{status:400});
+  }
+  return {symbol,contract,values:[name.trim(),condition,target,repeat,channel,message.trim(),expiry]};
+}
 
 function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,instrument,onTrack=()=>{},quotes,connected}) {
   async function setup() {
@@ -22,28 +33,35 @@ function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,in
   const route='/api/private-dhan/alerts';
   const owned=[requireAuth,ownerOnly];
   app.get(route,...owned,asyncRoute(async(req,res)=>{
-    const {rows}=await pool.query(`SELECT id,symbol,expiry::text,name,condition,target,repeat,channel,message,expires_at,triggered_at,
+    const {rows}=await pool.query(`SELECT id,symbol,expiry::text,name,condition,target,repeat,channel,message,created_at,expires_at,triggered_at,
       CASE WHEN status IN ('active','paused') AND (expires_at<=NOW() OR expiry<(NOW() AT TIME ZONE 'Asia/Kolkata')::date) THEN 'expired' ELSE status END AS status
       FROM private_dhan_alerts WHERE user_id=$1 ORDER BY id DESC LIMIT 100`,[req.session.user.id]);
     res.json({alerts:rows});
   }));
   app.post(route,...owned,asyncRoute(async(req,res)=>{
-    const {symbol,condition,target,repeat,channel,expiresAt,message,name}=req.body??{};
-    const contract=typeof symbol==='string'?instrument(symbol):null;
-    const expiry=expiresAt==null||expiresAt===''?null:typeof expiresAt==='string'?new Date(expiresAt):new Date(NaN);
-    if(!contract||!conditions.has(condition)||!Number.isFinite(target)||target<=0||target>1e9||typeof repeat!=='boolean'||!channels.has(channel)||typeof name!=='string'||!name.trim()||name.length>100||typeof message!=='string'||message.length>500||expiry&&!(expiry.getTime()>Date.now())){
-      return res.status(400).json({error:'Choose a symbol, condition, positive target, and a future expiration if supplied.'});
-    }
+    const {symbol,contract,values}=readRule(req.body,instrument);
     const id=await pool.transaction(async()=>{
       await pool.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[req.session.user.id]);
       const {rows}=await pool.query("SELECT count(*)::int AS total FROM private_dhan_alerts WHERE user_id=$1 AND status IN ('active','paused') AND (expires_at IS NULL OR expires_at>NOW()) AND (expiry IS NULL OR expiry>=(NOW() AT TIME ZONE 'Asia/Kolkata')::date)",[req.session.user.id]);
       if(rows[0].total>=50)throw Object.assign(new Error('You can keep up to 50 active or paused Dhan alerts.'),{status:409});
       const saved=await pool.query(`INSERT INTO private_dhan_alerts(user_id,symbol,contract_id,expiry,name,condition,target,repeat,channel,message,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[req.session.user.id,symbol,contract.id,contract.expiry??null,name.trim(),condition,target,repeat,channel,message.trim(),expiry]);
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[req.session.user.id,symbol,contract.id,contract.expiry??null,...values]);
       return saved.rows[0].id;
     });
     onTrack(symbol);
     res.status(201).json({id});
+  }));
+  app.put(route+'/:id',...owned,asyncRoute(async(req,res)=>{
+    if(!/^\d{1,9}$/.test(req.params.id))return res.status(400).json({error:'Choose an alert to edit.'});
+    const {symbol,contract,values}=readRule(req.body,instrument);
+    const saved=await pool.query(`UPDATE private_dhan_alerts
+      SET name=$5,condition=$6,target=$7,repeat=$8,channel=$9,message=$10,expires_at=$11,last_side=NULL,armed_at=NOW()
+      WHERE id=$1 AND user_id=$2 AND symbol=$3 AND contract_id=$4 AND status IN ('active','paused')
+        AND (expires_at IS NULL OR expires_at>NOW()) AND (expiry IS NULL OR expiry>=(NOW() AT TIME ZONE 'Asia/Kolkata')::date)
+      RETURNING status`,[req.params.id,req.session.user.id,symbol,contract.id,...values]);
+    if(!saved.rowCount)return res.status(409).json({error:'This alert can no longer be edited. Reuse it to create a new rule.'});
+    if(saved.rows[0].status==='active')onTrack(symbol);
+    res.json({ok:true});
   }));
   app.patch(route+'/:id',...owned,asyncRoute(async(req,res)=>{
     const {enabled}=req.body??{};
@@ -83,7 +101,7 @@ function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,in
             await pool.query(`INSERT INTO alerts(user_id,symbol,title,detail,source,status,event_key,email_requested)
               VALUES($1,$2,$3,$4,'dhan',$5,$6,$7) ON CONFLICT(event_key) DO NOTHING`,[rule.user_id,rule.symbol,rule.name,detail,whatsapp?'queued':'logged',`dhan:${rule.id}:${q.updated_at}:${q.price}`,['email','all'].includes(rule.channel)]);
           }
-          if(fired||side!==rule.last_side)await pool.query('UPDATE private_dhan_alerts SET last_side=$1,status=$2,triggered_at=CASE WHEN $3 THEN NOW() ELSE triggered_at END WHERE id=$4',[side,fired&&!rule.repeat?'triggered':'active',fired,rule.id]);
+          if(fired||side!==rule.last_side)await pool.query('UPDATE private_dhan_alerts SET last_side=$1,status=$2,triggered_at=COALESCE($3,triggered_at) WHERE id=$4',[side,fired&&!rule.repeat?'triggered':'active',fired?q.updated_at:null,rule.id]);
         }
       });
       for(const q of pending)seen.set(q.symbol,q);

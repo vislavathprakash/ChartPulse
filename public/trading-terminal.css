@@ -323,6 +323,13 @@ body.dhan-terminal-open .content-wrap { padding:0; }
 .dhan-dock-quote .private-dhan-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin:0; }
 .dhan-dock-quote .private-dhan-stats:empty::after { content:'Waiting for a quote'; color:var(--muted); grid-column:1/-1; }
 .dhan-options-list { display:grid; gap:6px; }
+.dhan-drawing-rail hr { width:70%; flex:none; border:0; border-top:1px solid var(--line); margin:3px 0; }
+.dhan-ohlc-row { display:flex; min-width:0; align-items:center; gap:6px; justify-content:space-between; }
+.dhan-candle-clock { flex:none; margin-inline:6px; padding:2px 5px; color:var(--green); background:var(--green2); border-radius:4px; font:11px/1.3 var(--mono); white-space:nowrap; }
+.dhan-alert-open { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px 6px; width:100%; text-align:left; }
+.dhan-alert-open > span:not(.tag),.dhan-alert-open > small { grid-column:1/-1; color:var(--muted); }
+.dhan-alert-actions { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+.dhan-setting-flags { display:flex; flex-wrap:wrap; gap:4px 14px; }
 @media(max-width:620px){
   .dhan-workspace-tabs button { width:33px; padding:0; }
   .dhan-chart-status { gap:2px 7px; }

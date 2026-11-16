@@ -7,6 +7,7 @@ function dhanDrawingIcon(id,fallback) {
     ray:'<path d="M4 20 20 4m-6 0h6v6"/>',
     extended:'<path d="M3 21 21 3M3 15v6h6M15 3h6v6"/>',
     rectangle:'<rect x="4" y="6" width="16" height="12" rx="1"/>',
+    channel:'<path d="m3 14 14-10m-10 16L21 10"/>',
     fib:'<path d="M4 5h16M4 9h16M4 13h16M4 19h16M6 19 18 5"/>',
     text:'<path d="M4 6h16m-8 0v14m-4 0h8"/>',
     arrow:'<path d="m4 17 15-10m-6-1 6 1-1 6"/>',
@@ -22,12 +23,16 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   desk.className = 'dhan-chart-desk';
   desk.innerHTML = `
     <div class="dhan-drawing-rail" role="group" aria-label="Drawing tools">
-      ${drawingTools.filter(([id])=>id!=='channel').map(([id,icon,label])=>`<button type="button" data-dhan-tool="${id}" aria-label="${label}" title="${label}" aria-pressed="${id==='cursor'}">${dhanDrawingIcon(id,icon)}</button>`).join('')}
+      ${drawingTools.map(([id,icon,label])=>`<button type="button" data-dhan-tool="${id}" aria-label="${label}" title="${label}" aria-pressed="${id==='cursor'}">${dhanDrawingIcon(id,icon)}</button>`).join('')}
+      <hr>
+      <button type="button" data-dhan-setting="magnet" title="Snap to candle prices" aria-label="Snap to candle prices" aria-pressed="false">${terminalIcon('magnet')}</button>
+      <button type="button" data-dhan-setting="lockDrawings" title="Lock drawings" aria-label="Lock drawings" aria-pressed="false">${terminalIcon('lock')}</button>
+      <button type="button" data-dhan-setting="hideDrawings" title="Hide drawings" aria-label="Hide drawings" aria-pressed="false">${terminalIcon('eye')}</button>
       <button type="button" data-dhan-chart="undo" aria-label="Undo drawing" title="Undo drawing">↶</button>
       <button type="button" data-dhan-chart="redo" aria-label="Redo drawing" title="Redo drawing">↷</button>
     </div>
     <div class="dhan-chart-stage">
-      <div class="dhan-chart-ohlc" aria-label="Candle data"></div>
+      <div class="dhan-ohlc-row"><div class="dhan-chart-ohlc" aria-label="Candle data"></div><span class="dhan-candle-clock hidden"></span></div>
       <div class="dhan-indicator-legend hidden" aria-label="Active indicators"></div>
       <div class="dhan-drawing-actions hidden" role="group" aria-label="Selected drawing">
         <span></span>
@@ -73,7 +78,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     <button type="button" data-dhan-chart="indicators">Indicators</button>
     <button type="button" class="dhan-create-alert" data-dhan-chart="createAlert" aria-label="Create alert" title="Create alert">${terminalIcon('alerts')} <span>Alert</span></button>
     <button type="button" data-dhan-chart="fullscreen" aria-label="Fullscreen chart" aria-pressed="false" title="Fullscreen chart">${terminalIcon('fullscreen')}</button>
-    <button type="button" data-dhan-chart="options" aria-label="Chart options" title="Chart options">${terminalIcon('more')}</button>`;
+    <button type="button" data-dhan-chart="options" aria-label="Chart settings" title="Chart settings">${terminalIcon('settings')}</button>`;
   toolbar.append(tools);
   const searchButton=document.createElement('button');
   searchButton.type='button';
@@ -123,6 +128,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   const box=desk.querySelector('.dhan-canvas-box');
   const empty=desk.querySelector('.dhan-chart-empty');
   const ohlc=desk.querySelector('.dhan-chart-ohlc');
+  const candleClock=desk.querySelector('.dhan-candle-clock');
   const legend=desk.querySelector('.dhan-indicator-legend');
   const watch=desk.querySelector('.dhan-watch-rows');
   const watchSelect=desk.querySelector('select');
@@ -137,6 +143,51 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     if(ohlc.textContent!==text)ohlc.textContent=text;
   }};
   const renderer=new MarketChartRenderer(canvas,owner);
+  const chartPrefKey=()=>`alertpe:dhan-chart-settings:${state.user?.id}`;
+  const settingFlags=[['grid','Grid lines'],['crosshair','Crosshair'],['volume','Volume'],['lastPrice','Last price marker'],['countdown','Candle-close countdown']];
+  const drawingFlags=['magnet','lockDrawings','hideDrawings'];
+  const viewDefaults={...chartDefaults(),countdown:true};
+  let selectedTradeIsLive=false;
+  const regularCloseMs=tradeMs=>Math.floor((tradeMs+19800000)/86400000)*86400000-19800000+55800000;
+  function renderClock(now=Date.now()) {
+    const bar=candles.at(-1);
+    const tradeMs=Date.parse(owner.quote?.updated_at);
+    const startMs=bar?.time*1000;
+    const commodity=owner.symbol?.startsWith('MCX:');
+    const daily=owner.settings.interval==='day';
+    const fresh=selectedTradeIsLive&&Number.isFinite(tradeMs)&&now-tradeMs<120000&&tradeMs-now<=60000;
+    let close=NaN;
+    if(fresh&&Number.isFinite(startMs)){
+      if(daily){
+        if(!commodity&&Math.floor((startMs+19800000)/86400000)===Math.floor((tradeMs+19800000)/86400000))close=regularCloseMs(tradeMs);
+      }else if(tradeMs>=startMs&&Math.floor((startMs+19800000)/86400000)===Math.floor((tradeMs+19800000)/86400000)){
+        const duration=Number(owner.settings.interval)*60000;
+        close=startMs+(Math.floor((tradeMs-startMs)/duration)+1)*duration;
+        if(!commodity)close=Math.min(close,regularCloseMs(tradeMs));
+      }
+    }
+    const remaining=Math.ceil((close-now)/1000);
+    const visible=owner.settings.countdown&&remaining>0;
+    candleClock.classList.toggle('hidden',!visible);
+    if(visible){
+      const parts=[Math.floor(remaining/3600),Math.floor(remaining/60)%60,remaining%60];
+      const value=parts.slice(parts[0]?0:1).map(part=>String(part).padStart(2,'0')).join(':');
+      candleClock.textContent=`Closes in ${value}`;
+      candleClock.title=`Expected close ${quoteTime.format(close)} IST`;
+    }
+  }
+  setInterval(()=>{if(chartPanel.getClientRects().length&&!document.hidden)renderClock();},1000);
+  function reflectViewSettings(){
+    tools.querySelector('select').value=owner.settings.chartType;
+    desk.querySelectorAll('[data-dhan-setting]').forEach(button=>button.setAttribute('aria-pressed',String(owner.settings[button.dataset.dhanSetting])));
+    renderClock();
+    paint();
+  }
+  function saveViewSettings(){
+    const keys=[...settingFlags.map(([key])=>key),...drawingFlags,'theme','scale','timezone','precision','chartType','upColor','downColor'];
+    try{localStorage.setItem(chartPrefKey(),JSON.stringify(Object.fromEntries(keys.map(key=>[key,owner.settings[key]]))));}catch{}
+    reflectViewSettings();
+  }
   const indicatorKey=()=>`alertpe:dhan-indicators:${state.user?.id}`;
   const indicatorCatalog=Technicals.catalog.filter(item=>item.type!=='volume');
   const indicatorName=item=>item.type.toUpperCase()+(item.period?` ${item.period}`:'');
@@ -180,14 +231,16 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     persist();
   }
   function setTool(next) {
+    if(next!=='cursor'&&(owner.settings.lockDrawings||owner.settings.hideDrawings)){toast('Unlock or show drawings before adding one.',true);return;}
     tool=next;
     owner.anchor=null;
+    owner.channelEnd=null;
     owner.preview=null;
     if(next!=='cursor')selectDrawing(null);
     canvas.classList.toggle('dhan-drawing-active',next!=='cursor');
     desk.classList.toggle('dhan-tool-selected',next!=='cursor');
     desk.querySelectorAll('[data-dhan-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.dhanTool===tool)));
-    hint.textContent=tool==='cursor'?'Drag to pan · Scroll to zoom':['horizontal','vertical','text'].includes(tool)?'Select a point on the chart.':'Select two points on the chart.';
+    hint.textContent=tool==='cursor'?'Drag to pan · Scroll to zoom':tool==='channel'?'Choose two endpoints, then the channel width.':['horizontal','vertical','text'].includes(tool)?'Select a point on the chart.':'Select two points on the chart.';
     paint();
   }
   function chartPoint(event, clamp=false) {
@@ -202,15 +255,25 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   function drawingPayload(start,end) {
     return {time:start.time,price:start.price,color:'#a78bfa',lineWidth:2,...(end?{time2:end.time,price2:end.price}:{})};
   }
-  function finishDrawing(start,end) {
-    if(end&&['ray','extended'].includes(tool)&&start.time===end.time){
+  function finishDrawing(start,end,widthPoint=null) {
+    if(end&&['ray','extended','channel'].includes(tool)&&start.time===end.time){
       owner.anchor=start;
       hint.textContent='Choose a different candle for the second point.';
       return;
     }
     const kind=tool;
+    if(kind==='channel'&&!widthPoint){
+      owner.anchor=start;
+      owner.channelEnd=end;
+      hint.textContent='Choose a point for the channel width.';
+      return;
+    }
     const key=storageKey;
     const payload=drawingPayload(start,end);
+    if(widthPoint){
+      const price=start.price+(widthPoint.time-start.time)*(end.price-start.price)/(end.time-start.time);
+      payload.width=Math.max(.000001,Math.abs(widthPoint.price-price)*2);
+    }
     const save=text=>{
       if(key!==storageKey)return;
       if(drawings.length>=100)throw new Error('Remove a drawing before adding another.');
@@ -264,7 +327,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       const start=owner.anchor||drag?.point;
       const single=singlePoint();
       const canPreview=single?tool!=='text':start&&(!['ray','extended'].includes(tool)||start.time!==point?.time);
-      owner.preview=point&&canPreview?{kind:tool,payload:drawingPayload(single?point:start,single?null:point)}:null;
+      owner.preview=point&&canPreview?{kind:tool==='channel'?'trend':tool,payload:drawingPayload(single?point:start,owner.channelEnd||(single?null:point))}:null;
       paint();
       return;
     }
@@ -297,6 +360,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       const moved=Math.hypot(event.offsetX-drag.x,event.offsetY-drag.y)>=8;
       if(point){
         if(singlePoint())finishDrawing(point);
+        else if(owner.channelEnd)finishDrawing(owner.anchor,owner.channelEnd,point);
         else if(owner.anchor||moved)finishDrawing(owner.anchor||drag.point,point);
         else {owner.anchor=point;hint.textContent='Choose the second point.';paint();}
       }
@@ -463,6 +527,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   }
   const selectedDrawing=()=>drawings.find(drawing=>drawing.id===owner.selectedDrawing);
   function drawingAtEvent(event) {
+    if(owner.settings.hideDrawings)return null;
     const rect=canvas.getBoundingClientRect();
     return renderer.drawingAt(drawings,event.clientX-rect.left,event.clientY-rect.top,event.pointerType==='touch'?13:8);
   }
@@ -479,7 +544,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   }
   function deleteDrawing() {
     const drawing=selectedDrawing();
-    if(!drawing)return;
+    if(!drawing||owner.settings.lockDrawings)return;
     editDrawings(drawings.filter(item=>item.id!==drawing.id));
     canvas.focus({preventScroll:true});
   }
@@ -490,54 +555,94 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   });
   const priceConditions=chartConditions.slice(0,5);
   const conditionLabel=key=>priceConditions.find(([value])=>value===key)?.[1]||key;
+  const alertDate=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+  const formatAlertTime=value=>value&&Number.isFinite(Date.parse(value))?`${alertDate.format(new Date(value))} IST`:'—';
+  const deliveryLabels={in_app:'In-app',email:'In-app and email',whatsapp:'In-app and WhatsApp',all:'In-app, email and WhatsApp'};
+  function expirationInput(value) {
+    const time=Date.parse(value);
+    return Number.isFinite(time)&&time>Date.now()?new Date(time+19800000).toISOString().slice(0,16):'';
+  }
+  let loadedAlerts=[];
   async function loadAlerts() {
     const epoch=++alertEpoch;
     alertsPanel.textContent='Loading Dhan alerts…';
     try {
       const {alerts}=await api('/api/private-dhan/alerts',{cache:'no-store'});
       if(epoch!==alertEpoch||dockView!=='alerts')return;
-      alertsPanel.innerHTML=alerts.map(rule=>`<article class="dhan-alert-row"><strong>${html(rule.name)}</strong><span class="tag">${html(rule.status)}</span>
-        <p>${html(rule.symbol)}${rule.expiry?' · '+html(rule.expiry):''} · ${html(conditionLabel(rule.condition))} ${quotePrice.format(rule.target)}</p>
-        ${rule.triggered_at?`<p>Last triggered ${html(new Date(rule.triggered_at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}))} IST</p>`:''}
-        ${['active','paused'].includes(rule.status)?`<button type="button" data-dhan-rule="${rule.id}" data-enable="${rule.status==='paused'}">${rule.status==='paused'?'Resume':'Pause'}</button>`:''}
+      loadedAlerts=alerts;
+      alertsPanel.innerHTML=alerts.map(rule=>`<article class="dhan-alert-row"><button type="button" class="dhan-alert-open" data-open-alert="${rule.id}"><strong>${html(rule.name)}</strong><span class="tag">${html(rule.status)}</span>
+        <span>${html(rule.symbol)} · ${html(conditionLabel(rule.condition))} ${quotePrice.format(rule.target)}</span>
+        <small>${rule.triggered_at?'Triggered '+html(formatAlertTime(rule.triggered_at)):'Created '+html(formatAlertTime(rule.created_at))}</small></button>
       </article>`).join('')||'<p class="muted">Create a price alert to track a level on this chart.</p>';
     } catch(error) {
       if(epoch===alertEpoch&&dockView==='alerts')alertsPanel.textContent=error.message;
     }
   }
-  function createAlert(level) {
-    const symbol=owner.symbol;
+  function alertDetails(rule) {
+    const editable=['active','paused'].includes(rule.status);
+    const facts=[['Symbol',rule.symbol],['Status',rule.status],['Condition',`${conditionLabel(rule.condition)} ${quotePrice.format(rule.target)}`],
+      ['Frequency',rule.repeat?'On each new match':'Once only'],['Delivery',deliveryLabels[rule.channel]],
+      ['Created',formatAlertTime(rule.created_at)],['Expires',rule.expires_at?formatAlertTime(rule.expires_at):'No time limit'],
+      ['Last triggered',rule.triggered_at?formatAlertTime(rule.triggered_at):'Not triggered yet']];
+    if(rule.expiry)facts.push(['Contract expiry',rule.expiry]);
+    if(rule.message)facts.push(['Message',rule.message]);
+    const dialog=workspaceDialog(rule.name,`<dl class="dhan-metrics">${facts.map(([label,value])=>`<div><dt>${html(label)}</dt><dd>${html(value)}</dd></div>`).join('')}</dl>
+      <div class="dhan-alert-actions">${editable?`<button type="button" class="button primary" data-rule-action="edit">Edit alert</button><button type="button" class="button secondary" data-rule-action="toggle">${rule.status==='active'?'Pause':'Resume'}</button>`:''}
+      <button type="button" class="button secondary" data-rule-action="reuse">Reuse alert</button><button type="button" class="button secondary" data-rule-action="chart">Open chart</button></div>`);
+    dialog.querySelector('.dhan-alert-actions').addEventListener('click',async event=>{
+      const button=event.target.closest('[data-rule-action]');
+      if(!button)return;
+      const action=button.dataset.ruleAction;
+      if(action==='toggle'){
+        button.disabled=true;
+        try{
+          await api('/api/private-dhan/alerts/'+rule.id,{method:'PATCH',body:JSON.stringify({enabled:rule.status==='paused'})});
+          dialog.close();dialog.remove();void loadAlerts();
+          toast(rule.status==='paused'?'Alert resumed.':'Alert paused.');
+        }catch(error){dialog.querySelector('.dialog-error').textContent=error.message;button.disabled=false;}
+        return;
+      }
+      dialog.close();dialog.remove();
+      if(action==='chart'){selectSymbol(rule.symbol,symbols.find(item=>item.symbol===rule.symbol));return;}
+      createAlert(undefined,rule,action);
+    });
+  }
+  function createAlert(level,rule=null,mode='create') {
+    const symbol=rule?.symbol??owner.symbol;
     if(!symbol){toast('Choose a chart symbol first.',true);return;}
     const instrument=symbols.find(item=>item.symbol===symbol);
-    const target=level??quotes.get(symbol)?.price??candles.at(-1)?.close;
+    const target=rule?.target??level??quotes.get(symbol)?.price??candles.at(-1)?.close;
     const user=state.user;
     const options=[['in_app','In-app']];
     if(state.meta?.emailReady&&!state.meta?.emailSimulated&&user?.emailOptIn&&user?.emailVerified)options.push(['email','In-app and email']);
     if(state.meta?.whatsappReady&&user?.whatsappOptIn&&user?.whatsappPhone)options.push(['whatsapp','In-app and WhatsApp']);
     if(options.length===3)options.push(['all','In-app, email and WhatsApp']);
-    workspaceDialog(`Create alert · ${symbol}`,`
+    if(rule?.channel&&!options.some(([value])=>value===rule.channel))options.push([rule.channel,deliveryLabels[rule.channel]]);
+    const editing=mode==='edit';
+    const title=editing?'Edit alert':mode==='reuse'?'Reuse alert':'Create alert';
+    workspaceDialog(`${title} · ${symbol}`,`
       ${instrument?.expiry?`<p class="muted">Contract expiry ${html(instrument.expiry)}</p>`:''}
-      <label>Alert name<input name="name" value="${html(symbol)} price alert" maxlength="100" required></label>
+      <label>Alert name<input name="name" value="${html(rule?.name??symbol+' price alert')}" maxlength="100" required></label>
       <div class="workspace-form-grid">
-        <label>Condition<select name="condition">${choice(priceConditions,'crossing')}</select></label>
+        <label>Condition<select name="condition">${choice(priceConditions,rule?.condition??'crossing')}</select></label>
         <label>Target price (₹)<input name="target" type="number" min="0.000001" max="1000000000" step="any" value="${Number.isFinite(target)?Number(target.toFixed(4)):''}" required></label>
-        <label>Trigger<select name="frequency"><option value="once">Once only</option><option value="repeat">On each new match</option></select></label>
-        <label>Expires (local time)<input type="datetime-local" name="expires"></label>
-        <label>Delivery<select name="channel">${choice(options,'in_app')}</select></label>
+        <label>Trigger<select name="frequency">${choice([['once','Once only'],['repeat','On each new match']],rule?.repeat?'repeat':'once')}</select></label>
+        <label>Expires (IST)<input type="datetime-local" name="expires" value="${expirationInput(rule?.expires_at)}"></label>
+        <label>Delivery<select name="channel">${choice(options,rule?.channel??'in_app')}</select></label>
       </div>
-      <label>Message<textarea name="message" rows="2" maxlength="500"></textarea></label>
+      <label>Message<textarea name="message" rows="2" maxlength="500">${html(rule?.message)}</textarea></label>
       <p class="muted">Uses Dhan trades. In-app delivery is included. Manage email and WhatsApp in Settings.</p>`,async(data,dialog)=>{
       const submit=dialog.querySelector('[type=submit]');
       if(submit.disabled)return;
       submit.disabled=true;
       try {
-        await api('/api/private-dhan/alerts',{method:'POST',body:JSON.stringify({
+        await api('/api/private-dhan/alerts'+(editing?'/'+rule.id:''),{method:editing?'PUT':'POST',body:JSON.stringify({
           symbol,name:data.get('name'),condition:data.get('condition'),target:Number(data.get('target')),
           repeat:data.get('frequency')==='repeat',channel:data.get('channel'),message:data.get('message'),
-          expiresAt:data.get('expires')?new Date(data.get('expires')).toISOString():null
+          expiresAt:data.get('expires')?new Date(data.get('expires')+'+05:30').toISOString():null
         })});
         showDock('alerts');
-        toast('Dhan price alert created.');
+        toast(editing?'Dhan price alert updated.':'Dhan price alert created.');
       } finally { submit.disabled=false; }
     });
   }
@@ -582,25 +687,45 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   });
   watchSelect.onchange=()=>{watchId=watchSelect.value;renderWatch();watchChanged();};
   search.oninput=renderWatch;
-  tools.querySelector('select').onchange=event=>{owner.settings.chartType=event.target.value;paint();};
+  tools.querySelector('select').onchange=event=>{owner.settings.chartType=event.target.value;saveViewSettings();};
   const actions={
     zoomOut:()=>zoom(20),zoomIn:()=>zoom(-20),
     resetZoom:()=>{owner.count=Math.max(15,candles.length);owner.offset=0;owner.manualRange=null;paint();},
-    undo:()=>{if(undo.length){redo.push(drawings);drawings=undo.pop();persist();}},
-    redo:()=>{if(redo.length){undo.push(drawings);drawings=redo.pop();persist();}},
-    theme:()=>{owner.settings.theme=owner.settings.theme==='light'?'dark':'light';paint();},
+    undo:()=>{if(!owner.settings.lockDrawings&&undo.length){redo.push(drawings);drawings=undo.pop();persist();}},
+    redo:()=>{if(!owner.settings.lockDrawings&&redo.length){undo.push(drawings);drawings=redo.pop();persist();}},
     options:()=>{
-      const dialog=workspaceDialog('Chart options',`<div class="dhan-options-list">
-        <button class="button secondary" type="button" data-option="theme">${owner.settings.theme==='light'?'Dark chart':'Light chart'}</button>
-        <button class="button secondary" type="button" data-option="png">Download PNG</button>
-        <button class="button secondary" type="button" data-option="csv">Download CSV</button>
-      </div>`);
+      const s=owner.settings;
+      const dialog=workspaceDialog('Chart settings',`
+        <div class="workspace-form-grid">
+          <label>Appearance<select name="theme">${choice([['dark','Dark'],['light','Light']],s.theme)}</select></label>
+          <label>Price scale<select name="scale">${choice([['linear','Linear'],['log','Logarithmic']],s.scale)}</select></label>
+          <label>Chart timezone<select name="timezone">${choice([['Asia/Kolkata','India (IST)'],['UTC','UTC']],s.timezone)}</select></label>
+          <label>Price decimals<select name="precision">${choice(['0','1','2','3','4'],String(s.precision))}</select></label>
+          <label>Up candles<input name="upColor" type="color" value="${html(s.upColor)}"></label>
+          <label>Down candles<input name="downColor" type="color" value="${html(s.downColor)}"></label>
+        </div>
+        <div class="dhan-setting-flags">${settingFlags.map(([key,label])=>`<label class="consent-row"><input type="checkbox" name="${key}" ${s[key]?'checked':''}> ${label}</label>`).join('')}</div>
+        <div class="dhan-alert-actions dhan-options-list">
+          <button class="button secondary" type="button" data-option="png">Download PNG</button>
+          <button class="button secondary" type="button" data-option="csv">Download CSV</button>
+          <button class="button secondary" type="button" data-option="reset">Reset chart settings</button>
+        </div>`,async data=>{
+          for(const key of ['theme','scale','timezone','upColor','downColor'])s[key]=data.get(key);
+          s.precision=Number(data.get('precision'));
+          for(const [key] of settingFlags)s[key]=data.has(key);
+          owner.manualRange=null;
+          saveViewSettings();
+        });
       dialog.querySelector('.dhan-options-list').addEventListener('click',event=>{
         const action=event.target.closest('button')?.dataset.option;
         if(!action)return;
         dialog.close();
         dialog.remove();
-        actions[action]();
+        if(action==='reset'){
+          for(const key of [...settingFlags.map(([key])=>key),...drawingFlags,'theme','scale','timezone','precision','chartType','upColor','downColor'])s[key]=viewDefaults[key];
+          owner.manualRange=null;
+          saveViewSettings();
+        }else actions[action]();
       });
     },
     closeDock:()=>showDock(null),
@@ -668,13 +793,18 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     if(!button)return;
     const {dhanTool,dhanChart,dhanDock,dhanSymbol,dhanRemove}=button.dataset;
     if(dhanTool)setTool(dhanTool);
+    const setting=button.dataset.dhanSetting;
+    if(drawingFlags.includes(setting)){
+      owner.settings[setting]=!owner.settings[setting];
+      if(owner.settings[setting]&&setting!=='magnet'){setTool('cursor');selectDrawing(null);}
+      saveViewSettings();
+    }
     if(dhanChart)Promise.resolve().then(()=>actions[dhanChart](button)).catch(error=>toast(error.message,true));
     if(dhanDock)showDock(dockView===dhanDock?null:dhanDock);
     if(dhanSymbol){selectSymbol(dhanSymbol);if(narrow.matches)showDock(null);}
-    if(button.dataset.dhanRule){
-      button.disabled=true;
-      api('/api/private-dhan/alerts/'+button.dataset.dhanRule,{method:'PATCH',body:JSON.stringify({enabled:button.dataset.enable==='true'})})
-        .then(loadAlerts).catch(error=>{button.disabled=false;toast(error.message,true);});
+    if(button.dataset.openAlert){
+      const rule=loadedAlerts.find(item=>String(item.id)===button.dataset.openAlert);
+      if(rule)alertDetails(rule);
     }
     if(dhanRemove&&currentList())api(`/api/watchlists/${currentList().id}/items/${encodeURIComponent(dhanRemove)}`,{method:'DELETE'}).then(reloadLists).catch(error=>toast(error.message,true));
   }
@@ -685,7 +815,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     loadLists,
     searchSymbols:()=>openSymbolSearch(),
     watchSymbols:()=>currentList()?.symbols??[],
-    updateQuotes(items,liveQuotes,symbol) {
+    updateQuotes(items,liveQuotes,symbol,isLive=false) {
       if(favoriteOwner!==state.user?.id){
         favoriteOwner=state.user?.id;
         favorites=defaultIntervals;
@@ -697,12 +827,20 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
         let saved=[];
         try {const items=JSON.parse(localStorage.getItem(indicatorKey())||'[]');if(Array.isArray(items))saved=items;}catch{}
         updateIndicators(indicatorCatalog.filter(item=>saved.some(savedItem=>savedItem?.type===item.type)).slice(0,4),false);
+        let pref={};
+        try{pref=JSON.parse(localStorage.getItem(chartPrefKey())||'{}')??{};}catch{}
+        for(const key of [...settingFlags.map(([key])=>key),...drawingFlags])owner.settings[key]=typeof pref[key]==='boolean'?pref[key]:viewDefaults[key];
+        for(const [key,allowed] of Object.entries({theme:['dark','light'],scale:['linear','log'],timezone:['Asia/Kolkata','UTC'],chartType:['candles','bars','line','area','heikin'],precision:[0,1,2,3,4]}))owner.settings[key]=allowed.includes(pref[key])?pref[key]:viewDefaults[key];
+        for(const key of ['upColor','downColor'])owner.settings[key]=/^#[a-f0-9]{6}$/i.test(pref[key])?pref[key]:viewDefaults[key];
+        reflectViewSettings();
       }
       symbols=items;
       searchButton.querySelector('span').textContent=symbol||'Search symbols';
       quotes=new Map(liveQuotes.map(q=>[q.symbol,q]));
       owner.quote=owner.symbol===symbol?quotes.get(symbol):null;
+      selectedTradeIsLive=isLive;
       renderWatch();
+      renderClock();
       if(!drag)paint();
     },
     show(symbol,interval,expiry,data,message) {
@@ -724,11 +862,13 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       empty.classList.toggle('hidden',Boolean(data.length));
       empty.textContent=message||'No candles returned for this interval.';
       if(!data.length)ohlc.textContent='';
+      renderClock();
       renderWatch();
       paint();
     },
     reset() {
       alertEpoch++;
+      loadedAlerts=[];
       showDock(null);
       exitFocus();
       listEpoch++;
