@@ -6,7 +6,7 @@ const freshTrade = quote => {
   return Number.isFinite(quote?.price) && quote.price>0 && age>=-60000 && age<120000;
 };
 
-function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,instrument,quotes,connected}) {
+function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,instrument,onTrack=()=>{},quotes,connected}) {
   async function setup() {
     await pool.query(`CREATE TABLE IF NOT EXISTS private_dhan_alerts (
       id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -42,6 +42,7 @@ function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,in
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[req.session.user.id,symbol,contract.id,contract.expiry??null,name.trim(),condition,target,repeat,channel,message.trim(),expiry]);
       return saved.rows[0].id;
     });
+    onTrack(symbol);
     res.status(201).json({id});
   }));
   app.patch(route+'/:id',...owned,asyncRoute(async(req,res)=>{
@@ -49,7 +50,8 @@ function installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,in
     if(!/^\d{1,9}$/.test(req.params.id)||typeof enabled!=='boolean')return res.status(400).json({error:'Choose an alert and an action.'});
     const result=await pool.query(`UPDATE private_dhan_alerts SET status=$1,last_side=NULL,armed_at=NOW()
       WHERE id=$2 AND user_id=$3 AND status IN ('active','paused') AND (expires_at IS NULL OR expires_at>NOW())
-      AND (expiry IS NULL OR expiry>=(NOW() AT TIME ZONE 'Asia/Kolkata')::date)`,[enabled?'active':'paused',req.params.id,req.session.user.id]);
+      AND (expiry IS NULL OR expiry>=(NOW() AT TIME ZONE 'Asia/Kolkata')::date) RETURNING symbol`,[enabled?'active':'paused',req.params.id,req.session.user.id]);
+    if(enabled&&result.rows[0])onTrack(result.rows[0].symbol);
     res.status(result.rowCount?200:404).json(result.rowCount?{ok:true}:{error:'This alert is no longer active or paused.'});
   }));
   const seen=new Map();

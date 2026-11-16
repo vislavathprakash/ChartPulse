@@ -27,12 +27,20 @@ function csvFields(line) {
   return fields;
 }
 
-async function resolveInstruments(input = DEFAULT_SYMBOLS) {
+function configuredSymbols(input = DEFAULT_SYMBOLS) {
   const symbols = [...new Set(input.toUpperCase().split(/[\s,]+/).filter(Boolean))];
   if (!symbols.length || symbols.length > 100 || symbols.some(s => !/^(NSE|BSE):[A-Z0-9&._-]{1,40}$/.test(s))) {
     throw new Error('Set DHAN_SYMBOLS to 1–100 NSE: or BSE: equity symbols.');
   }
-  const wanted = new Set(symbols), found = new Map();
+  return symbols;
+}
+
+async function resolveInstruments(input = DEFAULT_SYMBOLS) {
+  return readEquities(configuredSymbols(input));
+}
+
+async function readEquities(symbols) {
+  const wanted = symbols && new Set(symbols), found = new Map(), priorities = new Map();
   const response = await fetch(MASTER, { signal: AbortSignal.timeout(25000), redirect: 'error' });
   if (!response.ok || !response.body) throw new Error('Could not download the Dhan instrument directory.');
   const stream = Readable.fromWeb(response.body);
@@ -42,21 +50,26 @@ async function resolveInstruments(input = DEFAULT_SYMBOLS) {
     for await (const line of lines) {
       if (!columns) {
         const headers = csvFields(line.replace(/^\uFEFF/, ''));
-        columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES'].map(name => headers.indexOf(name));
+        columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES','SEM_EXCH_INSTRUMENT_TYPE'].map(name => headers.indexOf(name));
         if (columns.some(index => index < 0)) throw new Error('Dhan changed the instrument directory format.');
         continue;
       }
       if (!/^(NSE|BSE),E,/.test(line)) continue;
       const fields = csvFields(line);
-      const [exchange, segment, id, instrument, ticker, name, series] = columns.map(i => fields[i]?.trim());
+      const [exchange, segment, id, instrument, ticker, name, series, type] = columns.map(i => fields[i]?.trim());
       const symbol = `${exchange}:${ticker}`;
-      if (segment !== 'E' || instrument !== 'EQUITY' || !wanted.has(symbol) || !/^\d+$/.test(id || '')) continue;
-      if (exchange === 'NSE' && series !== 'EQ') continue;
+      if (segment !== 'E' || instrument !== 'EQUITY' || !/^\d+$/.test(id || '') || !ticker) continue;
+      if (wanted ? !wanted.has(symbol) || (exchange==='NSE'&&series!=='EQ') : type!=='ES'&&!['ETF','REIT','InvITU'].includes(type)) continue;
       const { segment: feedSegment, code } = EXCHANGES[exchange];
-      if (!found.has(symbol)) found.set(symbol, { symbol, name: (name || ticker).slice(0, 160), exchange, id, segment: feedSegment, code });
-      if (found.size === wanted.size) break;
+      const priority = series==='EQ'?3:['A','B'].includes(series)?2:1;
+      if (priority>(priorities.get(symbol)||0)) {
+        found.set(symbol, { symbol, name: (name || ticker).slice(0, 160), exchange, id, segment: feedSegment, code });
+        priorities.set(symbol,priority);
+      }
+      if (wanted && found.size === wanted.size) break;
     }
   } finally { lines.close(); stream.destroy(); }
+  if (!wanted) return found;
   const missing = symbols.filter(s => !found.has(s));
   if (missing.length) throw new Error(`Dhan equity symbols not found: ${missing.join(', ')}.`);
   return symbols.map(s => found.get(s));
@@ -128,6 +141,14 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
   let socket, reconnect, liveness, stopped = false, blocked = false, attempts = 0, message = '', ready = false;
   const counters = () => ({binary:0,text:0,quote:0,previousClose:0,unmatched:0,unparsed:0,shapes:{},futureOffsetSeconds:null});
   let frames = counters();
+  const keyOf=i=>`${i.code}:${Number(i.id)}`;
+  function send(requestCode,items) {
+    if(socket?.readyState!==WebSocket.OPEN)return;
+    for(let offset=0;offset<items.length;offset+=100){
+      const batch=items.slice(offset,offset+100);
+      socket.send(JSON.stringify({RequestCode:requestCode,InstrumentCount:batch.length,InstrumentList:batch.map(i=>({ExchangeSegment:i.segment,SecurityId:i.id}))}));
+    }
+  }
 
   function open() {
     if (stopped || blocked) return;
@@ -144,10 +165,7 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       if (!active()) return;
       lastSignal = Date.now();
       onStatus('Subscribed to DhanHQ. Waiting for quotes.', false);
-      for (let offset = 0; offset < instruments.length; offset += 100) {
-        const batch = instruments.slice(offset, offset + 100);
-        current.send(JSON.stringify({ RequestCode: 17, InstrumentCount: batch.length, InstrumentList: batch.map(i => ({ ExchangeSegment: i.segment, SecurityId: i.id })) }));
-      }
+      send(17,[...instrumentByKey.values()]);
       liveness = setInterval(() => { if (active() && Date.now() - lastSignal > 45000) current.terminate(); }, 10000);
       liveness.unref();
     });
@@ -225,9 +243,14 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
     });
   }
   open();
-  return { diagnostics: () => ({open:socket?.readyState===WebSocket.OPEN,...frames}), isReady: () => ready && !stopped && socket?.readyState === WebSocket.OPEN, stop() {
+  return { replace(added,removed){
+    for(const i of removed)instrumentByKey.delete(keyOf(i));
+    for(const i of added)instrumentByKey.set(keyOf(i),i);
+    send(18,removed);
+    send(17,added);
+  }, diagnostics: () => ({open:socket?.readyState===WebSocket.OPEN,...frames}), isReady: () => ready && !stopped && socket?.readyState === WebSocket.OPEN, stop() {
     stopped = true; ready = false; clearTimeout(reconnect); clearInterval(liveness); socket?.terminate();
   } };
 }
 
-module.exports = { credentials, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };
+module.exports = { credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };

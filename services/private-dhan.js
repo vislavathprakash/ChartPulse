@@ -36,6 +36,39 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   let directory = new Map(), snapshotStatus = '', snapshotError = null, nextSnapshot = 0, snapshotRequest;
   let client, starting = false, stopped = false, status = 'Waiting for the Dhan feed to start.';
   let commodityStatus = '', nextContractCheck = 0;
+  let catalog = new Map(), catalogLoadedAt=0;
+  let defaults=new Set(), pinned=new Set();
+  const recent=new Map();
+  const publicInstrument=({symbol,name,exchange,expiry})=>({symbol,name,exchange,expiry});
+  const lookup=symbol=>directory.get(symbol)??catalog.get(symbol);
+
+  function track(symbols, pin=false) {
+    if(!client)return;
+    const added=[],removed=[];
+    for(const symbol of symbols){
+      const item=lookup(symbol);
+      if(!item)continue;
+      if(pin)pinned.add(item.symbol);
+      if(defaults.has(item.symbol))continue;
+      recent.delete(item.symbol);
+      recent.set(item.symbol,item);
+      if(!directory.has(item.symbol)){directory.set(item.symbol,item);added.push(item);}
+    }
+    while(recent.size>650){
+      const victim=[...recent.keys()].find(symbol=>!pinned.has(symbol));
+      if(!victim)break;
+      removed.push(recent.get(victim));
+      recent.delete(victim);
+      directory.delete(victim);
+      quotes.delete(victim);
+      snapshots.delete(victim);
+    }
+    if(added.length||removed.length){
+      client.replace(added.filter(item=>directory.has(item.symbol)),removed);
+      nextSnapshot=Math.min(nextSnapshot,lastSnapshotStarted+1100);
+    }
+  }
+  let lastSnapshotStarted=0;
 
   async function start() {
     if (!configured || starting || stopped || (client && Date.now()<nextContractCheck)) return;
@@ -45,23 +78,35 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     try {
       const { rows } = await pool.query("SELECT id,email,role FROM users WHERE id=$1 AND active=TRUE AND role='customer'", [ownerId]);
       if (!allows(rows[0])) return;
-      const [equities, commodities] = await Promise.all([
-        client ? [...directory.values()].filter(i=>i.exchange!=='MCX') : dhan.resolveInstruments(process.env.DHAN_SYMBOLS),
+      const [updatedCatalog, commodities] = await Promise.all([
+        Date.now()-catalogLoadedAt<86400000 ? null : dhan.readEquities().catch(()=>null),
         dhan.resolveCommodityFutures().catch(()=>null)
       ]);
       if (stopped) return;
+      if(updatedCatalog?.size){catalog=updatedCatalog;catalogLoadedAt=Date.now();}
+      const equitySymbols=dhan.configuredSymbols(process.env.DHAN_SYMBOLS);
+      const equities=catalog.size?equitySymbols.map(symbol=>catalog.get(symbol)).filter(Boolean):
+        client?[...directory.values()].filter(i=>i.exchange!=='MCX'&&defaults.has(i.symbol)):await dhan.resolveInstruments(process.env.DHAN_SYMBOLS);
       const today = istDate(Date.now());
       const current = [...directory.values()].filter(i=>i.exchange==='MCX'&&i.expiry>=today);
       const contracts = commodities ?? current;
       commodityStatus = commodities ? '' : 'MCX contract directory unavailable. The server will retry.';
-      nextContractCheck = Date.now() + (commodities ? 3600000 : 60000);
-      if (client && contracts.length===current.length && contracts.every((i,n)=>i.id===current[n].id) && directory.size===equities.length+contracts.length) return;
+      nextContractCheck = Date.now() + (commodities&&catalog.size ? 3600000 : 60000);
+      const saved=await pool.query("SELECT DISTINCT symbol FROM private_dhan_alerts WHERE user_id=$1 AND status='active' AND (expires_at IS NULL OR expires_at>NOW()) AND (expiry IS NULL OR expiry>=(NOW() AT TIME ZONE 'Asia/Kolkata')::date)",[ownerId]);
+      pinned=new Set(saved.rows.map(row=>row.symbol));
+      const nextDefaults=new Set([...equities,...contracts].map(i=>i.symbol));
+      if (client && contracts.length===current.length && contracts.every((i,n)=>i.id===current[n].id) &&
+        nextDefaults.size===defaults.size && equities.every(i=>i.id===directory.get(i.symbol)?.id)) {
+        track(pinned,true);
+        return;
+      }
       for (const i of directory.values()) {
         if (i.exchange!=='MCX'||contracts.some(c=>c.id===i.id)) continue;
         quotes.delete(i.symbol);
         snapshots.delete(i.symbol);
       }
-      const instruments = [...equities,...contracts];
+      const instruments = [...equities,...contracts,...recent.values()];
+      defaults=nextDefaults;
       client?.stop();
       nextSnapshot=0;
       directory = new Map(instruments.map(i=>[i.symbol,i]));
@@ -69,6 +114,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
         onStatus: message => { status = message; },
         onQuote: quote => { if (!stopped) quotes.set(quote.symbol, quote); }
       });
+      track(pinned,true);
     } catch { status = 'Dhan instrument setup failed. The server will retry.'; }
     finally { starting = false; }
   }
@@ -77,15 +123,17 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     if (!directory.size) return;
     if (snapshotRequest) return snapshotRequest;
     if (Date.now()<nextSnapshot) return;
-    nextSnapshot=Date.now()+30000;
-    const requested = directory;
+    lastSnapshotStarted=Date.now();
+    nextSnapshot=lastSnapshotStarted+30000;
+    const requested = new Map(directory);
     const body={}; for(const i of requested.values())(body[i.segment]??=[]).push(Number(i.id));
     snapshotRequest=(async()=>{
       try {
         const {data}=await fetchData('marketfeed/quote',body);
-        if(stopped||requested!==directory)return;
+        if(stopped)return;
         snapshotError=null;
-        for(const i of directory.values()) {
+        for(const i of requested.values()) {
+          if(directory.get(i.symbol)?.id!==i.id)continue;
           const q=data?.[i.segment]?.[i.id], price=positive(number(q?.last_price)); if(!price)continue;
           const change=number(q.net_change);
           const previous=change!==null&&change!==0?positive(price-change):positive(number(q.ohlc?.close));
@@ -102,8 +150,25 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     if (!allows(req.session.user)) return res.status(404).json({ error: 'Not found.' });
     next();
   }
+  app.get('/api/private-dhan/symbols',requireAuth,ownerOnly,asyncRoute(async(req,res)=>{
+    const term=typeof req.query.q==='string'?req.query.q.trim().slice(0,80).toUpperCase():'';
+    const exchange=typeof req.query.exchange==='string'?req.query.exchange:'';
+    const offset=Math.max(0,Math.min(50000,Number.parseInt(req.query.offset,10)||0));
+    if(!['','NSE','BSE','MCX'].includes(exchange))return res.status(400).json({error:'Choose NSE, BSE or MCX.'});
+    const entries=new Map(catalog);
+    for(const item of directory.values())entries.set(item.symbol,item);
+    const matches=[];
+    for(const item of entries.values()){
+      if(exchange&&item.exchange!==exchange)continue;
+      const ticker=item.symbol.split(':')[1];
+      const rank=!term?0:item.symbol===term||ticker===term?0:ticker.startsWith(term)||item.symbol.startsWith(term)?1:item.name.toUpperCase().startsWith(term)?2:item.name.toUpperCase().includes(term)||item.symbol.includes(term)?3:-1;
+      if(rank>=0)matches.push({item,rank});
+    }
+    matches.sort((a,b)=>a.rank-b.rank||a.item.symbol.localeCompare(b.item.symbol));
+    res.json({items:matches.slice(offset,offset+50).map(({item})=>publicInstrument(item)),total:matches.length,ready:catalog.size>0});
+  }));
   const alerts=installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,quotes,
-    instrument:symbol=>directory.get(symbol),connected:()=>Boolean(configured&&client?.isReady())});
+    instrument:lookup,onTrack:symbol=>track([symbol],true),connected:()=>Boolean(configured&&client?.isReady())});
   function mergedQuotes() {
     const merged=new Map([...snapshots].map(([symbol,snapshot])=>[symbol,snapshot.quote]));
     for(const q of quotes.values()) {
@@ -116,14 +181,18 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     return merged;
   }
   installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials:dhan.credentials,
-    instrument:symbol=>directory.get(symbol), refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
+    instrument:symbol=>{track([symbol]);return lookup(symbol);}, refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
   app.get('/api/private-dhan/quotes', requireAuth, ownerOnly, asyncRoute(async (req, res) => {
     const query = req.query.query;
+    const selectedSymbol=typeof req.query.symbol==='string'?req.query.symbol:'';
+    const extra=typeof req.query.watch==='string'?req.query.watch.split(',').slice(0,200):[];
+    const requested=[...new Set([...defaults,selectedSymbol,...extra])].filter(symbol=>lookup(symbol));
+    track([selectedSymbol,...extra]);
     const fresh = q => Boolean(client?.isReady() && q && Date.now()-Date.parse(q.updated_at)<120000);
     const hasFreshStream = [...quotes.values()].some(fresh);
-    if (!hasFreshStream||!snapshots.size) await refreshSnapshot();
+    if (!hasFreshStream||!snapshots.size||requested.some(symbol=>!snapshots.has(symbol)&&!quotes.has(symbol))) await refreshSnapshot();
     const merged=mergedQuotes();
-    let rows = [...merged.values()];
+    let rows = requested.map(symbol=>merged.get(symbol)).filter(Boolean);
     if (query !== undefined && query !== '') {
       if (typeof query !== 'string' || query.length > 2000) return res.status(400).json({ error: 'Use a query of up to 2,000 characters.' });
       try { const rule = parseQuery(query); rows = rows.filter(quote => evaluateQuery(rule, quote)); }
@@ -132,7 +201,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     const selected=typeof req.query.symbol==='string'?merged.get(req.query.symbol):undefined;
     res.json({
       quotes: rows, selected, connected:hasFreshStream, selectedLive:fresh(quotes.get(req.query.symbol)),
-      symbols:[...directory.values()].map(({symbol,name,expiry})=>({symbol,name,expiry})),
+      symbols:requested.map(symbol=>publicInstrument(lookup(symbol))),
       commodityStatus, feedIssue:hasFreshStream?null:snapshotError, stream:client?.diagnostics(),
       status:hasFreshStream?'Dhan WebSocket is streaming.':[snapshotStatus,status].filter(Boolean).join(' ')
     });
@@ -140,8 +209,9 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
 
   app.get('/api/private-dhan/history', requireAuth, ownerOnly, asyncRoute(async(req,res)=>{
     const symbol=typeof req.query.symbol==='string'?req.query.symbol:'';
-    const i=directory.get(symbol), interval=req.query.interval??'day';
+    const i=lookup(symbol), interval=req.query.interval??'day';
     if(!i||!['day','1','5','15','25','60'].includes(interval))return res.status(400).json({error:'Choose a configured symbol and interval.'});
+    track([symbol]);
     const key=`${symbol}:${i.id}:${interval}`, now=Date.now(), cached=history.get(key);
     if(cached?.until>now)return res.json(cached.data);
     if(!requests.has(key)){
@@ -163,7 +233,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     try{res.json(await requests.get(key));}catch(err){res.status(502).json({error:err.message.startsWith('Dhan ')?err.message:'Dhan historical data could not be reached.'});}
   }));
 
-  return { allows, hasSymbol: (user, symbol) => allows(user) && directory.has(symbol), alerts, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
+  return { allows, hasSymbol: (user, symbol) => allows(user) && Boolean(lookup(symbol)), alerts, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
 }
 
 module.exports = { installPrivateDhan };

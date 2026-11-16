@@ -50,10 +50,17 @@
   researchPanel.querySelector('.dhan-research-nav').after(technicalInterval);
   page.append(shell);
   document.querySelector('.content-wrap').append(page);
-  const desk = createDhanChartDesk($('privateDhanPlot'), controls, symbol=>{
-    $('privateHistorySymbol').value=symbol;
-    $('privateHistorySymbol').dispatchEvent(new Event('change'));
-  });
+  const desk = createDhanChartDesk($('privateDhanPlot'), controls, (symbol,item)=>{
+    const select=$('privateHistorySymbol');
+    if(!Array.from(select.options).some(option=>option.value===symbol)){
+      const option=new Option(item?.expiry?`${symbol} · ${item.expiry}`:symbol,symbol);
+      if(item?.expiry)option.dataset.expiry=item.expiry;
+      select.add(option);
+    }
+    select.value=symbol;
+    if(terminalView!=='dashboard')selectTerminalView('dashboard');
+    select.dispatchEvent(new Event('change'));
+  },()=>void refresh());
   let timer, query = '', generation = 0, controller, historyController, symbolList = '';
   let researchView = 'depth', researchController, chartHistory;
   let terminalView = 'dashboard';
@@ -118,7 +125,7 @@
     controller = new AbortController();
     const current = () => token === generation && owner === state.user?.id && active();
     try {
-      const data = await api('/api/private-dhan/quotes?' + new URLSearchParams({ query:filter, symbol:$('privateHistorySymbol').value }), { signal: controller.signal, cache: 'no-store' });
+      const data = await api('/api/private-dhan/quotes?' + new URLSearchParams({ query:filter, symbol:$('privateHistorySymbol').value, watch:desk.watchSymbols().join(',') }), { signal: controller.signal, cache: 'no-store' });
       if (!current()) return;
       const shown = data.quotes.filter(q=>terminalView==='commodities'?q.exchange==='MCX':q.exchange!=='MCX');
       const latest = Math.max(0,...shown.map(quote => Date.parse(quote.updated_at) || 0));
@@ -265,6 +272,12 @@
   });
   $('privateDhanFilter').addEventListener('submit',event=>{event.preventDefault();query=$('privateDhanQuery').value.trim();void refresh();});
   $('privateDhanFilter').addEventListener('reset',()=>{query='';void refresh();});
+  const browse=document.createElement('button');
+  browse.type='button';
+  browse.className='button secondary';
+  browse.textContent='Browse all symbols';
+  browse.onclick=()=>desk.searchSymbols();
+  watchPanel.querySelector('.panel-heading').append(browse);
   page.querySelector('.dhan-research-nav').addEventListener('click',event=>{const target=event.target.closest('[data-dhan-research]');if(!target||target.dataset.dhanResearch===researchView)return;researchView=target.dataset.dhanResearch;page.querySelectorAll('[data-dhan-research]').forEach(btn=>btn.setAttribute('aria-pressed',btn===target));void loadResearch();if(researchView==='technicals')void ensureHistory();});
   for(const id of ['dhanMoversExchange','dhanMoversRanking'])$(id).addEventListener('change',()=>void loadResearch());
   $('dhanResearchRefresh').addEventListener('click',()=>void loadResearch({quiet:true}));
