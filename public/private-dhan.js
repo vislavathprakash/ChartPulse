@@ -148,6 +148,7 @@
       url.searchParams.set('view', 'private-dhan');
       if (terminalView === 'dashboard') url.searchParams.delete('tab');
       else url.searchParams.set('tab', terminalView);
+      if(terminalView!=='commodities')url.searchParams.delete('commodity');
       history.replaceState(null, '', url);
     }
     if (!load || !active()) return;
@@ -422,13 +423,14 @@
       <div class="mcx-controls">
         <div class="mcx-kind" role="group" aria-label="Contract type"><button class="button secondary" type="button" data-mcx-kind="futures" aria-pressed="true">Futures</button><button class="button secondary" type="button" data-mcx-kind="options" aria-pressed="false">Options</button></div>
         <label>Commodity <select id="mcxRoot"><option value="">All commodities</option></select></label>
-        <label>Find contract <input type="search" id="mcxSearch" placeholder="Name, expiry, or strike" maxlength="80" autocomplete="off"></label>
+        <label>Find contract <input type="search" id="mcxSearch" placeholder="Gold fut, Silver, or a strike" maxlength="80" autocomplete="off"></label>
+        <button class="button secondary" type="button" id="mcxClear">Clear filters</button>
       </div>
       <p class="muted" id="mcxStatus" role="status">Loading MCX contracts…</p><div id="mcxContracts"></div>
       <div id="mcxPager" class="dhan-overview-pager hidden"><button type="button" class="button secondary" data-mcx-offset="-50">Previous</button><button type="button" class="button secondary" data-mcx-offset="50">Next</button></div>`;
     return panel;
   }
-  let commodityKind='futures', commodityOffset=0, commodityData, commodityRequest, commodityTimer, commodityWaiting=false, commodityQuotes=[];
+  let commodityRoot='', commodityKind='futures', commodityOffset=0, commodityData, commodityRequest, commodityTimer, commodityWaiting=false, commodityQuotes=[];
   function stopCommodityRequest(){
     clearTimeout(commodityTimer);
     commodityTimer=null;
@@ -443,15 +445,15 @@
     const root=$('mcxRoot'), status=$('mcxStatus');
     status.textContent='Loading MCX contracts…';
     try{
-      const data=await api('/api/private-dhan/symbols?'+new URLSearchParams({exchange:'MCX',kind:commodityKind,root:root.value,q:$('mcxSearch').value,offset:commodityOffset}),{signal:request.signal});
+      const data=await api('/api/private-dhan/symbols?'+new URLSearchParams({exchange:'MCX',kind:commodityKind,root:commodityRoot,q:$('mcxSearch').value,offset:commodityOffset}),{signal:request.signal});
       if(request.signal.aborted)return;
       commodityWaiting=!data.ready;
       commodityData=data;
-      const options=['',...(data.roots??[])];
+      const options=[...new Set(['',commodityRoot,...(data.roots??[])])];
       if([...root.options].map(option=>option.value).join(',')!==options.join(',')){
-        const previous=root.value;
-        root.replaceChildren(...options.map(value=>new Option(value||'All commodities',value,value===previous,value===previous)));
+        root.replaceChildren(...options.map(value=>new Option(value||'All commodities',value,value===commodityRoot,value===commodityRoot)));
       }
+      root.value=commodityRoot;
       status.textContent=!data.ready?'Waiting for Dhan’s MCX directory…':data.total?`Showing ${fmt(commodityOffset+1,0)}–${fmt(commodityOffset+data.items.length,0)} of ${fmt(data.total,0)} contracts`:'No contracts match these filters.';
       renderCommodities(commodityQuotes);
       if(data.ready)void refresh();
@@ -467,9 +469,10 @@
     if(message)$('mcxFeedStatus').textContent=message;
     const bySymbol=new Map(quotes.map(q=>[q.symbol,q]));
     const front=$('mcxFront');
-    const frontHtml=['GOLD','SILVER','CRUDEOIL','NATURALGAS','COPPER'].map(name=>{
+    const names={GOLD:'Gold',SILVER:'Silver',CRUDEOIL:'Crude Oil',NATURALGAS:'Natural Gas',COPPER:'Copper'};
+    const frontHtml=Object.entries(names).map(([name,label])=>{
       const q=bySymbol.get('MCX:'+name);
-      return `<article>${chartButton('MCX:'+name,name)}<strong>${researchNumber(q?.price)}</strong><small>${changeMarkup(q?.change_pct)}</small></article>`;
+      return `<article><button type="button" class="dhan-inline-chart" data-mcx-root="${name}" aria-pressed="${commodityKind==='futures'&&commodityRoot===name}">${label} futures</button><strong>${researchNumber(q?.price)}</strong><small>${changeMarkup(q?.change_pct)}</small> ${chartButton('MCX:'+name,'Chart')}</article>`;
     }).join('');
     if(!front.contains(document.activeElement)&&front.innerHTML!==frontHtml)front.innerHTML=frontHtml;
     const host=$('mcxContracts'), items=commodityData?.items??[];
@@ -484,7 +487,19 @@
     pager.querySelector('[data-mcx-offset="-50"]').disabled=!commodityOffset;
     pager.querySelector('[data-mcx-offset="50"]').disabled=commodityOffset+items.length>=(commodityData?.total??0);
   }
+  function setCommodityFilters(root,kind='futures'){
+    commodityRoot=root;
+    commodityKind=kind;
+    const select=$('mcxRoot');
+    if(root&&![...select.options].some(option=>option.value===root))select.add(new Option(root,root));
+    select.value=root;
+    commodityPanel.querySelectorAll('[data-mcx-kind]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.mcxKind===kind)));
+  }
   function changeCommodities(offset=0,delay=0){
+    const url=new URL(location.href);
+    if(commodityRoot&&commodityKind==='futures')url.searchParams.set('commodity',commodityRoot);
+    else url.searchParams.delete('commodity');
+    history.replaceState(null,'',url);
     stopCommodityRequest();
     commodityOffset=offset;
     commodityData=null;
@@ -588,8 +603,13 @@
     const button=event.target.closest('button');
     if(!button)return;
     if(button.dataset.mcxKind&&button.dataset.mcxKind!==commodityKind){
-      commodityKind=button.dataset.mcxKind;
-      commodityPanel.querySelectorAll('[data-mcx-kind]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+      setCommodityFilters(commodityRoot,button.dataset.mcxKind);
+      changeCommodities();
+    }
+    if(button.dataset.mcxRoot!==undefined||button.id==='mcxClear'){
+      $('mcxSearch').value='';
+      setCommodityFilters(button.dataset.mcxRoot??'',button.id==='mcxClear'?commodityKind:'futures');
+      $('mcxRoot').focus({preventScroll:true});
       changeCommodities();
     }
     if(button.dataset.mcxOffset)changeCommodities(commodityOffset+Number(button.dataset.mcxOffset));
@@ -600,8 +620,13 @@
       void refresh();
     }
   });
-  $('mcxRoot').addEventListener('change',()=>changeCommodities());
-  $('mcxSearch').addEventListener('input',()=>changeCommodities(0,180));
+  $('mcxRoot').addEventListener('change',event=>{commodityRoot=event.target.value;changeCommodities();});
+  $('mcxSearch').addEventListener('input',event=>{
+    const term=event.target.value;
+    if(/\bFUT(?:URES?)?\b/i.test(term))setCommodityFilters(commodityRoot,'futures');
+    else if(/\b(?:OPTIONS?|CALLS?|PUTS?|CE|PE)\b/i.test(term))setCommodityFilters(commodityRoot,'options');
+    changeCommodities(0,180);
+  });
   page.addEventListener('click',marketAction);
   workspaceOverview.addEventListener('click',marketAction);
   $('dhanResearchBody').addEventListener('change',event=>{
@@ -622,7 +647,7 @@
       researchController?.abort();
     }
   });
-  function reset() { stopUniverse(); stopCommodityRequest(); commodityData=null; commodityQuotes=[]; renderCommodities([],''); overviewQuotes=[]; $('dhanOverviewIndex').value='NSE:NIFTY'; $('dhanOverviewSearch').value=''; $('dhanOverviewExchange').value=''; switchUniverse('indices',0,0,false); placeOverview(false); simulatedHeading.classList.add('hidden'); renderOverview(); chooseResearch('stock'); pause(); historyController?.abort();researchController?.abort();chartHistory=null;$('dhanResearchBody').replaceChildren();$('dhanResearchContext').textContent='';$('dhanResearchStatus').textContent='Choose a symbol to start.'; symbolList=''; query=''; nav.classList.add('hidden'); page.classList.add('hidden'); $('privateHistorySymbol').replaceChildren(); $('privateHistorySymbol').disabled=true; $('privateHistoryStatus').textContent='Loading the Dhan symbol list…'; $('privateDhanStats').replaceChildren();desk.reset(); $('privateDhanQuery').value=''; $('privateDhanBadge').textContent='WAITING FOR QUOTES'; $('privateDhanStatus').textContent='Waiting for Dhan.'; updateMarketWatch($('privateDhanTable'),[]); }
+  function reset() { stopUniverse(); stopCommodityRequest(); setCommodityFilters(''); $('mcxSearch').value=''; commodityOffset=0; commodityWaiting=false; commodityData=null; commodityQuotes=[]; renderCommodities([],''); overviewQuotes=[]; $('dhanOverviewIndex').value='NSE:NIFTY'; $('dhanOverviewSearch').value=''; $('dhanOverviewExchange').value=''; switchUniverse('indices',0,0,false); placeOverview(false); simulatedHeading.classList.add('hidden'); renderOverview(); chooseResearch('stock'); pause(); historyController?.abort();researchController?.abort();chartHistory=null;$('dhanResearchBody').replaceChildren();$('dhanResearchContext').textContent='';$('dhanResearchStatus').textContent='Choose a symbol to start.'; symbolList=''; query=''; nav.classList.add('hidden'); page.classList.add('hidden'); $('privateHistorySymbol').replaceChildren(); $('privateHistorySymbol').disabled=true; $('privateHistoryStatus').textContent='Loading the Dhan symbol list…'; $('privateDhanStats').replaceChildren();desk.reset(); $('privateDhanQuery').value=''; $('privateDhanBadge').textContent='WAITING FOR QUOTES'; $('privateDhanStatus').textContent='Waiting for Dhan.'; updateMarketWatch($('privateDhanTable'),[]); }
   window.privateDhanView = {
     reset,
     configure(allowed) {
@@ -636,7 +661,13 @@
       simulatedHeading.classList.toggle('hidden',!(embedded&&state.meta.simulated));
       if(target==='private-dhan'){
         desk.loadLists();
-        selectTerminalView(new URLSearchParams(location.search).get('tab'));
+        const params=new URLSearchParams(location.search);
+        const root=params.get('commodity');
+        if(params.get('tab')==='commodities'&&/^[A-Z0-9]{1,32}$/.test(root??'')&&root!==commodityRoot){
+          setCommodityFilters(root);
+          commodityData=null;
+        }
+        selectTerminalView(params.get('tab'));
         void refresh();
       } else {
         pause();

@@ -2,10 +2,13 @@ const state = { user: null, meta: null, authMode: 'login', currentPage: 'overvie
 const requestedView = new URLSearchParams(location.search).get('view');
 const privateDhanLink = requestedView === 'private-dhan';
 const paperLink = requestedView === 'paper';
-const privateDhanEntryTab = new URLSearchParams(location.search).get('tab');
+const privateDhanEntry = new URLSearchParams(location.search);
+const privateDhanEntryTab = privateDhanEntry.get('tab');
 function privateDhanPath(path) {
   const query = new URLSearchParams({view:'private-dhan'});
   if (['overview','watch','commodities','research'].includes(privateDhanEntryTab)) query.set('tab',privateDhanEntryTab);
+  const root=privateDhanEntry.get('commodity');
+  if(privateDhanEntryTab==='commodities'&&/^[A-Z0-9]{1,32}$/.test(root??''))query.set('commodity',root);
   return `${path}?${query}`;
 }
 const entryPage = meta => privateDhanLink&&meta.privateDhan?'private-dhan':paperLink?'paper':'overview';

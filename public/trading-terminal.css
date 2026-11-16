@@ -480,7 +480,8 @@ body { font-size:var(--dashboard-body); }
 .mcx-controls,.mcx-kind { display:flex; align-items:end; flex-wrap:wrap; gap:8px; }
 .mcx-controls { margin-bottom:12px; }
 .mcx-controls label { margin:0; min-width:135px; }
-.mcx-controls label:last-child { flex:1; }
+.mcx-controls label:has(input) { flex:1; }
+.mcx-front button[aria-pressed=true] { border-color:var(--green); color:var(--green); }
 .mcx-kind button[aria-pressed=true] { background:var(--green2); border-color:var(--green); color:var(--green); }
 .mcx-panel #mcxStatus { margin:0 0 10px; }
 .mcx-panel .dhan-inline-chart { white-space:nowrap; }

@@ -4,6 +4,8 @@ const { installDhanResearch, quoteDepth } = require('./dhan-research');
 const { installDhanAlerts } = require('./dhan-alerts');
 const { installDhanConstituents } = require('./dhan-constituents');
 const istDate = time => new Date(time + 19800000).toISOString().slice(0, 10);
+const commodityNames={GOLDM:'GOLD MINI',SILVERM:'SILVER MINI',SILVERMIC:'SILVER MICRO',CRUDEOILM:'CRUDE OIL MINI',NATGASMINI:'NATURAL GAS MINI'};
+const commodityKeywords={FUTURES:'FUT',FUTURE:'FUT',OPTIONS:'OPTION',OPT:'OPTION',CE:'CALL',CALLS:'CALL',PE:'PUT',PUTS:'PUT'};
 const positive = value => Number.isFinite(value) && value > 0 ? value : null;
 const number = value => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 function tradeDate(value) {
@@ -172,7 +174,10 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   }
   app.get('/api/private-dhan/symbols',requireAuth,ownerOnly,asyncRoute(async(req,res)=>{
     const normalize=value=>value.toUpperCase().replace(/\s+/g,'');
-    const input=typeof req.query.q==='string'?normalize(req.query.q.slice(0,80)):'';
+    const raw=typeof req.query.q==='string'?req.query.q.trim().slice(0,80).toUpperCase():'';
+    const input=normalize(raw);
+    const words=raw.split(/\s+/).filter(Boolean).map(word=>commodityKeywords[word]??word);
+    const requestedCommodity=words.filter(word=>!['MCX','FUT','OPTION','CALL','PUT'].includes(word)).join('');
     const term=({NIFTY50:'NIFTY',BANKNIFTY:'BANKNIFTY',NIFTYBANK:'BANKNIFTY'})[input]??input;
     const kind=typeof req.query.kind==='string'?req.query.kind:'';
     const exchange=typeof req.query.exchange==='string'?req.query.exchange:'';
@@ -185,7 +190,15 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       if((exchange&&item.exchange!==exchange)||(kind&&item.kind!==kind)||(item.expiry&&item.expiry<today))continue;
       if(root&&item.underlying!==root)continue;
       const ticker=normalize(item.symbol.split(':')[1]);
-      const rank=!term?0:normalize(item.symbol)===term||ticker===term?0:ticker.startsWith(term)||normalize(item.symbol).startsWith(term)?1:normalize(item.name).startsWith(term)?2:normalize(item.name).includes(term)||normalize(item.symbol).includes(term)?3:-1;
+      const symbol=normalize(item.symbol), name=normalize(item.name);
+      let rank=!term?0:symbol===term||ticker===term?0:ticker.startsWith(term)||symbol.startsWith(term)?1:name.startsWith(term)?2:name.includes(term)||symbol.includes(term)?3:-1;
+      if(rank<0&&item.exchange==='MCX'){
+        const alias=normalize(commodityNames[item.underlying]??item.underlying??'');
+        const searchable=[symbol,name,alias,item.kind==='futures'?'FUT':'OPTION'];
+        if(words.every(word=>searchable.some(field=>field.includes(word)))){
+          rank=requestedCommodity===item.underlying||requestedCommodity===alias?1:4;
+        }
+      }
       if(rank>=0)matches.push({item,rank});
     }
     const order={index:0,equity:1,futures:2,options:3};
