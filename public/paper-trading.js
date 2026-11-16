@@ -6,6 +6,7 @@
   const date=value=>value?`${fullTime.format(new Date(value))} IST`:'—';
   const query=params=>new URLSearchParams(params).toString();
   const nameOf=kind=>({equity:'Stock',futures:'Future',options:'Option'})[kind]??kind;
+  const productLabel=(row)=>row.product==='intraday'?'Intraday':row.kind==='equity'?'Delivery':'Carry forward';
   const tabs=[['positions','Positions'],['orders','Orders'],['trades','Trade history']];
   const nav=document.createElement('button');
   nav.type='button';nav.className='nav-item';nav.dataset.page='paper';
@@ -37,7 +38,7 @@
     return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   function instrument(row) {
-    return `<strong>${html(row.name)}</strong><small>${html(row.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} · ${html(nameOf(row.kind))} · ${row.source==='dhan'?'DhanHQ':state.meta?.simulated?'Simulated':'Workspace'}</small>`;
+    return `<strong>${html(row.name)}</strong><small>${html(row.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} · ${html(nameOf(row.kind))} · ${productLabel(row)} · ${row.source==='dhan'?'DhanHQ':state.meta?.simulated?'Simulated':'Workspace'}</small>`;
   }
   function quantity(row) {
     const q=Math.abs(row.quantity);
@@ -57,7 +58,7 @@
       markup=table(['Instrument','Position','Average','Last','P&L','Protection','Actions'],data.positions.map(p=>[
         instrument(p),`<strong>${p.quantity>0?'Long':'Short'}</strong> · ${quantity(p)}`,format(p.average),`${format(p.last)}${p.fresh?'':'<small>Last known</small>'}`,pnl(p.pnl),
         `<small>Stop ${format(p.stopLoss)}</small><small>Target ${format(p.takeProfit)}</small>`,
-        p.expired?'<span class="muted">Awaiting expiry settlement</span>':`<div class="paper-actions"><button class="button secondary" type="button" data-paper-protection="${html(p.symbol)}" data-position-source="${html(p.source)}">Protection</button><button class="button secondary" type="button" data-paper-close="${html(p.symbol)}" data-position-source="${html(p.source)}">Close position</button></div>`
+        p.expired?'<span class="muted">Awaiting expiry settlement</span>':`<div class="paper-actions"><button class="button secondary" type="button" data-paper-protection="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Protection</button><button class="button secondary" type="button" data-paper-close="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Close position</button></div>`
       ]),'No open positions. Place a paper order to get started.');
     }else if(tab==='orders'){
       markup=`<h3>Open orders</h3>${orders(data.pending)}<h3>Order history</h3>${orders(data.history)}${pager(data.hasMoreHistory)}`;
@@ -142,7 +143,7 @@
     void lookup();
   }
 
-  async function open(source,symbol,side='buy',units=1) {
+  async function open(source,symbol,side='buy',units=1,product='delivery',closing=false) {
     const owner=state.user?.id;
     if(!owner)return;
     const d=workspaceDialog('Paper order',`<div class="paper-ticket-loading" role="status">Loading instrument and quote…</div>`);
@@ -155,13 +156,14 @@
         <p class="muted">${source==='workspace'&&state.meta?.simulated?'Simulated quotes · ':''}${html(nameOf(item.kind))} · ${format(item.last)}${item.fresh?'':' · Last known or unavailable'}${item.expiry?' · Expires '+html(item.expiry):''}</p>
         <div class="paper-form-grid">
           <label>Side<select name="side"><option value="buy" ${side==='buy'?'selected':''}>Buy</option><option value="sell" ${side==='sell'?'selected':''}>Sell</option></select></label>
+          <label>Product<select name="product" ${closing?'disabled':''}><option value="delivery" ${product==='delivery'?'selected':''}>${item.kind==='equity'?'Delivery':'Carry forward'}</option><option value="intraday" ${product==='intraday'?'selected':''}>Intraday</option></select></label>
           <label>Order type<select name="type"><option value="market">Market</option><option value="limit">Limit</option><option value="stop">Stop market</option></select></label>
           <label>${item.kind==='equity'?'Shares':`Lots · ${item.lotSize} units each`}<input type="number" name="units" min="1" max="100000" step="1" value="${units}" required></label>
           <label data-paper-order-level class="hidden"><span>Limit price (₹)</span><input type="number" name="level" min="0.01" step="0.01" disabled></label>
           <label>Stop loss (₹)<input type="number" name="stopLoss" min="0.01" step="0.01" placeholder="Optional"></label>
           <label>Take profit (₹)<input type="number" name="takeProfit" min="0.01" step="0.01" placeholder="Optional"></label>
         </div>
-        <p class="muted paper-ticket-note">Stop loss and take profit protect the resulting position and use the next eligible quote after a trigger.</p>
+        <p class="muted paper-ticket-note">Intraday trades are scheduled to close at 15:20 IST for NSE/BSE and 23:55 IST for Practice quotes. Stop loss and take profit use eligible quotes.</p>
         <div class="paper-preview" aria-live="polite"></div>`;
       const form=d.querySelector('form'), issue=d.querySelector('.dialog-error'), preview=d.querySelector('.paper-preview');
       const actions=d.querySelector('.dialog-actions');
@@ -186,7 +188,7 @@
         const token=++revision;
         const values=new FormData(form);
         const numeric=key=>values.get(key)?Number(values.get(key)):null;
-        const input={source,symbol,side:values.get('side'),type:values.get('type'),units:numeric('units'),level:numeric('level'),stopLoss:numeric('stopLoss'),takeProfit:numeric('takeProfit'),requestId};
+        const input={source,symbol,product:closing?product:values.get('product'),side:values.get('side'),type:values.get('type'),units:numeric('units'),level:numeric('level'),stopLoss:numeric('stopLoss'),takeProfit:numeric('takeProfit'),requestId};
         review.disabled=true;
         submit.classList.add('hidden');
         issue.textContent='';
@@ -232,7 +234,7 @@
       if(save.disabled)throw new Error('Saving protection…');
       save.disabled=true;
       try{
-        await api('/api/paper/protection',{method:'PATCH',body:JSON.stringify({source:position.source,symbol:position.symbol,stopLoss:values.get('stop')?Number(values.get('stop')):null,takeProfit:values.get('target')?Number(values.get('target')):null})});
+        await api('/api/paper/protection',{method:'PATCH',body:JSON.stringify({source:position.source,symbol:position.symbol,product:position.product,stopLoss:values.get('stop')?Number(values.get('stop')):null,takeProfit:values.get('target')?Number(values.get('target')):null})});
         toast('Position protection updated.');void refresh();
       }finally{save.disabled=false;}
     });
@@ -245,9 +247,9 @@
     if(b.dataset.paperTab&&b.dataset.paperTab!==tab)activate(b.dataset.paperTab);
     if(b.dataset.paperPage){offset+=Number(b.dataset.paperPage);void refresh();}
     if(b.dataset.positionSource){
-      const p=data?.positions.find(p=>p.source===b.dataset.positionSource&&p.symbol===(b.dataset.paperClose??b.dataset.paperProtection));
+      const p=data?.positions.find(p=>p.source===b.dataset.positionSource&&p.product===b.dataset.positionProduct&&p.symbol===(b.dataset.paperClose??b.dataset.paperProtection));
       if(!p){void refresh();return;}
-      if(b.dataset.paperClose)void open(p.source,p.symbol,p.quantity>0?'sell':'buy',Math.abs(p.quantity)/p.lotSize);
+      if(b.dataset.paperClose)void open(p.source,p.symbol,p.quantity>0?'sell':'buy',Math.abs(p.quantity)/p.lotSize,p.product,true);
       else editProtection(p);
     }
     if(b.dataset.paperCancel){

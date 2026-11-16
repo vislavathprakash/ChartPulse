@@ -151,7 +151,7 @@ const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,practice:simu
   const quote=runtime.quotes.get(symbol);
   const known=runtime.symbolMeta?.get(symbol)??simulation?.instruments.get(symbol);
   if(!known)return null;
-  return {item:{symbol,name:known.name??symbol,kind:'equity',lotSize:1},quote:marketRuntime.connected?quote:null};
+  return {item:{symbol,name:known.name??symbol,kind:'equity',lotSize:1,practice:isSimulated},quote:marketRuntime.connected?quote:null};
 }});
 function publicUser(user) { return { id: user.id, email: user.email, name: user.name, role: user.role, emailVerified:user.email_verified===true,emailOptIn:user.email_opt_in===true,googleLinked:Boolean(user.google_sub),whatsappPhone: user.whatsapp_phone || '', whatsappOptIn: user.whatsapp_opt_in || false, webhookToken: user.webhook_token || '' }; }
 function regenerateSession(req) { return new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve())); }

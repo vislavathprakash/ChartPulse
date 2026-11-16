@@ -16,7 +16,7 @@ function contract(stock,kind,expiry,strike=null,right=null) {
   return {
     symbol:kind==='futures'?['PAPERFUT',stock.symbol,expiry].join(':'):['PAPEROPT',stock.symbol,expiry,strike,right].join(':'),
     name:kind==='futures'?stock.name+' Future':stock.name+' '+strike+' '+leg,
-    kind,lotSize:LOT_SIZE,expiry
+    kind,lotSize:LOT_SIZE,expiry,practice:true
   };
 }
 

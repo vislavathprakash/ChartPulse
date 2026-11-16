@@ -92,8 +92,8 @@ async function readEquities(symbols) {
   return symbols.map(s => found.get(s));
 }
 
-async function resolveCommodityFutures(now = Date.now()) {
-  const signal = AbortSignal.timeout(10000);
+async function resolveCommodityContracts(now = Date.now()) {
+  const signal = AbortSignal.timeout(25000);
   let response = await fetch(COMMODITY_MASTER, { signal, redirect: 'manual' });
   if (response.status===302) {
     const download = new URL(response.headers.get('location') ?? COMMODITY_MASTER);
@@ -106,25 +106,29 @@ async function resolveCommodityFutures(now = Date.now()) {
   const stream = Readable.fromWeb(response.body);
   const lines = createInterface({ input: stream, crlfDelay: Infinity });
   const today = new Date(now + 19800000).toISOString().slice(0, 10);
-  const contracts = new Map();
+  const contracts = [], nearest = new Map();
   let columns;
   try {
     for await (const line of lines) {
       if (!columns) {
         const header = csvFields(line.replace(/^\uFEFF/, ''));
-        columns = ['SECURITY_ID','INSTRUMENT','SYMBOL_NAME','DISPLAY_NAME','SM_EXPIRY_DATE'].map(key=>header.indexOf(key));
+        columns = ['EXCH_ID','SECURITY_ID','INSTRUMENT','UNDERLYING_SYMBOL','DISPLAY_NAME','SM_EXPIRY_DATE','UNDERLYING_SECURITY_ID','STRIKE_PRICE','OPTION_TYPE'].map(key=>header.indexOf(key));
         if (columns.includes(-1)) throw new Error('Dhan MCX contract directory format changed.');
         continue;
       }
       const fields = csvFields(line);
-      const [id,instrument,ticker,name,expiry] = columns.map(index=>fields[index]?.trim());
-      if (instrument!=='FUTCOM' || !COMMODITIES.includes(ticker) || !/^\d+$/.test(id) || !/^\d{4}-\d{2}-\d{2}$/.test(expiry) || expiry<today) continue;
-      if (contracts.has(ticker) && contracts.get(ticker).expiry<=expiry) continue;
-      contracts.set(ticker,{id,instrument,kind:'futures',symbol:`MCX:${ticker}`,name,expiry,exchange:'MCX',segment:'MCX_COMM',code:5});
+      const [exchange,id,instrument,ticker,name,expiry,underlyingId,strikeValue,right] = columns.map(index=>fields[index]?.trim());
+      if (exchange!=='MCX'||!['FUTCOM','FUTIDX','OPTFUT','OPTIDX'].includes(instrument) || !/^\d+$/.test(id) || !/^[A-Z0-9]+$/.test(ticker) || !/^\d{4}-\d{2}-\d{2}$/.test(expiry) || expiry<today) continue;
+      const kind=instrument.startsWith('FUT')?'futures':'options', strike=Number(strikeValue);
+      if(kind==='options'&&(!(strike>0)||!['CE','PE'].includes(right)))continue;
+      const item={id,instrument,kind,symbol:'MCX:'+ticker+'-'+expiry+(kind==='options'?'-'+strike+'-'+right:''),name,expiry,underlying:ticker,underlyingId,exchange:'MCX',segment:'MCX_COMM',code:5};
+      contracts.push(item);
+      if(kind==='futures'&&(!nearest.has(ticker)||nearest.get(ticker).expiry>expiry))nearest.set(ticker,item);
     }
   } finally { lines.close(); stream.destroy(); }
-  if (!contracts.size) throw new Error('No active MCX contracts were listed by Dhan.');
-  return COMMODITIES.map(ticker=>contracts.get(ticker)).filter(Boolean);
+  if (!contracts.length) throw new Error('No active MCX contracts were listed by Dhan.');
+  for(const ticker of COMMODITIES){const item=nearest.get(ticker);if(item)item.symbol='MCX:'+ticker;}
+  return {catalog:new Map(contracts.map(item=>[item.symbol,item])),defaults:COMMODITIES.map(ticker=>nearest.get(ticker)).filter(Boolean)};
 }
 
 const positive = n => Number.isFinite(n) && n > 0 ? n : null;
@@ -276,4 +280,4 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
   } };
 }
 
-module.exports = { INDEX_SYMBOLS, csvFields, credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };
+module.exports = { INDEX_SYMBOLS, csvFields, credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityContracts, decodePacket, connectFeed };

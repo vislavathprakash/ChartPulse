@@ -37,11 +37,11 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   let directory = new Map(), snapshotStatus = '', snapshotError = null, nextSnapshot = 0, snapshotRequest;
   let client, starting = false, stopped = false, status = 'Waiting for the Dhan feed to start.';
   let commodityStatus = '', nextContractCheck = 0;
-  let catalog = new Map(), catalogLoadedAt=0;
+  let catalog = new Map(), commodityCatalog=new Map(), catalogLoadedAt=0;
   let defaults=new Set(), pinned=new Set(), optionsById=new Map();
   const recent=new Map();
-  const publicInstrument=({symbol,name,exchange,expiry,kind,lotSize})=>({symbol,name,exchange,expiry,kind,lotSize});
-  const lookup=symbol=>directory.get(symbol)??catalog.get(symbol);
+  const publicInstrument=({symbol,name,exchange,expiry,kind,lotSize,underlying})=>({symbol,name,exchange,expiry,kind,lotSize,underlying});
+  const lookup=symbol=>directory.get(symbol)??catalog.get(symbol)??commodityCatalog.get(symbol);
 
   function track(symbols, pin=false) {
     if(!client)return;
@@ -81,20 +81,21 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       if (!allows(rows[0])) return;
       const [updatedCatalog, commodities] = await Promise.all([
         Date.now()-catalogLoadedAt<86400000 ? null : dhan.readEquities().catch(()=>null),
-        dhan.resolveCommodityFutures().catch(()=>null)
+        dhan.resolveCommodityContracts().catch(()=>null)
       ]);
       if (stopped) return;
       if(updatedCatalog?.size){
         catalog=updatedCatalog;
         catalogLoadedAt=Date.now();
-        optionsById=new Map([...catalog.values()].filter(i=>i.kind==='options').map(i=>[`${i.exchange}:${i.id}`,i.symbol]));
       }
+      if(commodities)commodityCatalog=commodities.catalog;
+      if(updatedCatalog||commodities)optionsById=new Map([...catalog.values(),...commodityCatalog.values()].filter(i=>i.kind==='options').map(i=>[`${i.exchange}:${i.id}`,i.symbol]));
       const equitySymbols=[...new Set([...dhan.configuredSymbols(process.env.DHAN_SYMBOLS),...dhan.INDEX_SYMBOLS])];
       const equities=catalog.size?equitySymbols.map(symbol=>catalog.get(symbol)).filter(Boolean):
         client?[...directory.values()].filter(i=>i.exchange!=='MCX'&&defaults.has(i.symbol)):await dhan.resolveInstruments(process.env.DHAN_SYMBOLS);
       const today = istDate(Date.now());
-      const current = [...directory.values()].filter(i=>i.exchange==='MCX'&&i.expiry>=today);
-      const contracts = commodities ?? current;
+      const current = [...directory.values()].filter(i=>i.exchange==='MCX'&&defaults.has(i.symbol)&&i.expiry>=today);
+      const contracts = commodities?.defaults ?? current;
       commodityStatus = commodities ? '' : 'MCX contract directory unavailable. The server will retry.';
       nextContractCheck = Date.now() + (commodities&&catalog.size ? 3600000 : 60000);
       const saved=await pool.query("SELECT DISTINCT symbol FROM private_dhan_alerts WHERE user_id=$1 AND status='active' AND (expires_at IS NULL OR expires_at>NOW()) AND (expiry IS NULL OR expiry>=(NOW() AT TIME ZONE 'Asia/Kolkata')::date)",[ownerId]);
@@ -110,6 +111,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
         quotes.delete(i.symbol);
         snapshots.delete(i.symbol);
       }
+      for(const [symbol,i] of recent){if(i.exchange==='MCX'&&i.expiry<today){recent.delete(symbol);quotes.delete(symbol);snapshots.delete(symbol);}}
       const instruments = [...equities,...contracts,...recent.values()];
       defaults=nextDefaults;
       client?.stop();
@@ -174,20 +176,21 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     const term=({NIFTY50:'NIFTY',BANKNIFTY:'BANKNIFTY',NIFTYBANK:'BANKNIFTY'})[input]??input;
     const kind=typeof req.query.kind==='string'?req.query.kind:'';
     const exchange=typeof req.query.exchange==='string'?req.query.exchange:'';
-    const offset=Math.max(0,Math.min(catalog.size+directory.size,Number.parseInt(req.query.offset,10)||0));
+    const offset=Math.max(0,Math.min(catalog.size+commodityCatalog.size+directory.size,Number.parseInt(req.query.offset,10)||0));
     if(!['','NSE','BSE','MCX'].includes(exchange))return res.status(400).json({error:'Choose NSE, BSE or MCX.'});
     if(!['','index','equity','futures','options'].includes(kind))return res.status(400).json({error:'Choose a supported instrument type.'});
-    const entries=[...catalog.values(),...[...directory.values()].filter(i=>!catalog.has(i.symbol))];
-    const matches=[],today=istDate(Date.now());
+    const entries=[...(exchange==='MCX'?[]:catalog.values()),...(exchange&&exchange!=='MCX'?[]:commodityCatalog.values()),...[...directory.values()].filter(i=>!catalog.has(i.symbol)&&!commodityCatalog.has(i.symbol))];
+    const matches=[],today=istDate(Date.now()),root=typeof req.query.root==='string'?req.query.root:'';
     for(const item of entries){
       if((exchange&&item.exchange!==exchange)||(kind&&item.kind!==kind)||(item.expiry&&item.expiry<today))continue;
+      if(root&&item.underlying!==root)continue;
       const ticker=normalize(item.symbol.split(':')[1]);
       const rank=!term?0:normalize(item.symbol)===term||ticker===term?0:ticker.startsWith(term)||normalize(item.symbol).startsWith(term)?1:normalize(item.name).startsWith(term)?2:normalize(item.name).includes(term)||normalize(item.symbol).includes(term)?3:-1;
       if(rank>=0)matches.push({item,rank});
     }
     const order={index:0,equity:1,futures:2,options:3};
     matches.sort((a,b)=>a.rank-b.rank||order[a.item.kind]-order[b.item.kind]||(a.item.expiry??'').localeCompare(b.item.expiry??'')||a.item.symbol.localeCompare(b.item.symbol));
-    res.json({items:matches.slice(offset,offset+50).map(({item})=>publicInstrument(item)),total:matches.length,ready:catalog.size>0});
+    res.json({items:matches.slice(offset,offset+50).map(({item})=>publicInstrument(item)),total:matches.length,roots:exchange==='MCX'?[...new Set([...commodityCatalog.values()].map(i=>i.underlying))].sort():undefined,ready:(exchange==='MCX'?commodityCatalog:catalog).size>0});
   }));
   installDhanConstituents({app,requireAuth,ownerOnly,asyncRoute,getEquities:()=>catalog});
   const alerts=installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,quotes,
@@ -204,7 +207,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     return merged;
   }
   installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials:dhan.credentials,
-    instrument:lookup, underlying:i=>i.underlying?lookup(`${i.exchange}:${i.underlying}`):i, optionSymbol:(i,id)=>optionsById.get(`${i.exchange}:${id}`), refreshSelected, refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
+    instrument:lookup, underlying:i=>i.exchange==='MCX'?{symbol:'MCX:'+i.underlying,id:i.underlyingId,segment:'MCX_COMM',exchange:'MCX',kind:'commodity'}:i.underlying?lookup(`${i.exchange}:${i.underlying}`):i, optionSymbol:(i,id)=>optionsById.get(`${i.exchange}:${id}`), refreshSelected, refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
   app.get('/api/private-dhan/quotes', requireAuth, ownerOnly, asyncRoute(async (req, res) => {
     const query = req.query.query;
     const selectedSymbol=typeof req.query.symbol==='string'?req.query.symbol:'';
@@ -241,7 +244,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       if(requests.size>=3)return res.status(429).json({error:'Wait for the current history requests to finish.'});
       const daily=interval==='day', fromDate=istDate(now-(daily?180:5)*86400000), toDate=istDate(now+86400000);
       requests.set(key,(async()=>{
-        const commodity = i.instrument==='FUTCOM';
+        const commodity = i.exchange==='MCX';
         const raw=await fetchData(daily?'charts/historical':'charts/intraday',{
           securityId:i.id,exchangeSegment:i.segment,instrument:i.instrument??'EQUITY',oi:false,
           fromDate:daily?fromDate:`${fromDate} ${commodity?'09:00:00':'09:15:00'}`,
