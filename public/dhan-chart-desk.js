@@ -452,7 +452,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
         const saved=list?.symbols.includes(item.symbol);
         const selected=expanded===item.symbol;
         return `<div class="dhan-search-result"><div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}" aria-expanded="${selected}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?item.exchange+' · '+item.expiry:item.name)}</small></button><button type="button" data-symbol-action="chart" aria-label="Fullscreen chart for ${html(item.name)}" title="Fullscreen chart">${terminalIcon('fullscreen')}</button>
-          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>${selected?`<div class="dhan-search-actions" aria-label="Instrument actions">${[['stock',item.kind==='equity'?'Stock overview':'Instrument overview'],...(item.kind==='index'?[]:[['depth','Market depth']]),...(item.exchange==='MCX'?[]:[['chain','Option chain']])].map(([action,label])=>`<button type="button" data-symbol-action="${action}">${label}</button>`).join('')}</div>`:''}</div>`;
+          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>${selected?`<div class="dhan-search-actions" aria-label="Instrument actions">${[['stock',item.kind==='equity'?'Stock overview':'Instrument overview'],...(item.kind==='index'?[]:[['depth','Market depth']]),...(item.exchange==='MCX'?[]:[['chain','Option chain']]),...(item.lotSize?[['paper-buy','Paper buy'],['paper-sell','Paper sell']]:[])].map(([action,label])=>`<button type="button" data-symbol-action="${action}">${label}</button>`).join('')}</div>`:''}</div>`;
       }).join('')||`<p class="muted">${ready?'No matching instruments.':'Loading Dhan instruments…'}</p>`;
       if(results.dataset.markup!==markup){
         results.innerHTML=markup;
@@ -494,6 +494,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       if(action==='chart'){
         selectSymbol(symbol,item);
         if(!document.fullscreenElement&&!chartPanel.classList.contains('dhan-focus-chart'))void actions.fullscreen();
+      }else if(action==='paper-buy'||action==='paper-sell'){
+        void window.paperTrading?.open('dhan',item.symbol,action==='paper-buy'?'buy':'sell');
       }else inspectSymbol(item,action);
     }
     field.value=initial;

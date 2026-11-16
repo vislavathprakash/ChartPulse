@@ -13,6 +13,7 @@ const { createPool } = require('./database');
 const { SimulatedMarket } = require('./simulated-market');
 const dhan = require('./services/dhan-feed');
 const { installPrivateDhan } = require('./services/private-dhan');
+const { installPaperTrading } = require('./services/paper-trading');
 const marketProvider = process.env.MARKET_DATA_PROVIDER || 'simulated';
 const isSimulated = marketProvider === 'simulated';
 const providerName = { simulated: 'Simulated', truedata: 'TrueData', dhan: 'DhanHQ' }[marketProvider] || 'Unknown provider';
@@ -141,6 +142,15 @@ function requirePortal(role) { return asyncRoute(async (req, res, next) => {
 }); }
 const requireAuth = requirePortal('customer'), requireAdminAuth = requirePortal('admin');
 const privateDhan = installPrivateDhan({app,pool,requireAuth,asyncRoute,enabled:isSimulated&&runtime.role==='standalone'});
+const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,market:async(user,source,symbol,ensure)=>{
+  if(typeof symbol!=='string'||symbol.length>100)return null;
+  if(source==='dhan')return privateDhan.paperMarket(user,symbol,ensure);
+  if(source!=='workspace'||!marketEntitled())return null;
+  const quote=runtime.quotes.get(symbol);
+  const known=runtime.symbolMeta?.get(symbol)??simulation?.instruments.get(symbol);
+  if(!known)return null;
+  return {item:{symbol,name:known.name??symbol,kind:'equity',lotSize:1},quote:marketRuntime.connected?quote:null};
+}});
 function publicUser(user) { return { id: user.id, email: user.email, name: user.name, role: user.role, emailVerified:user.email_verified===true,emailOptIn:user.email_opt_in===true,googleLinked:Boolean(user.google_sub),whatsappPhone: user.whatsapp_phone || '', whatsappOptIn: user.whatsapp_opt_in || false, webhookToken: user.webhook_token || '' }; }
 function regenerateSession(req) { return new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve())); }
 function deliveryStatus(optIn,notification='whatsapp') { return isSimulated ? 'simulated' : ['whatsapp','all'].includes(notification) && optIn && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME ? 'queued' : 'logged'; }
@@ -572,7 +582,7 @@ app.get('/api/admin/delivery-jobs',requireAdminAuth,asyncRoute(async(req,res)=>{
 let server,gateway;
 async function start(){
   let release;while(!release){release=await pool.leadership(730010);if(!release)await new Promise(resolve=>setTimeout(resolve,500));}
-  try{await setup();await runtime.setup();await calendar.setup();await account.setup();if(isSimulated&&runtime.role==='standalone')await privateDhan.alerts.setup();}finally{await release();}
+  try{await setup();await runtime.setup();await calendar.setup();await account.setup();await paper.setup();if(isSimulated&&runtime.role==='standalone')await privateDhan.alerts.setup();}finally{await release();}
   if(['standalone','api','gateway'].includes(runtime.role)){
     server=http.createServer(app);gateway=installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled:marketEntitled});app.use(errorHandler);
     await new Promise(resolve=>server.listen(PORT,resolve));console.log('ChartPulse '+runtime.role+' listening on '+PORT);
@@ -593,7 +603,8 @@ async function start(){
   }
   if(['standalone','ingestion'].includes(runtime.role)){await startMarketFeed();if(marketProvider==='dhan'){runtime.every(3000,flushDhanQuotes);runtime.every(60000,()=>{if(!marketRuntime.client)return startDhanFeed();});}else if(!isSimulated)runtime.every(100,flushMarketQuotes);runtime.every(125,()=>runtime.processCommands());}
   if(isSimulated&&runtime.role==='standalone'){void privateDhan.start();runtime.every(60000,privateDhan.start);runtime.every(2500,privateDhan.alerts.scan);}
-  if(runtime.role==='evaluator')runtime.every(125,()=>runtime.evaluateEvents());
+  if(runtime.role==='standalone')runtime.every(2500,paper.scan);
+  if(runtime.role==='evaluator'){runtime.every(125,()=>runtime.evaluateEvents());if(runtime.shard===0)runtime.every(2500,paper.scan);}
   if(['standalone','delivery'].includes(runtime.role))runtime.every(250,()=>processNotifications({pool,runtime,deliver:deliverWhatsAppAlert}));
   if(['standalone','evaluator'].includes(runtime.role)){await calendar.scan();runtime.every(15000,()=>calendar.scan());}
   if(runtime.role==='relay')await require('./services/kafka-relay').startKafkaRelay(runtime);

@@ -52,13 +52,13 @@ async function readEquities(symbols) {
     for await (const line of lines) {
       if (!columns) {
         const headers = csvFields(line.replace(/^\uFEFF/, ''));
-        columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES','SEM_EXCH_INSTRUMENT_TYPE','SEM_EXPIRY_DATE'].map(name => headers.indexOf(name));
+        columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES','SEM_EXCH_INSTRUMENT_TYPE','SEM_EXPIRY_DATE','SEM_LOT_UNITS'].map(name => headers.indexOf(name));
         if (columns.some(index => index < 0)) throw new Error('Dhan changed the instrument directory format.');
         continue;
       }
       if (!(wanted ? /^(NSE|BSE),E,/ : /^(NSE|BSE),[EID],/).test(line)) continue;
       const fields = csvFields(line);
-      const [exchange, segment, id, instrument, ticker, name, series, type, expiryValue] = columns.map(i => fields[i]?.trim());
+      const [exchange, segment, id, instrument, ticker, name, series, type, expiryValue, lotUnits] = columns.map(i => fields[i]?.trim());
       const symbol = `${exchange}:${ticker}`;
       if (!/^\d+$/.test(id || '') || !ticker) continue;
       const item = { symbol, name: (name || ticker).slice(0, 160), exchange, id, instrument };
@@ -70,8 +70,9 @@ async function readEquities(symbols) {
         const expiry = expiryValue?.slice(0,10);
         if (!expiry || expiry < today) continue;
         const underlying = ticker.split(/-(?:\d{1,2})?[A-Z]{3}\d{4}-/i)[0];
+        const lotSize=Number(lotUnits);
         const contractSymbol = (instrument.startsWith('OPT') ? `${symbol}_${expiry}` : symbol).toUpperCase();
-        found.set(contractSymbol, { ...item, symbol:contractSymbol, expiry, underlying, segment: exchange + '_FNO', code: exchange === 'NSE' ? 2 : 8, kind: instrument.startsWith('FUT') ? 'futures' : 'options' });
+        found.set(contractSymbol, { ...item, symbol:contractSymbol, expiry, underlying, lotSize:Number.isSafeInteger(lotSize)&&lotSize>0?lotSize:null, segment: exchange + '_FNO', code: exchange === 'NSE' ? 2 : 8, kind: instrument.startsWith('FUT') ? 'futures' : 'options' });
         continue;
       }
       if (segment !== 'E' || instrument !== 'EQUITY') continue;
@@ -79,7 +80,7 @@ async function readEquities(symbols) {
       const { segment: feedSegment, code } = EXCHANGES[exchange];
       const priority = series==='EQ'?3:['A','B'].includes(series)?2:1;
       if (priority>(priorities.get(symbol)||0)) {
-        found.set(symbol, { ...item, kind: 'equity', segment: feedSegment, code });
+        found.set(symbol, { ...item, kind: 'equity', lotSize:1, segment: feedSegment, code });
         priorities.set(symbol,priority);
       }
       if (wanted && found.size === wanted.size) break;

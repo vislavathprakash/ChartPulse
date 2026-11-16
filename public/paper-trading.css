@@ -1,0 +1,38 @@
+
+.paper-page .page-heading { align-items:center; }
+.paper-wallet { margin-bottom:24px; }
+.paper-grid { margin:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.paper-grid > div { min-width:0; border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--panel2); }
+.paper-grid dt { color:var(--muted); font-size:13px; }
+.paper-grid dd { margin:5px 0 0; font-size:clamp(16px,2vw,24px); font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.paper-panel .data-table { font-variant-numeric:tabular-nums; }
+.paper-panel .data-table td { vertical-align:middle; }
+.paper-panel .data-table small,.paper-search-results small { display:block; color:var(--muted); }
+.paper-panel h3 { margin:18px 0 8px; font-size:16px; }
+.paper-actions,.paper-row-actions,.paper-ticket-intro,.paper-pager { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.paper-row-actions { display:inline-flex; flex-wrap:nowrap; margin-inline-start:3px; }
+.paper-row-actions button { min-height:32px; padding:4px 8px; border:1px solid currentColor; border-radius:6px; background:var(--panel); font-size:12px; font-weight:600; cursor:pointer; }
+.paper-row-buy { color:var(--green); }
+.paper-row-sell { color:var(--red); }
+.paper-row-actions button:hover { background:var(--panel2); }
+.paper-pager,.paper-ticket-intro { justify-content:space-between; }
+.paper-pager { justify-content:flex-end; gap:12px; margin-top:12px; }
+.paper-ticket-intro h3 { margin:0; }
+.paper-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.paper-form-grid label { min-width:0; margin:0; }
+.paper-field-wide { grid-column:1/-1; }
+.paper-ticket-note,.paper-disclosure { font-size:13px; line-height:1.55; }
+.paper-ticket-note { margin:12px 0; }
+.paper-status:empty,.paper-preview:empty { display:none; }
+.paper-preview .paper-grid > div { padding:9px; }
+.paper-preview .paper-grid dd { font-size:16px; }
+.paper-search-results { display:grid; max-height:300px; overflow:auto; }
+.paper-search-results button { display:grid; gap:4px; text-align:left; min-height:44px; color:var(--text); background:transparent; border:0; border-bottom:1px solid var(--line); padding:8px; cursor:pointer; }
+.paper-search-results button:hover { background:var(--panel2); }
+.paper-order-state { text-transform:capitalize; font-weight:600; }
+@media(max-width:600px){
+  .paper-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .paper-grid > div { padding:10px; }
+  .paper-row-actions button { min-height:44px; }
+  .paper-panel [role=tab] { min-height:44px; }
+}

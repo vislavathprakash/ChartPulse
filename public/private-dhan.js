@@ -382,11 +382,11 @@
     const indexView=marketView==='indices';
     const items=universe?.items??[];
     const bySymbol=new Map(quotes.map(quote=>[quote.symbol,quote]));
-    const list=items.length?table(indexView?['Stock','Industry','Last (₹)','Change','Volume']:['Stock','Last (₹)','Change','Volume'],items.map(item=>{
+    const list=items.length?table(indexView?['Stock','Industry','Last (₹)','Change','Volume','Paper trade']:['Stock','Last (₹)','Change','Volume','Paper trade'],items.map(item=>{
       const q=bySymbol.get(item.symbol);
       const label=item.displaySymbol??item.symbol;
       const stock=(item.symbol?chartButton(item.symbol,label):html(label))+`<small>${html(item.name)}</small>`;
-      return [stock,...(indexView?[html(item.industry||'—')]:[]),researchNumber(q?.price),changeMarkup(q?.change_pct),researchNumber(q?.volume,0)];
+      return [stock,...(indexView?[html(item.industry||'—')]:[]),researchNumber(q?.price),changeMarkup(q?.change_pct),researchNumber(q?.volume,0),item.symbol?paperButtons('dhan',item.symbol):'—'];
     })):'';
     const pager=$('dhanOverviewPager');
     pager.classList.toggle('hidden',indexView||!items.length);
@@ -416,7 +416,7 @@
       return `<div class="dhan-stock-summary"><div><h3>${html(data.name)}</h3><span class="muted">${html(data.symbol)}${data.expiry?' · Expires '+html(data.expiry):''}</span></div>${chartButton(data.symbol,'Open chart')}</div>${q?`<p>${changeMarkup(q.change_pct)} <span class="muted">${html(researchTime(q.updated_at))}</span></p>${quoteMetrics(q)}`:'<p class="muted">Waiting for a quote for this instrument.</p>'}`;
     }
     if(researchView==='chain'){
-      const leg=(item)=>[item?.symbol?chartButton(item.symbol,researchNumber(item.price)):researchNumber(item?.price),researchNumber(item?.oi,0),researchNumber(item?.iv),researchNumber(item?.volume,0)];
+      const leg=(item)=>[item?.symbol?chartButton(item.symbol,researchNumber(item.price))+paperButtons('dhan',item.symbol):researchNumber(item?.price),researchNumber(item?.oi,0),researchNumber(item?.iv),researchNumber(item?.volume,0)];
       return `<div class="dhan-chain-controls"><label>Expiry <select id="dhanChainExpiry">${data.dates.map(date=>`<option ${date===data.expiry?'selected':''}>${html(date)}</option>`).join('')}</select></label><span>${html(data.base)} <strong>${researchNumber(data.spot)}</strong></span></div>`+(data.strikes?.length?table(['Call last','Call OI','Call IV %','Call vol','Strike','Put last','Put OI','Put IV %','Put vol'],data.strikes.map(row=>[...leg(row.call),`<strong>${researchNumber(row.strike)}</strong>`,...leg(row.put)])):'<p class="muted">Dhan returned no strikes for this expiry.</p>');
     }
     if(researchView==='depth') {

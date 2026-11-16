@@ -40,7 +40,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   let catalog = new Map(), catalogLoadedAt=0;
   let defaults=new Set(), pinned=new Set(), optionsById=new Map();
   const recent=new Map();
-  const publicInstrument=({symbol,name,exchange,expiry,kind})=>({symbol,name,exchange,expiry,kind});
+  const publicInstrument=({symbol,name,exchange,expiry,kind,lotSize})=>({symbol,name,exchange,expiry,kind,lotSize});
   const lookup=symbol=>directory.get(symbol)??catalog.get(symbol);
 
   function track(symbols, pin=false) {
@@ -192,15 +192,15 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   installDhanConstituents({app,requireAuth,ownerOnly,asyncRoute,getEquities:()=>catalog});
   const alerts=installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,quotes,
     instrument:lookup,onTrack:symbol=>track([symbol],true),connected:()=>Boolean(configured&&client?.isReady())});
+  function mergedQuote(symbol) {
+    const q=quotes.get(symbol),fallback=snapshots.get(symbol)?.quote;
+    if(!q||fallback&&Date.parse(q.updated_at)<(Date.parse(fallback.updated_at)||0))return fallback;
+    const previous=q.previous_close??fallback?.previous_close;
+    return {...q,kind:lookup(symbol)?.kind,open:q.open??fallback?.open,high:q.high??fallback?.high,low:q.low??fallback?.low,volume:q.volume??fallback?.volume,previous_close:previous??null,change_pct:previous?(q.price/previous-1)*100:null,source:'stream'};
+  }
   function mergedQuotes() {
     const merged=new Map([...snapshots].map(([symbol,snapshot])=>[symbol,snapshot.quote]));
-    for(const q of quotes.values()) {
-      const fallback=merged.get(q.symbol);
-      if(!fallback||Date.parse(q.updated_at)>=(Date.parse(fallback.updated_at)||0)) {
-        const previous=q.previous_close??fallback?.previous_close;
-        merged.set(q.symbol,{...q,kind:lookup(q.symbol)?.kind,open:q.open??fallback?.open,high:q.high??fallback?.high,low:q.low??fallback?.low,volume:q.volume??fallback?.volume,previous_close:previous??null,change_pct:previous?(q.price/previous-1)*100:null,source:'stream'});
-      }
-    }
+    for(const symbol of quotes.keys())merged.set(symbol,mergedQuote(symbol));
     return merged;
   }
   installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials:dhan.credentials,
@@ -256,7 +256,18 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     try{res.json(await requests.get(key));}catch(err){res.status(502).json({error:err.message.startsWith('Dhan ')?err.message:'Dhan historical data could not be reached.'});}
   }));
 
-  return { allows, hasSymbol: (user, symbol) => allows(user) && Boolean(lookup(symbol)), alerts, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
+  async function paperMarket(user,symbol,refresh=false) {
+    if(!allows(user))return null;
+    const item=lookup(symbol);
+    if(!item?.lotSize||item.kind==='index'||item.exchange==='MCX')return null;
+    const underlying=item.underlying?lookup(item.exchange+':'+item.underlying):null;
+    const symbols=[item.symbol,...(underlying?[underlying.symbol]:[])];
+    track(symbols);
+    if(refresh)await refreshSelected(item.symbol);
+    return {item,quote:mergedQuote(item.symbol),underlying:underlying?mergedQuote(underlying.symbol):null};
+  }
+
+  return { allows, paperMarket, hasSymbol: (user, symbol) => allows(user) && Boolean(lookup(symbol)), alerts, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };
 }
 
 module.exports = { installPrivateDhan };

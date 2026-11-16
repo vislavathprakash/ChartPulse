@@ -1,15 +1,19 @@
 const state = { user: null, meta: null, authMode: 'login', currentPage: 'overview', lastQuery: '', queryResults: [] };
-const privateDhanLink = new URLSearchParams(location.search).get('view') === 'private-dhan';
+const requestedView = new URLSearchParams(location.search).get('view');
+const privateDhanLink = requestedView === 'private-dhan';
+const paperLink = requestedView === 'paper';
 const privateDhanEntryTab = new URLSearchParams(location.search).get('tab');
 function privateDhanPath(path) {
   const query = new URLSearchParams({view:'private-dhan'});
   if (['overview','watch','commodities','research'].includes(privateDhanEntryTab)) query.set('tab',privateDhanEntryTab);
   return `${path}?${query}`;
 }
+const entryPage = meta => privateDhanLink&&meta.privateDhan?'private-dhan':paperLink?'paper':'overview';
 const $ = (id) => document.getElementById(id);
 const html = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (value, digits = 2) => Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
 const terminalIcons = {
+  paper:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="m3 8 12-4h3v2m-1 7h4"/>',
   overview:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   screener:'<path d="M4 5h16M4 12h16M4 19h16"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="19" r="2"/>',
   charts:'<path d="M5 2v5m0 8v5m7-16v8m0 6v4m7-20v3m0 8v5"/><rect x="3" y="7" width="4" height="8" rx="1"/><rect x="10" y="12" width="4" height="6" rx="1"/><rect x="17" y="5" width="4" height="8" rx="1"/>',
@@ -49,10 +53,10 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
-  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
+  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):paperLink?'/app?view=paper':'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
   window.privateDhanView?.configure(meta.privateDhan);
   const initial = (user.name || user.email || 'U').slice(0, 1).toUpperCase();
   $('userName').textContent = user.name || user.email; $('userRole').textContent = user.role; $('avatar').textContent = initial; $('topAvatar').textContent = initial;
@@ -81,7 +85,7 @@ function setAuthMode(mode) {
   $('authError').classList.add('hidden');
 }
 async function bootstrap() {
-  try { const me = await api('/api/me'); state.meta = me; if (me.user) {showApp(me.user, me);navigate(privateDhanLink&&me.privateDhan?'private-dhan':'overview');} else showAuth(); }
+  try { const me = await api('/api/me'); state.meta = me; if (me.user) {showApp(me.user, me);navigate(entryPage(me));} else showAuth(); }
   catch { showAuth(); }
 }
 document.querySelectorAll('.auth-tab').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.auth)));
@@ -89,22 +93,24 @@ $('authForm').addEventListener('submit', async e => {
   e.preventDefault(); const form = new FormData(e.currentTarget); const body = Object.fromEntries(form.entries());
   try {
     const result = await api(state.authMode === 'register' ? '/api/register' : '/api/login', { method: 'POST', body: JSON.stringify(body) });
-    const meta = await api('/api/me'); showApp(result.user, meta); navigate(privateDhanLink&&meta.privateDhan?'private-dhan':'overview');
+    const meta = await api('/api/me'); showApp(result.user, meta); navigate(entryPage(meta));
   } catch (err) { $('authError').textContent = err.message; $('authError').classList.remove('hidden'); }
 });
 $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); state.user = null; showAuth(); });
 
 function navigate(page) {
-  if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
+  if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan','paper'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
   state.currentPage = page; document.body.classList.toggle('chart-workspace-open',page==='charts'); if(page!=='charts')simulationChart.dispose();
   document.body.classList.toggle('dhan-terminal-open',page==='private-dhan');
   $('simulationBanner').classList.toggle('hidden',page==='private-dhan'||!state.meta?.simulated);
-  if(page!=='private-dhan'&&new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
+  if(page==='paper')history.replaceState(null,'','/app?view=paper');
+  else if(new URLSearchParams(location.search).get('view')==='paper'||page!=='private-dhan'&&new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('hidden', p.id !== `page-${page}`));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  $('crumb').textContent = ({ overview: 'Overview', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;
+  $('crumb').textContent = ({ overview: 'Overview', paper:'Paper Trading', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;
   if(page==='private-dhan')$('crumb').textContent='Dhan terminal';
   window.privateDhanView?.navigate(page);
+  window.paperTrading?.navigate(page);
   if(page==='account')window.accountSettings?.load(); if(page==='calendar') { marketCalendar.renderPage(); marketCalendar.load(); } if (page === 'charts') mountTvChart(); if (page === 'screener') loadQueries(); if (page === 'alerts') loadAlerts(); if(page!=='charts')liveMarket.subscribe();
 }
 document.body.addEventListener('click', e => { const nav = e.target.closest('[data-page]'); if (nav) navigate(nav.dataset.page); const symbol=e.target.closest('[data-terminal-chart]')?.dataset.terminalChart;if(symbol&&state.user)window.stockWorkspace?.open({symbol}); });
@@ -130,11 +136,11 @@ const changeTone = n => n<0?'negative':n>0?'positive':'muted';
 const quotePrice = new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:2,maximumFractionDigits:2});
 const quoteTime = new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
 function quoteCells(s){const price=Number(s.price??s.last_price??NaN),volume=Number(s.volume??NaN),change=changeValue(s);return [Number.isFinite(price)?quotePrice.format(price):'—',changeText(change),Number.isFinite(volume)?fmt(volume,0):'—',changeTone(change)];}
-function updateMarketWatch(host,data){
+function updateMarketWatch(host,data,{paper=false}={}){
   host.classList.toggle('empty-state',!data.length);
   if(!data.length){host.textContent='Waiting for market quotes.';return;}
   const rows=[...host.querySelectorAll('tbody tr')];
-  if(rows.length!==data.length||rows.some((row,i)=>row.querySelector('[data-terminal-chart]')?.dataset.terminalChart!==data[i].symbol)){host.innerHTML=stockTable(data);return;}
+  if(rows.length!==data.length||rows.some((row,i)=>row.querySelector('[data-terminal-chart]')?.dataset.terminalChart!==data[i].symbol)){host.innerHTML=stockTable(data,{paper});return;}
   rows.forEach((row,i)=>{const [price,change,volume,tone]=quoteCells(data[i]);[price,change,volume].forEach((value,j)=>{if(row.cells[j+1].textContent!==value)row.cells[j+1].textContent=value;});row.cells[2].className=`mono ${tone}`;});
 }
 function renderMarketOverview(data,summary,asOf) {
@@ -146,16 +152,19 @@ function renderMarketOverview(data,summary,asOf) {
   $('moveCount').textContent = summary?.decliningCount ?? data.filter(s=>changeValue(s)<=-3).length;
   const time=Date.parse(asOf);
   $('marketQuoteTime').textContent=Number.isFinite(time)&&data.length?`As of ${quoteTime.format(time)} IST`:'Awaiting quotes';
-  updateMarketWatch(watch,data.slice(0,6));
+  updateMarketWatch(watch,data.slice(0,6),{paper:true});
   const declining=(summary?.movers??data.filter(s=>changeValue(s)<0).sort((a,b)=>changeValue(a)-changeValue(b))).filter(s=>Number.isFinite(changeValue(s))&&changeValue(s)<0).slice(0,4);
   const max=Math.max(1,...declining.map(s=>Math.abs(changeValue(s))));
   movers.classList.toggle('empty-state',!declining.length);
   movers.innerHTML=declining.length?`<div class="terminal-move-list">${declining.map(s=>`<button class="terminal-move" type="button" data-terminal-chart="${html(s.symbol)}" title="Open ${html(s.symbol)} chart"><span><b>${html(s.symbol)}</b><small>${html(s.name||'')}</small></span><span class="mono negative">${changeText(changeValue(s))}</span><progress aria-hidden="true" max="${max}" value="${Math.abs(changeValue(s))}"></progress></button>`).join('')}</div>`:data.length?'No declining symbols.':'Waiting for market quotes.';
   if(selected&&!focus.isConnected)region.querySelector(`[data-terminal-chart="${CSS.escape(selected)}"]`)?.focus({preventScroll:true});
 }
-function stockTable(data) {
+function paperButtons(source,symbol){
+  return `<span class="paper-row-actions">${['buy','sell'].map(side=>`<button type="button" class="paper-row-${side}" data-paper-source="${html(source)}" data-paper-symbol="${html(symbol)}" data-paper-side="${side}" aria-label="Paper ${side} ${html(symbol)}">${side==='buy'?'Buy':'Sell'}</button>`).join('')}</span>`;
+}
+function stockTable(data,{paper=false}={}) {
   if (!data.length) return '<div class="empty-state">No stocks match these conditions. Adjust your query or choose another Scan Example, then run again.</div>';
-  return `<table class="data-table"><thead><tr><th scope="col">SYMBOL</th><th scope="col">LAST PRICE</th><th scope="col">CHANGE</th><th scope="col">VOLUME</th></tr></thead><tbody>${data.map(s => {const [price,change,volume,tone]=quoteCells(s);return `<tr><td><button class="symbol-cell terminal-symbol" type="button" data-terminal-chart="${html(s.symbol)}" aria-label="Open ${html(s.symbol)} chart" title="${html(s.name||s.symbol)}"><span class="coin-dot" aria-hidden="true">${html((s.exchange || '?').slice(0,2))}</span><span class="symbol-label"><b>${html(s.symbol)}</b><small>${html(s.name || '')}</small></span>${terminalIcon('arrow')}</button></td><td class="mono">${price}</td><td class="mono ${tone}">${change}</td><td class="mono">${volume}</td></tr>`;}).join('')}</tbody></table>`;
+  return `<table class="data-table"><thead><tr><th scope="col">SYMBOL</th><th scope="col">LAST PRICE</th><th scope="col">CHANGE</th><th scope="col">VOLUME</th>${paper?'<th scope="col">PAPER TRADE</th>':''}</tr></thead><tbody>${data.map(s => {const [price,change,volume,tone]=quoteCells(s);return `<tr><td><button class="symbol-cell terminal-symbol" type="button" data-terminal-chart="${html(s.symbol)}" aria-label="Open ${html(s.symbol)} chart" title="${html(s.name||s.symbol)}"><span class="coin-dot" aria-hidden="true">${html((s.exchange || '?').slice(0,2))}</span><span class="symbol-label"><b>${html(s.symbol)}</b><small>${html(s.name || '')}</small></span>${terminalIcon('arrow')}</button></td><td class="mono">${price}</td><td class="mono ${tone}">${change}</td><td class="mono">${volume}</td>${paper?`<td>${paperButtons('workspace',s.symbol)}</td>`:''}</tr>`;}).join('')}</tbody></table>`;
 }
 async function runQuery() {
   if(state.scanPending)return;
