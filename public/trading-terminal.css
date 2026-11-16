@@ -433,6 +433,11 @@ body.chart-workspace-open .content-wrap { max-width: none; }
 
 /* Live market overview and instrument actions */
 .dhan-live-overview { display:grid; gap:20px; }
+#page-overview .dhan-live-overview { margin-bottom:24px; }
+#page-overview .dhan-live-overview .panel-heading { flex-wrap:wrap; margin:0; }
+#page-overview .dhan-live-overview .panel-heading p { margin-bottom:0; }
+.dhan-overview-feed:empty { display:none; }
+.dhan-simulated-heading { margin:0 0 12px; font-size:17px; }
 .dhan-overview-actions,.dhan-search-actions,.dhan-chain-controls,.dhan-stock-summary { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
 .dhan-stock-summary,.dhan-chain-controls { justify-content:space-between; margin-block:8px 16px; }
 .dhan-chain-controls label { display:flex; align-items:center; gap:8px; margin:0; }

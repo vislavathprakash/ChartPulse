@@ -81,7 +81,7 @@ function setAuthMode(mode) {
   $('authError').classList.add('hidden');
 }
 async function bootstrap() {
-  try { const me = await api('/api/me'); state.meta = me; if (me.user) {showApp(me.user, me);if(privateDhanLink&&me.privateDhan)navigate('private-dhan');} else showAuth(); }
+  try { const me = await api('/api/me'); state.meta = me; if (me.user) {showApp(me.user, me);navigate(privateDhanLink&&me.privateDhan?'private-dhan':'overview');} else showAuth(); }
   catch { showAuth(); }
 }
 document.querySelectorAll('.auth-tab').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.auth)));

@@ -41,27 +41,38 @@
       ${views.map(([id])=>`<section class="dhan-pane hidden" id="dhan-pane-${id}" role="tabpanel" aria-labelledby="dhan-tab-${id}" tabindex="0"></section>`).join('')}
     </div>`;
   shell.querySelector('.dhan-symbol-control').append(controls.querySelector('#privateHistorySymbol'));
-  shell.querySelector('.dhan-feed-slot').append(page.querySelector('#privateDhanBadge'));
+  const feedSlot = shell.querySelector('.dhan-feed-slot');
+  const feedBadge = page.querySelector('#privateDhanBadge');
+  feedSlot.append(feedBadge);
   shell.querySelector('#dhan-pane-dashboard').append(chartPanel);
   watchPanel.querySelector('.panel-heading').after(page.querySelector('#privateDhanFilter'));
   shell.querySelector('#dhan-pane-watch').append(watchPanel);
   shell.querySelector('#dhan-pane-research').append(researchPanel);
   const overview = shell.querySelector('#dhan-pane-overview');
   overview.innerHTML = `<section class="panel dhan-live-overview">
-    <div class="panel-heading"><div><h2>Market overview</h2><p class="muted">DhanHQ quotes for benchmark indices and tracked stocks</p></div>
-      <div class="dhan-overview-actions">${[['index','Indices'],['futures','Futures'],['options','Options']].map(([kind,label])=>`<button type="button" class="button secondary" data-dhan-catalog="${kind}">${label}</button>`).join('')}</div>
+    <div class="panel-heading"><div><h2>Live market overview</h2><p class="muted">DhanHQ quotes for benchmark indices and tracked stocks</p></div>
+      <div class="dhan-overview-actions"><div class="dhan-overview-feed"></div>${[['index','Indices'],['futures','Futures'],['options','Options']].map(([kind,label])=>`<button type="button" class="button secondary" data-dhan-catalog="${kind}">${label}</button>`).join('')}</div>
     </div>
     <div id="dhanOverviewData" aria-label="Market insights"><p class="muted">Waiting for Dhan quotes…</p></div>
   </section>`;
-  const overviewLink=document.createElement('button');
-  overviewLink.type='button';
-  overviewLink.className='button secondary hidden';
-  overviewLink.textContent='Live market overview';
-  overviewLink.onclick=()=>{
-    history.replaceState(null,'','/app?view=private-dhan&tab=overview');
-    navigate('private-dhan');
-  };
-  document.querySelector('.terminal-overview-heading .terminal-actions').prepend(overviewLink);
+  const overviewPanel = overview.firstElementChild;
+  const workspaceOverview = $('page-overview');
+  const overviewHeading = workspaceOverview.querySelector('.terminal-overview-heading');
+  const overviewFeed = overviewPanel.querySelector('.dhan-overview-feed');
+  const simulatedHeading = document.createElement('h2');
+  simulatedHeading.className = 'dhan-simulated-heading hidden';
+  simulatedHeading.textContent = 'Simulated workspace';
+  overviewHeading.after(simulatedHeading);
+
+  function placeOverview(inWorkspace) {
+    if(inWorkspace){
+      overviewHeading.after(overviewPanel);
+      overviewFeed.append(feedBadge);
+    }else{
+      overview.append(overviewPanel);
+      feedSlot.append(feedBadge);
+    }
+  }
   const technicalInterval = document.createElement('label');
   technicalInterval.className = 'dhan-technical-interval hidden';
   technicalInterval.textContent = 'Interval';
@@ -85,15 +96,21 @@
   }
   function openChart(symbol,item) {
     setSymbol(symbol,item);
+    if(state.currentPage==='overview'){navigate('private-dhan');return;}
     selectTerminalView('dashboard');
     void refresh();
   }
   const desk = createDhanChartDesk($('privateDhanPlot'), controls, openChart, ()=>void refresh(),quoteStats,(item,action)=>{
     setSymbol(item.symbol,item);
     chooseResearch(action);
-    selectTerminalView('research');
+    if(state.currentPage==='overview'){
+      history.replaceState(null,'','/app?view=private-dhan&tab=research');
+      navigate('private-dhan');
+    }else{
+      selectTerminalView('research');
+      void refresh();
+    }
     $('dhan-tab-research').focus();
-    void refresh();
   });
   let timer, query = '', generation = 0, controller, historyController, symbolList = '';
   let researchView = 'stock', researchController, chartHistory, chainExpiry='';
@@ -158,27 +175,34 @@
   }
   function pause() { clearTimeout(timer); controller?.abort(); generation++; }
   function active() { return state.currentPage === 'private-dhan' && state.meta?.privateDhan && state.user && !document.hidden; }
+  const workspaceActive = () => state.currentPage==='overview' && state.meta?.privateDhan && state.user && !document.hidden;
+  const quotesActive = () => active() || workspaceActive();
   async function refresh() {
-    pause(); if (!active()) return;
+    pause(); if (!quotesActive()) return;
     const token = generation, owner = state.user.id;
-    const filter = isWatch() ? query : '';
+    const embedded = workspaceActive();
+    const marketOverview = embedded || terminalView==='overview';
+    const watchView = !embedded && isWatch();
+    const filter = watchView ? query : '';
+    let retry = true;
     controller = new AbortController();
-    const current = () => token === generation && owner === state.user?.id && active();
+    const current = () => token === generation && owner === state.user?.id && quotesActive();
     try {
       const data = await api('/api/private-dhan/quotes?' + new URLSearchParams({ query:filter, symbol:$('privateHistorySymbol').value, watch:desk.watchSymbols().join(',') }), { signal: controller.signal, cache: 'no-store' });
       if (!current()) return;
       const shown = data.quotes.filter(q=>terminalView==='commodities'?q.exchange==='MCX':q.exchange!=='MCX');
       const latest = Math.max(0,...shown.map(quote => Date.parse(quote.updated_at) || 0));
       const badge = $('privateDhanBadge');
-      const activeRows = terminalView==='overview'?data.quotes:isWatch()?shown:data.selected?[data.selected]:data.quotes;
-      const live = isWatch()||terminalView==='overview' ? data.connected && activeRows.some(q=>q.source==='stream'&&Date.now()-Date.parse(q.updated_at)<120000) : data.selected ? data.selectedLive : data.connected;
+      const activeRows = marketOverview?data.quotes:watchView?shown:data.selected?[data.selected]:data.quotes;
+      const live = watchView||marketOverview ? data.connected && activeRows.some(q=>q.source==='stream'&&Date.now()-Date.parse(q.updated_at)<120000) : data.selected ? data.selectedLive : data.connected;
       badge.textContent = live ? 'Live · DhanHQ' : data.feedIssue==='authentication' ? 'Dhan token needs renewal' : data.feedIssue ? 'Feed unavailable' : activeRows.some(q=>q.source==='snapshot') ? 'Quote snapshot' : activeRows.length ? 'Last known quotes' : 'Waiting for quotes';
       badge.classList.toggle('dhan-live', live);
       badge.classList.toggle('dhan-feed-issue',Boolean(data.feedIssue));
+      if(marketOverview)renderOverview(data.quotes);
+      if(embedded)return;
       const status = terminalView==='commodities'&&!data.feedIssue?(data.commodityStatus||'Nearest expiry contracts · MCX'):data.status;
       const statusText = status + (latest ? ` Latest shown trade: ${quoteTime.format(latest)} IST.` : '');
       if ($('privateDhanStatus').textContent !== statusText) $('privateDhanStatus').textContent = statusText;
-      if(terminalView==='overview')renderOverview(data.quotes);
       updateMarketWatch($('privateDhanTable'),shown);
       $('privateDhanTable').querySelectorAll('[data-terminal-chart]').forEach((button,i)=>{const q=shown[i];button.setAttribute('aria-label',`Show Dhan price history for ${q.symbol}`);button.title=q.updated_at?`${q.source==='stream'?'WebSocket':'Snapshot'} · ${quoteTime.format(Date.parse(q.updated_at))} IST`:'Dhan quote · trade timestamp unavailable';});
       if (!shown.length && filter) $('privateDhanTable').textContent = 'No quotes match this filter.';
@@ -210,13 +234,14 @@
         $('privateDhanBadge').classList.add('dhan-feed-issue');
       }
       $('privateDhanStatus').textContent = err.message;
-      if(terminalView==='overview')$('dhanOverviewData').textContent=err.message;
+      if(marketOverview)$('dhanOverviewData').textContent=err.message;
       updateMarketWatch($('privateDhanTable'),[]);
-      if (err.status === 400 || err.status === 404) return;
-    }
-    if (current()) {
-      if (terminalView==='dashboard' && chartHistory && Date.now()-chartHistory.loadedAt>60000 && !historyController?.pending) void loadHistory(true);
-      timer = setTimeout(refresh, 5000);
+      retry = err.status !== 400 && err.status !== 404;
+    } finally {
+      if(retry && current()){
+        if (!embedded && terminalView==='dashboard' && chartHistory && Date.now()-chartHistory.loadedAt>60000 && !historyController?.pending) void loadHistory(true);
+        timer = setTimeout(refresh, 5000);
+      }
     }
   }
   function drawHistory(candles,message) {
@@ -354,28 +379,41 @@
   browse.onclick=()=>desk.searchSymbols();
   watchPanel.querySelector('.panel-heading').append(browse);
   page.querySelector('.dhan-research-nav').addEventListener('click',event=>{const target=event.target.closest('[data-dhan-research]');if(!target||target.dataset.dhanResearch===researchView)return;chooseResearch(target.dataset.dhanResearch);void loadResearch();if(researchView==='technicals')void ensureHistory();});
-  page.addEventListener('click',event=>{
+  function marketAction(event) {
     const chart=event.target.closest('[data-dhan-open-chart]');
     if(chart){openChart(chart.dataset.dhanOpenChart);desk.maximize();}
     const catalog=event.target.closest('[data-dhan-catalog]');
     if(catalog)desk.searchSymbols('',catalog.dataset.dhanCatalog);
-  });
+  }
+  page.addEventListener('click',marketAction);
+  workspaceOverview.addEventListener('click',marketAction);
   $('dhanResearchBody').addEventListener('change',event=>{
     if(event.target.id==='dhanChainExpiry'){chainExpiry=event.target.value;void loadResearch({quiet:true});}
   });
   for(const id of ['dhanMoversExchange','dhanMoversRanking'])$(id).addEventListener('change',()=>void loadResearch());
   $('dhanResearchRefresh').addEventListener('click',()=>void loadResearch({quiet:true}));
-  document.addEventListener('visibilitychange',()=>{if(active()){void refresh();if(terminalView==='dashboard')void ensureHistory();void loadResearch({quiet:true});}else {pause();researchController?.abort();}});
-  function reset() { renderOverview([]); chooseResearch('stock'); pause(); historyController?.abort();researchController?.abort();chartHistory=null;$('dhanResearchBody').replaceChildren();$('dhanResearchContext').textContent='';$('dhanResearchStatus').textContent='Choose a symbol to start.'; symbolList=''; query=''; nav.classList.add('hidden'); page.classList.add('hidden'); $('privateHistorySymbol').replaceChildren(); $('privateHistorySymbol').disabled=true; $('privateHistoryStatus').textContent='Loading the Dhan symbol list…'; $('privateDhanStats').replaceChildren();desk.reset(); $('privateDhanQuery').value=''; $('privateDhanBadge').textContent='WAITING FOR QUOTES'; $('privateDhanStatus').textContent='Waiting for Dhan.'; updateMarketWatch($('privateDhanTable'),[]); }
+  document.addEventListener('visibilitychange',()=>{
+    if(quotesActive()){
+      void refresh();
+      if(active()&&terminalView==='dashboard')void ensureHistory();
+      if(active()&&terminalView==='research')void loadResearch({quiet:true});
+    }else{
+      pause();
+      researchController?.abort();
+    }
+  });
+  function reset() { placeOverview(false); simulatedHeading.classList.add('hidden'); renderOverview([]); chooseResearch('stock'); pause(); historyController?.abort();researchController?.abort();chartHistory=null;$('dhanResearchBody').replaceChildren();$('dhanResearchContext').textContent='';$('dhanResearchStatus').textContent='Choose a symbol to start.'; symbolList=''; query=''; nav.classList.add('hidden'); page.classList.add('hidden'); $('privateHistorySymbol').replaceChildren(); $('privateHistorySymbol').disabled=true; $('privateHistoryStatus').textContent='Loading the Dhan symbol list…'; $('privateDhanStats').replaceChildren();desk.reset(); $('privateDhanQuery').value=''; $('privateDhanBadge').textContent='WAITING FOR QUOTES'; $('privateDhanStatus').textContent='Waiting for Dhan.'; updateMarketWatch($('privateDhanTable'),[]); }
   window.privateDhanView = {
     reset,
     configure(allowed) {
       reset();
-      overviewLink.classList.toggle('hidden',!allowed);
       nav.classList.toggle('hidden',!allowed);
       selectTerminalView('dashboard',{load:false,syncUrl:false});
     },
     navigate(target) {
+      const embedded=target==='overview'&&state.meta?.privateDhan;
+      placeOverview(embedded);
+      simulatedHeading.classList.toggle('hidden',!(embedded&&state.meta.simulated));
       if(target==='private-dhan'){
         desk.loadLists();
         selectTerminalView(new URLSearchParams(location.search).get('tab'));
@@ -384,6 +422,7 @@
         pause();
         historyController?.abort();
         researchController?.abort();
+        if(embedded){desk.loadLists();void refresh();}
       }
     }
   };
