@@ -438,6 +438,15 @@ body.chart-workspace-open .content-wrap { max-width: none; }
 #page-overview .dhan-live-overview .panel-heading p { margin-bottom:0; }
 .dhan-overview-feed:empty { display:none; }
 .dhan-simulated-heading { margin:0 0 12px; font-size:17px; }
+.dhan-overview-browser .dhan-research-nav { margin-bottom:12px; }
+.dhan-overview-browser label { display:inline-flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0 12px 8px 0; }
+.dhan-overview-browser :is(input,select) { width:auto; max-width:100%; margin:0; }
+.dhan-overview-feedback,.dhan-overview-pager { display:flex; align-items:center; gap:8px; }
+.dhan-overview-feedback p { margin:0; }
+.dhan-overview-feedback:has(p:empty):has(button.hidden) { display:none; }
+.dhan-overview-pager { justify-content:flex-end; }
+.dhan-index-select { color:var(--text); background:transparent; border:1px solid var(--line); border-radius:8px; min-height:36px; padding:4px 8px; cursor:pointer; }
+.dhan-index-select:is(:hover,[aria-pressed="true"]) { color:var(--green); border-color:var(--green); }
 .dhan-overview-actions,.dhan-search-actions,.dhan-chain-controls,.dhan-stock-summary { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
 .dhan-stock-summary,.dhan-chain-controls { justify-content:space-between; margin-block:8px 16px; }
 .dhan-chain-controls label { display:flex; align-items:center; gap:8px; margin:0; }

@@ -275,4 +275,4 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
   } };
 }
 
-module.exports = { INDEX_SYMBOLS, credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };
+module.exports = { INDEX_SYMBOLS, csvFields, credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };
