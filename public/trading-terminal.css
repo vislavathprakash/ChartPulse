@@ -430,3 +430,26 @@ body.chart-workspace-open .content-wrap { max-width: none; }
   .auth-brand .auth-copy { font-size: 14px; }
   .terminal-auth-features { margin: 12px 0 0; }
 }
+
+/* Live market overview and instrument actions */
+.dhan-live-overview { display:grid; gap:20px; }
+.dhan-overview-actions,.dhan-search-actions,.dhan-chain-controls,.dhan-stock-summary { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.dhan-stock-summary,.dhan-chain-controls { justify-content:space-between; margin-block:8px 16px; }
+.dhan-chain-controls label { display:flex; align-items:center; gap:8px; margin:0; }
+.dhan-chain-controls select { width:auto; margin:0; }
+.dhan-index-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.dhan-index-grid article,.dhan-mover-grid section { min-width:0; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--panel2); }
+.dhan-index-grid header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; background:none; border:0; padding:0; }
+.dhan-index-grid article > strong { display:block; font-size:clamp(20px,2vw,28px); font-variant-numeric:tabular-nums; margin:6px 0; }
+.dhan-inline-chart,.dhan-search-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:4px 8px; color:var(--text); background:transparent; border:1px solid var(--line); border-radius:8px; cursor:pointer; }
+.dhan-inline-chart:hover,.dhan-search-actions button:hover { color:var(--green); border-color:var(--green); }
+.dhan-inline-chart svg,.dhan-search-row button svg { width:16px; height:16px; flex:none; }
+.dhan-overview-breadth,.dhan-mover-grid { margin-top:24px; }
+.dhan-mover-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.dhan-search-row button { min-height:44px; }
+.dhan-search-row button[data-symbol-action="chart"] { min-width:44px; }
+.dhan-search-actions { padding:8px; border-bottom:1px solid var(--line); background:var(--panel2); }
+@media(max-width:640px) {
+  .dhan-index-grid,.dhan-mover-grid { grid-template-columns:1fr; }
+  .dhan-inline-chart,.dhan-search-actions button { min-height:44px; }
+}

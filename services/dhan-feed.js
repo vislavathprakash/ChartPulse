@@ -6,6 +6,7 @@ const MASTER = 'https://images.dhan.co/api-data/api-scrip-master.csv';
 const COMMODITY_MASTER = 'https://api.dhan.co/v2/instrument/MCX_COMM';
 const COMMODITIES = ['GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS', 'COPPER'];
 const EXCHANGES = { NSE: { segment: 'NSE_EQ', code: 1 }, BSE: { segment: 'BSE_EQ', code: 4 } };
+const INDEX_SYMBOLS = ['NSE:NIFTY', 'NSE:BANKNIFTY', 'BSE:SENSEX'];
 const DEFAULT_SYMBOLS = 'NSE:RELIANCE,NSE:TCS,NSE:INFY,NSE:HDFCBANK,NSE:SBIN,NSE:ICICIBANK,BSE:RELIANCE,BSE:TCS,BSE:INFY,BSE:HDFCBANK,BSE:SBIN,BSE:ICICIBANK';
 
 function credentials(env = process.env) {
@@ -45,25 +46,40 @@ async function readEquities(symbols) {
   if (!response.ok || !response.body) throw new Error('Could not download the Dhan instrument directory.');
   const stream = Readable.fromWeb(response.body);
   const lines = createInterface({ input: stream, crlfDelay: Infinity });
+  const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
   let columns;
   try {
     for await (const line of lines) {
       if (!columns) {
         const headers = csvFields(line.replace(/^\uFEFF/, ''));
-        columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES','SEM_EXCH_INSTRUMENT_TYPE'].map(name => headers.indexOf(name));
+        columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES','SEM_EXCH_INSTRUMENT_TYPE','SEM_EXPIRY_DATE'].map(name => headers.indexOf(name));
         if (columns.some(index => index < 0)) throw new Error('Dhan changed the instrument directory format.');
         continue;
       }
-      if (!/^(NSE|BSE),E,/.test(line)) continue;
+      if (!(wanted ? /^(NSE|BSE),E,/ : /^(NSE|BSE),[EID],/).test(line)) continue;
       const fields = csvFields(line);
-      const [exchange, segment, id, instrument, ticker, name, series, type] = columns.map(i => fields[i]?.trim());
+      const [exchange, segment, id, instrument, ticker, name, series, type, expiryValue] = columns.map(i => fields[i]?.trim());
       const symbol = `${exchange}:${ticker}`;
-      if (segment !== 'E' || instrument !== 'EQUITY' || !/^\d+$/.test(id || '') || !ticker) continue;
+      if (!/^\d+$/.test(id || '') || !ticker) continue;
+      const item = { symbol, name: (name || ticker).slice(0, 160), exchange, id, instrument };
+      if (segment === 'I' && instrument === 'INDEX') {
+        found.set(symbol, { ...item, segment: 'IDX_I', code: 0, kind: 'index' });
+        continue;
+      }
+      if (segment === 'D' && ['FUTIDX','FUTSTK','OPTIDX','OPTSTK'].includes(instrument)) {
+        const expiry = expiryValue?.slice(0,10);
+        if (!expiry || expiry < today) continue;
+        const underlying = ticker.split(/-(?:\d{1,2})?[A-Z]{3}\d{4}-/i)[0];
+        const contractSymbol = (instrument.startsWith('OPT') ? `${symbol}_${expiry}` : symbol).toUpperCase();
+        found.set(contractSymbol, { ...item, symbol:contractSymbol, expiry, underlying, segment: exchange + '_FNO', code: exchange === 'NSE' ? 2 : 8, kind: instrument.startsWith('FUT') ? 'futures' : 'options' });
+        continue;
+      }
+      if (segment !== 'E' || instrument !== 'EQUITY') continue;
       if (wanted ? !wanted.has(symbol) || (exchange==='NSE'&&series!=='EQ') : type!=='ES'&&!['ETF','REIT','InvITU'].includes(type)) continue;
       const { segment: feedSegment, code } = EXCHANGES[exchange];
       const priority = series==='EQ'?3:['A','B'].includes(series)?2:1;
       if (priority>(priorities.get(symbol)||0)) {
-        found.set(symbol, { symbol, name: (name || ticker).slice(0, 160), exchange, id, segment: feedSegment, code });
+        found.set(symbol, { ...item, kind: 'equity', segment: feedSegment, code });
         priorities.set(symbol,priority);
       }
       if (wanted && found.size === wanted.size) break;
@@ -103,7 +119,7 @@ async function resolveCommodityFutures(now = Date.now()) {
       const [id,instrument,ticker,name,expiry] = columns.map(index=>fields[index]?.trim());
       if (instrument!=='FUTCOM' || !COMMODITIES.includes(ticker) || !/^\d+$/.test(id) || !/^\d{4}-\d{2}-\d{2}$/.test(expiry) || expiry<today) continue;
       if (contracts.has(ticker) && contracts.get(ticker).expiry<=expiry) continue;
-      contracts.set(ticker,{id,instrument,symbol:`MCX:${ticker}`,name,expiry,exchange:'MCX',segment:'MCX_COMM',code:5});
+      contracts.set(ticker,{id,instrument,kind:'futures',symbol:`MCX:${ticker}`,name,expiry,exchange:'MCX',segment:'MCX_COMM',code:5});
     }
   } finally { lines.close(); stream.destroy(); }
   if (!contracts.size) throw new Error('No active MCX contracts were listed by Dhan.');
@@ -116,14 +132,15 @@ function decodePacket(buffer) {
   const code = buffer.readUInt8(0), segment = buffer.readUInt8(3), id = buffer.readInt32LE(4);
   if (code === 50 && buffer.length >= 10) return { code, reason: buffer.readInt16LE(8) };
   if (code === 6 && buffer.length >= 16) return { code, segment, id, previousClose: positive(buffer.readFloatLE(8)) };
-  if (!((code === 4 && buffer.length >= 50) || (code === 8 && buffer.length >= 62))) return null;
+  if (!((code === 2 && buffer.length >= 16) || (code === 4 && buffer.length >= 50) || (code === 8 && buffer.length >= 62))) return null;
   const price = positive(buffer.readFloatLE(8));
-  let tradeTime = buffer.readUInt32LE(14);
+  let tradeTime = buffer.readUInt32LE(code === 2 ? 12 : 14);
   const now = Math.floor(Date.now()/1000), offset = tradeTime-now;
   // The live feed can encode IST wall time as an epoch. Only correct the
   // observed IST offset; arbitrary future timestamps are still rejected.
   if (offset>=19800-120&&offset<=19800+60) tradeTime-=19800;
   if (!price || !tradeTime || tradeTime > now+60) return null;
+  if (code === 2) return { code, segment, id, price, tradeTime, volume:null, open:null, high:null, low:null };
   const depthOffset = code === 8 ? 12 : 0;
   return { code, segment, id, price, tradeTime, volume: buffer.readUInt32LE(22), open: positive(buffer.readFloatLE(34+depthOffset)), high: positive(buffer.readFloatLE(42+depthOffset)), low: positive(buffer.readFloatLE(46+depthOffset)) };
 }
@@ -150,6 +167,11 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
     }
   }
 
+  function subscriptions(items, subscribe) {
+    send(subscribe ? 15 : 16, items.filter(i => i.kind === 'index'));
+    send(subscribe ? 17 : 18, items.filter(i => i.kind !== 'index'));
+  }
+
   function open() {
     if (stopped || blocked) return;
     const url = new URL('wss://api-feed.dhan.co/');
@@ -165,7 +187,7 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
       if (!active()) return;
       lastSignal = Date.now();
       onStatus('Subscribed to DhanHQ. Waiting for quotes.', false);
-      send(17,[...instrumentByKey.values()]);
+      subscriptions([...instrumentByKey.values()], true);
       liveness = setInterval(() => { if (active() && Date.now() - lastSignal > 45000) current.terminate(); }, 10000);
       liveness.unref();
     });
@@ -246,11 +268,11 @@ function connectFeed({ auth, instruments, onQuote, onStatus }) {
   return { replace(added,removed){
     for(const i of removed)instrumentByKey.delete(keyOf(i));
     for(const i of added)instrumentByKey.set(keyOf(i),i);
-    send(18,removed);
-    send(17,added);
+    subscriptions(removed, false);
+    subscriptions(added, true);
   }, diagnostics: () => ({open:socket?.readyState===WebSocket.OPEN,...frames}), isReady: () => ready && !stopped && socket?.readyState === WebSocket.OPEN, stop() {
     stopped = true; ready = false; clearTimeout(reconnect); clearInterval(liveness); socket?.terminate();
   } };
 }
 
-module.exports = { credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };
+module.exports = { INDEX_SYMBOLS, credentials, configuredSymbols, readEquities, resolveInstruments, resolveCommodityFutures, decodePacket, connectFeed };

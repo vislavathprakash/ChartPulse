@@ -16,7 +16,7 @@ function dhanDrawingIcon(id,fallback) {
   return paths[id]?`<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${paths[id]}</svg>`:fallback;
 }
 
-function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteStats) {
+function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteStats, inspectSymbol) {
   host.classList.add('dhan-chart-host');
   host.classList.remove('empty-state');
   const desk = document.createElement('div');
@@ -29,6 +29,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       <button type="button" data-dhan-setting="lockDrawings" title="Lock drawings" aria-label="Lock drawings" aria-pressed="false">${terminalIcon('lock')}</button>
       <button type="button" data-dhan-setting="hideDrawings" title="Hide drawings" aria-label="Hide drawings" aria-pressed="false">${terminalIcon('eye')}</button>
       <button type="button" data-dhan-chart="undo" aria-label="Undo drawing" title="Undo drawing">↶</button>
+      <button type="button" data-dhan-chart="clearChart" aria-label="Clear chart overlays" title="Clear chart overlays">${terminalIcon('trash')}</button>
       <button type="button" data-dhan-chart="redo" aria-label="Redo drawing" title="Redo drawing">↷</button>
     </div>
     <div class="dhan-chart-stage">
@@ -423,10 +424,11 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     const epoch=listEpoch;
     loadingLists=reloadLists().then(()=>{if(epoch===listEpoch)loadedFor=user;}).catch(error=>{if(epoch===listEpoch)toast(error.message,true);}).finally(()=>{if(epoch===listEpoch)loadingLists=null;});
   }
-  function openSymbolSearch(initial='') {
+  function openSymbolSearch(initial='',kind='') {
     const dialog=workspaceDialog('Symbol search',`
-      <label>Search stocks or futures<input class="dhan-search-input" type="search" placeholder="Symbol or company name" autocomplete="off"></label>
+      <label>Search instruments<input class="dhan-search-input" type="search" placeholder="Symbol or company name" autocomplete="off"></label>
       <label>Exchange<select class="dhan-search-exchange"><option value="">All exchanges</option><option>NSE</option><option>BSE</option><option>MCX</option></select></label>
+      <label>Instrument type<select class="dhan-search-kind"><option value="">All instruments</option><option value="equity">Stocks</option><option value="index">Indices</option><option value="futures">Futures</option><option value="options">Options</option></select></label>
       <label>Save to watchlist<select class="dhan-search-list"></select></label>
       <div class="dhan-search-results"></div><button type="button" class="dhan-search-more button secondary hidden">Show more</button>
       <p class="dhan-search-count muted"></p><p class="dhan-search-status muted" role="status"></p>`);
@@ -435,9 +437,11 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     const listField=dialog.querySelector('.dhan-search-list');
     const status=dialog.querySelector('.dhan-search-status');
     const exchange=dialog.querySelector('.dhan-search-exchange');
+    const instrumentType=dialog.querySelector('.dhan-search-kind');
+    instrumentType.value=kind;
     const more=dialog.querySelector('.dhan-search-more');
     const count=dialog.querySelector('.dhan-search-count');
-    let found=[], total=0, ready=false, pending, timer, version=0;
+    let found=[], total=0, expanded='', ready=false, pending, timer, version=0;
     const paintLists=()=>{
       listField.innerHTML='<option value="">Choose a watchlist</option>'+choice(lists.map(list=>[String(list.id),list.name]),watchId);
       listField.value=watchId;
@@ -446,8 +450,9 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       const list=lists.find(item=>String(item.id)===listField.value);
       const markup=found.map(item=>{
         const saved=list?.symbols.includes(item.symbol);
-        return `<div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}"><strong>${html(item.symbol)}</strong><small>${html(item.name)}${item.expiry?' · '+html(item.expiry):''}</small></button>
-          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>`;
+        const selected=expanded===item.symbol;
+        return `<div class="dhan-search-result"><div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}" aria-expanded="${selected}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?item.exchange+' · '+item.expiry:item.name)}</small></button><button type="button" data-symbol-action="chart" aria-label="Fullscreen chart for ${html(item.name)}" title="Fullscreen chart">${terminalIcon('fullscreen')}</button>
+          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>${selected?`<div class="dhan-search-actions" aria-label="Instrument actions">${[['stock',item.kind==='equity'?'Stock overview':'Instrument overview'],...(item.kind==='index'?[]:[['depth','Market depth']]),...(item.exchange==='MCX'?[]:[['chain','Option chain']])].map(([action,label])=>`<button type="button" data-symbol-action="${action}">${label}</button>`).join('')}</div>`:''}</div>`;
       }).join('')||`<p class="muted">${ready?'No matching instruments.':'Loading Dhan instruments…'}</p>`;
       if(results.dataset.markup!==markup){
         results.innerHTML=markup;
@@ -463,7 +468,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       const revision=++version;
       more.disabled=true;
       try {
-        const data=await api('/api/private-dhan/symbols?'+new URLSearchParams({q:field.value,exchange:exchange.value,offset:append?found.length:0}),{signal:request.signal,cache:'no-store'});
+        const data=await api('/api/private-dhan/symbols?'+new URLSearchParams({q:field.value,exchange:exchange.value,kind:instrumentType.value,offset:append?found.length:0}),{signal:request.signal,cache:'no-store'});
         if(!dialog.open||revision!==version)return;
         found=append?[...found,...data.items]:data.items;
         total=data.total;
@@ -478,13 +483,18 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       clearTimeout(timer);
       pending?.abort();
       version++;
-      found=[];total=0;ready=false;status.textContent='';
+      found=[];total=0;expanded='';ready=false;status.textContent='';
       render();
       timer=setTimeout(()=>void searchCatalog(),150);
     }
-    function open(symbol){
+    function open(symbol,action='chart'){
       const item=found.find(item=>item.symbol===symbol);
-      dialog.close();dialog.remove();selectSymbol(symbol,item);canvas.focus({preventScroll:true});
+      if(!item)return;
+      dialog.close();dialog.remove();
+      if(action==='chart'){
+        selectSymbol(symbol,item);
+        if(!document.fullscreenElement&&!chartPanel.classList.contains('dhan-focus-chart'))void actions.fullscreen();
+      }else inspectSymbol(item,action);
     }
     field.value=initial;
     paintLists();
@@ -496,13 +506,24 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     reloadLists().then(()=>{if(dialog.open){paintLists();render();}}).catch(error=>{status.textContent=error.message;});
     field.oninput=scheduleSearch;
     exchange.onchange=scheduleSearch;
+    instrumentType.onchange=scheduleSearch;
     more.onclick=()=>void searchCatalog(true);
     listField.onchange=render;
     field.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();const first=results.querySelector('[data-open-symbol]');if(first)open(first.dataset.openSymbol);}};
     results.onclick=async event=>{
       const button=event.target.closest('button');
       if(!button)return;
-      if(button.dataset.openSymbol){open(button.dataset.openSymbol);return;}
+      if(button.dataset.openSymbol){
+        const symbol=button.dataset.openSymbol;
+        expanded=expanded===symbol?'':symbol;
+        render();
+        [...results.querySelectorAll('[data-open-symbol]')].find(row=>row.dataset.openSymbol===symbol)?.focus({preventScroll:true});
+        return;
+      }
+      if(button.dataset.symbolAction){
+        open(button.closest('.dhan-search-result').querySelector('[data-open-symbol]').dataset.openSymbol,button.dataset.symbolAction);
+        return;
+      }
       const symbol=button.dataset.saveSymbol;
       if(!symbol)return;
       if(!listField.value){
@@ -741,6 +762,21 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
         reflectFullscreen();
       }
     },
+    clearChart:()=>{
+      const dialog=workspaceDialog('Clear chart overlays',`
+        <p class="muted">Remove drawings for this symbol or clear the chart’s active indicators.</p>
+        <button class="button secondary" type="button" data-clear="drawings" ${!drawings.length||owner.settings.lockDrawings?'disabled':''}>Remove all drawings</button>
+        <button class="button secondary" type="button" data-clear="indicators" ${!owner.settings.indicators.length?'disabled':''}>Remove all indicators</button>
+        ${owner.settings.lockDrawings?'<p class="muted">Unlock drawings to remove them.</p>':''}
+      `);
+      dialog.addEventListener('click',event=>{
+        const action=event.target.closest('[data-clear]')?.dataset.clear;
+        if(!action)return;
+        if(action==='drawings'){selectDrawing(null);editDrawings([]);toast('Drawings removed. Use Undo drawing to restore them.');}
+        else {updateIndicators([]);toast('Indicators removed.');}
+        dialog.close();dialog.remove();
+      });
+    },
     createAlert:()=>createAlert(),
     deleteDrawing,
     drawingAlert:()=>{const drawing=selectedDrawing();if(drawing?.kind==='horizontal')createAlert(drawing.payload.price);},
@@ -814,7 +850,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   renderDrawingActions();
   return {
     loadLists,
-    searchSymbols:()=>openSymbolSearch(),
+    searchSymbols:(initial,kind)=>openSymbolSearch(initial,kind),
+    maximize:()=>{if(!document.fullscreenElement&&!chartPanel.classList.contains('dhan-focus-chart'))void actions.fullscreen();},
     watchSymbols:()=>currentList()?.symbols??[],
     updateQuotes(items,liveQuotes,symbol,isLive=false) {
       if(favoriteOwner!==state.user?.id){

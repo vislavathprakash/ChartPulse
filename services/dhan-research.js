@@ -49,7 +49,7 @@ function quoteDepth(q, number) {
     buyQuantity:number(q.buy_quantity), sellQuantity:number(q.sell_quantity), lastQuantity:number(q.last_quantity) };
 }
 
-function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials,instrument,refreshSnapshot,mergedQuotes,snapshot,snapshotMessage}) {
+function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials,instrument,underlying,optionSymbol,refreshSelected,refreshSnapshot,mergedQuotes,snapshot,snapshotMessage}) {
   const cache=new Map(), pending=new Map();
   async function cached(key,ttl,read) {
     const entry=cache.get(key);
@@ -66,8 +66,8 @@ function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,cre
     pending.set(key,request);return request;
   }
   app.get('/api/private-dhan/research',requireAuth,ownerOnly,asyncRoute(async(req,res)=>{
-    const { view, symbol, interval, segment, category }=req.query;
-    if(!['depth','company','technicals','movers','news'].includes(view))return res.status(400).json({error:'Choose a research view.'});
+    const { view, symbol, interval, segment, category, expiry }=req.query;
+    if(!['stock','depth','chain','company','technicals','movers','news'].includes(view))return res.status(400).json({error:'Choose a research view.'});
     if(view==='movers') {
       if(!['NSE_EQ','BSE_EQ'].includes(segment)||!['PRICE_GAINERS','PRICE_LOSERS'].includes(category))return res.status(400).json({error:'Choose an exchange and ranking.'});
       const result=await cached(`movers:${segment}:${category}`,60000,async()=>resultRows(await fetchData('data/marketmovers',{exchangeSegment:segment,instrument:['EQUITY'],category,universe:'ALL',limit:15}),row=>{
@@ -78,19 +78,45 @@ function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,cre
       if(result.data?.length)return res.json(result);
       await refreshSnapshot();
       const gains=category==='PRICE_GAINERS';
-      const matching=[...mergedQuotes().values()].filter(q=>q.symbol.startsWith(`${segment.slice(0,3)}:`)&&Number.isFinite(q.change_pct));
+      const matching=[...mergedQuotes().values()].filter(q=>q.kind==='equity'&&q.symbol.startsWith(`${segment.slice(0,3)}:`)&&Number.isFinite(q.change_pct));
       const data=matching.filter(q=>gains?q.change_pct>0:q.change_pct<0).sort((a,b)=>gains?b.change_pct-a.change_pct:a.change_pct-b.change_pct).slice(0,15).map(q=>({symbol:q.symbol,price:q.price,change:q.change_pct,volume:q.volume,name:q.name}));
       return res.json({data, fallback:true, warning:matching.length?`Exchange ranking unavailable. Ranked ${matching.length} configured ${segment.slice(0,3)} listings with a reported previous close.`:'Exchange ranking unavailable, and no configured quotes have a previous close.'});
     }
     const i=typeof symbol==='string'?instrument(symbol):null;
     if(!i)return res.status(400).json({error:'Choose a configured Dhan symbol.'});
     const equity={securityId:i.id,exchangeSegment:i.segment,instrument:'EQUITY'};
+    if(view==='stock') {
+      await refreshSelected(symbol);
+      return res.json({data:{name:i.name,symbol:i.symbol,kind:i.kind,expiry:i.expiry,quote:mergedQuotes().get(symbol)},warning:snapshotMessage()});
+    }
+    if(view==='chain') {
+      const base=underlying(i);
+      if(!base||!['index','equity'].includes(base.kind))return res.json({error:'Choose the underlying stock or index to view its option chain.'});
+      const payload={UnderlyingScrip:Number(base.id),UnderlyingSeg:base.segment};
+      const expiries=await cached('expiries:'+base.symbol,300000,async()=>{
+        const result=await fetchData('optionchain/expirylist',payload);
+        return (Array.isArray(result.data)?result.data:[]).filter(date=>typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+      });
+      if(expiries.error)return res.json(expiries);
+      const dates=expiries.data;
+      if(!dates.length)return res.json({error:'Dhan returned no listed option expiries for this instrument.'});
+      if(expiry!==undefined&&!dates.includes(expiry))return res.status(400).json({error:'Choose a listed expiry.'});
+      const selected=expiry??dates[0];
+      const chain=await cached('chain:'+base.symbol+':'+selected,12000,async()=>{
+        const {data}=await fetchData('optionchain',{...payload,Expiry:selected});
+        const leg=value=>value?{symbol:optionSymbol(base,asNumber(value.security_id)),price:asNumber(value.last_price),oi:asNumber(value.oi),volume:asNumber(value.volume),iv:asNumber(value.implied_volatility)}:null;
+        const strikes=Object.entries(data?.oc??{}).map(([strike,row])=>({strike:asNumber(strike),call:leg(row?.ce),put:leg(row?.pe)})).filter(row=>row.strike>0).sort((a,b)=>a.strike-b.strike);
+        return {strikes,spot:asNumber(data?.last_price)};
+      });
+      return res.json({...chain,data:{...chain.data,base:base.symbol,dates,expiry:selected}});
+    }
     if(view==='depth') {
-      await refreshSnapshot();
+      if(i.kind==='index')return res.json({error:'Spot indices have no order book. Open a futures contract for market depth.'});
+      await refreshSelected(symbol);
       const depth=snapshot(symbol);
       return res.json(depth?{data:depth,...(snapshotMessage().startsWith('Dhan quote snapshot.')?{}:{warning:snapshotMessage()})}:{error:snapshotMessage()||'No depth snapshot is available for this symbol.'});
     }
-    if(i.instrument==='FUTCOM'&&['company','news'].includes(view))return res.json({error:'This panel uses Dhan equity data. For MCX futures, use Market depth or Technicals.'});
+    if(i.kind!=='equity'&&['company','news'].includes(view))return res.json({error:'Dhan provides this panel for equities. Select an underlying stock to continue.'});
     if(view==='company')return res.json(await cached(`company:${symbol}`,3600000,async()=>metricGroups(await fetchData('data/companyinfo',{...equity,metrics:['CO','RATIOS','SHP']}),company)));
     if(view==='technicals') {
       if(i.segment!=='NSE_EQ')return res.json({error:'Dhan’s indicator endpoint is unavailable for this market.'});

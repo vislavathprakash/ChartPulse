@@ -37,9 +37,9 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   let client, starting = false, stopped = false, status = 'Waiting for the Dhan feed to start.';
   let commodityStatus = '', nextContractCheck = 0;
   let catalog = new Map(), catalogLoadedAt=0;
-  let defaults=new Set(), pinned=new Set();
+  let defaults=new Set(), pinned=new Set(), optionsById=new Map();
   const recent=new Map();
-  const publicInstrument=({symbol,name,exchange,expiry})=>({symbol,name,exchange,expiry});
+  const publicInstrument=({symbol,name,exchange,expiry,kind})=>({symbol,name,exchange,expiry,kind});
   const lookup=symbol=>directory.get(symbol)??catalog.get(symbol);
 
   function track(symbols, pin=false) {
@@ -83,8 +83,12 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
         dhan.resolveCommodityFutures().catch(()=>null)
       ]);
       if (stopped) return;
-      if(updatedCatalog?.size){catalog=updatedCatalog;catalogLoadedAt=Date.now();}
-      const equitySymbols=dhan.configuredSymbols(process.env.DHAN_SYMBOLS);
+      if(updatedCatalog?.size){
+        catalog=updatedCatalog;
+        catalogLoadedAt=Date.now();
+        optionsById=new Map([...catalog.values()].filter(i=>i.kind==='options').map(i=>[`${i.exchange}:${i.id}`,i.symbol]));
+      }
+      const equitySymbols=[...new Set([...dhan.configuredSymbols(process.env.DHAN_SYMBOLS),...dhan.INDEX_SYMBOLS])];
       const equities=catalog.size?equitySymbols.map(symbol=>catalog.get(symbol)).filter(Boolean):
         client?[...directory.values()].filter(i=>i.exchange!=='MCX'&&defaults.has(i.symbol)):await dhan.resolveInstruments(process.env.DHAN_SYMBOLS);
       const today = istDate(Date.now());
@@ -137,12 +141,25 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
           const q=data?.[i.segment]?.[i.id], price=positive(number(q?.last_price)); if(!price)continue;
           const change=number(q.net_change);
           const previous=change!==null&&change!==0?positive(price-change):positive(number(q.ohlc?.close));
-          snapshots.set(i.symbol,{quote:{symbol:i.symbol,name:i.name,exchange:i.exchange,price,previous_close:previous,change_pct:previous?(price/previous-1)*100:null,volume:number(q.volume),open:positive(number(q.ohlc?.open)),high:positive(number(q.ohlc?.high)),low:positive(number(q.ohlc?.low)),updated_at:tradeDate(q.last_trade_time),source:'snapshot'}, depth:quoteDepth(q,number)});
+          snapshots.set(i.symbol,{quote:{kind:i.kind,symbol:i.symbol,name:i.name,exchange:i.exchange,price,previous_close:previous,change_pct:previous?(price/previous-1)*100:null,volume:number(q.volume),open:positive(number(q.ohlc?.open)),high:positive(number(q.ohlc?.high)),low:positive(number(q.ohlc?.low)),updated_at:tradeDate(q.last_trade_time),source:'snapshot'}, depth:quoteDepth(q,number)});
         }
         snapshotStatus=snapshots.size?'Dhan quote snapshot. Exchange timestamps are shown when available.':'Dhan returned no quotes for the configured symbols.';
       }catch(err){snapshotError=err.code==='DHAN_AUTH'?'authentication':'unavailable';snapshotStatus=err.message.startsWith('Dhan ')?err.message:'Dhan quote snapshot could not be reached.';nextSnapshot=Date.now()+60000;}
     })();
     try {await snapshotRequest;} finally{snapshotRequest=null;}
+  }
+
+  async function refreshSelected(symbol) {
+    const item=lookup(symbol);
+    if (!item) return;
+    track([symbol]);
+    if (snapshotRequest) await snapshotRequest;
+    const age=Date.now()-Date.parse(snapshots.get(symbol)?.depth.retrievedAt);
+    if (age<10000 || snapshotError && Date.now()<nextSnapshot) return;
+    const wait=lastSnapshotStarted+1100-Date.now();
+    if (wait>0) await new Promise(resolve=>setTimeout(resolve,wait));
+    if (!snapshotRequest && !(Date.now()-Date.parse(snapshots.get(symbol)?.depth.retrievedAt)<10000)) nextSnapshot=0;
+    await refreshSnapshot();
   }
 
   app.use('/api/private-dhan', (_req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); });
@@ -151,20 +168,24 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     next();
   }
   app.get('/api/private-dhan/symbols',requireAuth,ownerOnly,asyncRoute(async(req,res)=>{
-    const term=typeof req.query.q==='string'?req.query.q.trim().slice(0,80).toUpperCase():'';
+    const normalize=value=>value.toUpperCase().replace(/\s+/g,'');
+    const input=typeof req.query.q==='string'?normalize(req.query.q.slice(0,80)):'';
+    const term=({NIFTY50:'NIFTY',BANKNIFTY:'BANKNIFTY',NIFTYBANK:'BANKNIFTY'})[input]??input;
+    const kind=typeof req.query.kind==='string'?req.query.kind:'';
     const exchange=typeof req.query.exchange==='string'?req.query.exchange:'';
-    const offset=Math.max(0,Math.min(50000,Number.parseInt(req.query.offset,10)||0));
+    const offset=Math.max(0,Math.min(catalog.size+directory.size,Number.parseInt(req.query.offset,10)||0));
     if(!['','NSE','BSE','MCX'].includes(exchange))return res.status(400).json({error:'Choose NSE, BSE or MCX.'});
-    const entries=new Map(catalog);
-    for(const item of directory.values())entries.set(item.symbol,item);
-    const matches=[];
-    for(const item of entries.values()){
-      if(exchange&&item.exchange!==exchange)continue;
-      const ticker=item.symbol.split(':')[1];
-      const rank=!term?0:item.symbol===term||ticker===term?0:ticker.startsWith(term)||item.symbol.startsWith(term)?1:item.name.toUpperCase().startsWith(term)?2:item.name.toUpperCase().includes(term)||item.symbol.includes(term)?3:-1;
+    if(!['','index','equity','futures','options'].includes(kind))return res.status(400).json({error:'Choose a supported instrument type.'});
+    const entries=[...catalog.values(),...[...directory.values()].filter(i=>!catalog.has(i.symbol))];
+    const matches=[],today=istDate(Date.now());
+    for(const item of entries){
+      if((exchange&&item.exchange!==exchange)||(kind&&item.kind!==kind)||(item.expiry&&item.expiry<today))continue;
+      const ticker=normalize(item.symbol.split(':')[1]);
+      const rank=!term?0:normalize(item.symbol)===term||ticker===term?0:ticker.startsWith(term)||normalize(item.symbol).startsWith(term)?1:normalize(item.name).startsWith(term)?2:normalize(item.name).includes(term)||normalize(item.symbol).includes(term)?3:-1;
       if(rank>=0)matches.push({item,rank});
     }
-    matches.sort((a,b)=>a.rank-b.rank||a.item.symbol.localeCompare(b.item.symbol));
+    const order={index:0,equity:1,futures:2,options:3};
+    matches.sort((a,b)=>a.rank-b.rank||order[a.item.kind]-order[b.item.kind]||(a.item.expiry??'').localeCompare(b.item.expiry??'')||a.item.symbol.localeCompare(b.item.symbol));
     res.json({items:matches.slice(offset,offset+50).map(({item})=>publicInstrument(item)),total:matches.length,ready:catalog.size>0});
   }));
   const alerts=installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,quotes,
@@ -175,13 +196,13 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       const fallback=merged.get(q.symbol);
       if(!fallback||Date.parse(q.updated_at)>=(Date.parse(fallback.updated_at)||0)) {
         const previous=q.previous_close??fallback?.previous_close;
-        merged.set(q.symbol,{...q,previous_close:previous??null,change_pct:previous?(q.price/previous-1)*100:null,source:'stream'});
+        merged.set(q.symbol,{...q,kind:lookup(q.symbol)?.kind,open:q.open??fallback?.open,high:q.high??fallback?.high,low:q.low??fallback?.low,volume:q.volume??fallback?.volume,previous_close:previous??null,change_pct:previous?(q.price/previous-1)*100:null,source:'stream'});
       }
     }
     return merged;
   }
   installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,credentials:dhan.credentials,
-    instrument:symbol=>{track([symbol]);return lookup(symbol);}, refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
+    instrument:lookup, underlying:i=>i.underlying?lookup(`${i.exchange}:${i.underlying}`):i, optionSymbol:(i,id)=>optionsById.get(`${i.exchange}:${id}`), refreshSelected, refreshSnapshot, mergedQuotes, snapshot:symbol=>snapshots.get(symbol)?.depth, snapshotMessage:()=>snapshotStatus});
   app.get('/api/private-dhan/quotes', requireAuth, ownerOnly, asyncRoute(async (req, res) => {
     const query = req.query.query;
     const selectedSymbol=typeof req.query.symbol==='string'?req.query.symbol:'';
