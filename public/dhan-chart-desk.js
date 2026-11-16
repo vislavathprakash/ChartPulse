@@ -15,7 +15,7 @@ function dhanDrawingIcon(id,fallback) {
   return paths[id]?`<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${paths[id]}</svg>`:fallback;
 }
 
-function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged) {
+function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteStats) {
   host.classList.add('dhan-chart-host');
   host.classList.remove('empty-state');
   const desk = document.createElement('div');
@@ -55,24 +55,25 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged) {
         <div class="dhan-watch-rows"></div>
       </div>
       <div class="dhan-dock-alerts hidden"></div>
+      <div class="dhan-dock-quote hidden"></div>
     </aside>`;
   const rail = document.createElement('div');
   rail.className='dhan-right-rail';
   rail.setAttribute('role','group');
   rail.setAttribute('aria-label','Chart panels');
-  rail.innerHTML=[['watch','Watchlist','list'],['alerts','Alerts','alerts']].map(([key,label,icon])=>
+  rail.innerHTML=[['watch','Watchlist','list'],['alerts','Alerts','alerts'],['quote','Quote details','overview']].map(([key,label,icon])=>
     `<button type="button" data-dhan-dock="${key}" aria-controls="dhan-dock-content" aria-pressed="false" aria-label="${label}" title="${label}">${terminalIcon(icon)}</button>`).join('');
   desk.append(rail);
   host.replaceChildren(desk);
+  const quotePanel=desk.querySelector('.dhan-dock-quote');
+  quotePanel.append(quoteStats);
   const tools = document.createElement('div');
   tools.className = 'dhan-chart-actions';
   tools.innerHTML = `<select aria-label="Dhan chart type">${choice([['candles','Candles'],['bars','OHLC bars'],['line','Line'],['area','Area'],['heikin','Heikin Ashi']],'candles')}</select>
     <button type="button" data-dhan-chart="indicators">Indicators</button>
-    <button type="button" data-dhan-chart="theme">Light chart</button>
-    <button type="button" class="dhan-create-alert" data-dhan-chart="createAlert">${terminalIcon('alerts')} Create alert</button>
+    <button type="button" class="dhan-create-alert" data-dhan-chart="createAlert" aria-label="Create alert" title="Create alert">${terminalIcon('alerts')} <span>Alert</span></button>
     <button type="button" data-dhan-chart="fullscreen" aria-label="Fullscreen chart" aria-pressed="false" title="Fullscreen chart">${terminalIcon('fullscreen')}</button>
-    <button type="button" data-dhan-chart="png">PNG</button>
-    <button type="button" data-dhan-chart="csv">CSV</button>`;
+    <button type="button" data-dhan-chart="options" aria-label="Chart options" title="Chart options">${terminalIcon('more')}</button>`;
   toolbar.append(tools);
   const searchButton=document.createElement('button');
   searchButton.type='button';
@@ -80,6 +81,10 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged) {
   searchButton.setAttribute('aria-label','Search symbols');
   searchButton.innerHTML=`${terminalIcon('search')} <span>Search symbols</span>`;
   toolbar.prepend(searchButton);
+  const refreshButton=toolbar.querySelector('#privateHistoryRefresh');
+  refreshButton.setAttribute('aria-label','Refresh chart');
+  refreshButton.title='Refresh chart';
+  refreshButton.innerHTML=terminalIcon('refresh');
   const interval=toolbar.querySelector('#privateHistoryInterval');
   const intervalLabels=Array.from(interval.options,option=>[option.value,option.text]);
   const shortcuts=document.createElement('div');
@@ -551,9 +556,10 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged) {
     desk.classList.toggle('dhan-dock-closed',!open);
     desk.querySelector('.dhan-dock').classList.toggle('hidden',!open);
     rail.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.dhanDock===view)));
-    desk.querySelector('.dhan-dock-heading b').textContent={watch:'Watchlist',alerts:'Dhan alerts'}[view]||'';
+    desk.querySelector('.dhan-dock-heading b').textContent={watch:'Watchlist',alerts:'Dhan alerts',quote:'Quote details'}[view]||'';
     desk.querySelector('.dhan-dock-watch').classList.toggle('hidden',view!=='watch');
     alertsPanel.classList.toggle('hidden',view!=='alerts');
+    quotePanel.classList.toggle('hidden',view!=='quote');
     if(view==='alerts')void loadAlerts();
   }
   const narrow=matchMedia('(max-width: 900px)');
@@ -582,7 +588,21 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged) {
     resetZoom:()=>{owner.count=Math.max(15,candles.length);owner.offset=0;owner.manualRange=null;paint();},
     undo:()=>{if(undo.length){redo.push(drawings);drawings=undo.pop();persist();}},
     redo:()=>{if(redo.length){undo.push(drawings);drawings=redo.pop();persist();}},
-    theme:button=>{owner.settings.theme=owner.settings.theme==='light'?'dark':'light';button.textContent=owner.settings.theme==='light'?'Dark chart':'Light chart';paint();},
+    theme:()=>{owner.settings.theme=owner.settings.theme==='light'?'dark':'light';paint();},
+    options:()=>{
+      const dialog=workspaceDialog('Chart options',`<div class="dhan-options-list">
+        <button class="button secondary" type="button" data-option="theme">${owner.settings.theme==='light'?'Dark chart':'Light chart'}</button>
+        <button class="button secondary" type="button" data-option="png">Download PNG</button>
+        <button class="button secondary" type="button" data-option="csv">Download CSV</button>
+      </div>`);
+      dialog.querySelector('.dhan-options-list').addEventListener('click',event=>{
+        const action=event.target.closest('button')?.dataset.option;
+        if(!action)return;
+        dialog.close();
+        dialog.remove();
+        actions[action]();
+      });
+    },
     closeDock:()=>showDock(null),
     fullscreen:async()=>{
       if(document.fullscreenElement===chartPanel){await document.exitFullscreen();return;}

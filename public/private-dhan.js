@@ -17,6 +17,9 @@
     ['research', 'Research', 'research']
   ];
   const chartPanel = page.querySelector('.private-dhan-chart');
+  const quoteStats=chartPanel.querySelector('#privateDhanStats');
+  const chartStatus=chartPanel.querySelector('#privateHistoryStatus').parentElement;
+  chartStatus.className='dhan-chart-status';
   const tradeStatus = document.createElement('p');
   tradeStatus.className = 'muted dhan-last-trade';
   chartPanel.querySelector('#privateHistoryStatus').after(tradeStatus);
@@ -31,11 +34,13 @@
         ${views.map(([id,label,icon])=>`<button type="button" role="tab" id="dhan-tab-${id}" aria-controls="dhan-pane-${id}" aria-label="${label}" title="${label}" aria-selected="false" tabindex="-1">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}
       </div>
       <div class="dhan-symbol-control"><label for="privateHistorySymbol">Symbol</label></div>
+      <div class="dhan-feed-slot"></div>
     </div>
     <div class="dhan-terminal-content">
       ${views.map(([id])=>`<section class="dhan-pane hidden" id="dhan-pane-${id}" role="tabpanel" aria-labelledby="dhan-tab-${id}" tabindex="0"></section>`).join('')}
     </div>`;
   shell.querySelector('.dhan-symbol-control').append(controls.querySelector('#privateHistorySymbol'));
+  shell.querySelector('.dhan-feed-slot').append(page.querySelector('#privateDhanBadge'));
   shell.querySelector('#dhan-pane-dashboard').append(chartPanel);
   watchPanel.querySelector('.panel-heading').after(page.querySelector('#privateDhanFilter'));
   shell.querySelector('#dhan-pane-watch').append(watchPanel);
@@ -60,13 +65,14 @@
     select.value=symbol;
     if(terminalView!=='dashboard')selectTerminalView('dashboard');
     select.dispatchEvent(new Event('change'));
-  },()=>void refresh());
+  },()=>void refresh(),quoteStats);
   let timer, query = '', generation = 0, controller, historyController, symbolList = '';
   let researchView = 'depth', researchController, chartHistory;
   let terminalView = 'dashboard';
   const isWatch = ()=>terminalView==='watch'||terminalView==='commodities';
   function selectTerminalView(requested, {load = true, syncUrl = true} = {}) {
     terminalView = views.some(([id])=>id===requested) ? requested : 'dashboard';
+    page.classList.toggle('dhan-chart-view',terminalView==='dashboard');
     for (const [id] of views) {
       const selected = id === terminalView;
       const tab = $(`dhan-tab-${id}`);

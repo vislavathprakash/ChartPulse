@@ -285,6 +285,53 @@ body.dhan-chart-focused { overflow:hidden; }
   .dhan-interval-favorites { order:1; }
   .dhan-symbol-search span { max-width:95px; overflow:hidden; text-overflow:ellipsis; }
 }
+/* The Dhan workspace uses the full width and keeps one toolbar above the plot. */
+body.dhan-terminal-open .app-shell { grid-template-columns:minmax(0,1fr); }
+body.dhan-terminal-open .app-shell .topbar { height:40px; min-height:40px; padding:0 10px; gap:8px; }
+body.dhan-terminal-open .app-shell .top-avatar { width:30px; height:30px; }
+body.dhan-terminal-open .breadcrumb { flex:1; font-size:12px; }
+body.dhan-terminal-open .app-shell .sidebar { position:fixed; inset:0 auto 0 0; width:min(280px,calc(100vw - 48px)); height:100dvh; z-index:50; transform:translateX(-100%); visibility:hidden; transition:transform .2s ease,visibility .2s; }
+body.dhan-terminal-open.navigation-open .sidebar { visibility:visible; transform:translateX(0); }
+body.dhan-terminal-open .sidebar-toggle { display:grid; flex:0 0 32px; }
+body.dhan-terminal-open .sidebar-close { display:grid; position:absolute; right:6px; top:12px; }
+body.dhan-terminal-open .sidebar .brand-row { padding-right:30px; }
+body.dhan-terminal-open .sidebar-backdrop:not(.hidden) { display:block; position:fixed; inset:0; z-index:40; border:0; border-radius:0; background:#0009; }
+body.dhan-terminal-open .content-wrap { padding:0; }
+#page-private-dhan .page-heading { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.dhan-terminal-shell { border-inline:0; border-radius:0; }
+.dhan-terminal-bar { min-height:38px; padding:2px 6px; flex-wrap:nowrap; gap:5px; }
+.dhan-workspace-tabs { flex:0 0 auto; width:auto; }
+.dhan-workspace-tabs button { width:auto; min-height:32px; gap:5px; padding:0 8px; font-size:12px; }
+.dhan-feed-slot { margin-left:auto; flex:none; }
+#privateDhanBadge { display:inline-block; padding:4px 6px; font-size:10px; }
+.dhan-chart-view .dhan-symbol-control { display:none; }
+.dhan-symbol-control { margin-left:auto; }
+.dhan-symbol-control select { min-height:32px; }
+#dhan-pane-dashboard .private-dhan-chart > .panel-heading { display:flex; flex-direction:column; align-items:stretch; gap:0; padding:0; border-bottom:1px solid var(--line); }
+#dhan-pane-dashboard .private-dhan-chart > .panel-heading .terminal-actions { order:-1; display:flex; align-items:center; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; gap:4px; min-width:0; padding:3px 6px; }
+.dhan-chart-actions { display:contents; }
+#dhan-pane-dashboard .private-dhan-chart .terminal-actions > *,
+#dhan-pane-dashboard .private-dhan-chart .dhan-chart-actions > * { flex:none; color:var(--text); white-space:nowrap; font-size:12px; }
+#dhan-pane-dashboard .terminal-actions :is(select,button) { min-height:30px; margin:0; padding:2px 7px; line-height:1.3; }
+#dhan-pane-dashboard .terminal-actions button:focus-visible { outline:2px solid var(--green); outline-offset:-2px; }
+#dhan-pane-dashboard .private-dhan-chart .terminal-actions .dhan-create-alert { color:#0b1712; }
+#privateHistoryRefresh { display:grid; place-items:center; min-width:30px; }
+.dhan-chart-status { display:flex; align-items:center; gap:4px 12px; flex-wrap:wrap; padding:2px 8px; }
+#dhan-pane-dashboard .private-dhan-chart > .panel-heading .dhan-chart-status p { font-size:10px; }
+.dhan-chart-ohlc { min-height:23px; padding-block:4px; }
+.dhan-dock-quote { min-height:0; overflow:auto; padding:8px; }
+.dhan-dock-quote .private-dhan-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin:0; }
+.dhan-dock-quote .private-dhan-stats:empty::after { content:'Waiting for a quote'; color:var(--muted); grid-column:1/-1; }
+.dhan-options-list { display:grid; gap:6px; }
+@media(max-width:620px){
+  .dhan-workspace-tabs button { width:33px; padding:0; }
+  .dhan-chart-status { gap:2px 7px; }
+  .dhan-symbol-search { order:-5; }
+  #privateHistoryInterval { order:-4; }
+  .dhan-chart-actions [data-dhan-chart="fullscreen"] { order:-3; }
+  .dhan-chart-actions .dhan-create-alert { order:-2; }
+  .dhan-chart-actions [data-dhan-chart="options"] { order:-1; }
+}
 .terminal-watch .data-table { min-width: 415px; }
 .terminal-watch .data-table th,.terminal-watch .data-table td { padding: 9px 12px; }
 .terminal-watch .data-table th { font: 10px/1.4 var(--mono); letter-spacing: .06em; background: var(--terminal-inset); color: var(--muted); }

@@ -24,7 +24,9 @@ const terminalIcons = {
   commodity:'<path d="m4 15 4-7h8l4 7-1 2H5l-1-2Zm4-7 2 7h4l2-7"/>',
   research:'<path d="M4 19h16M6 15l4-4 4 2 5-7M16 6h3v3"/>',
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
-  trash:'<path d="M4 6h16m-14 0 1 14h10l1-14M9 6V3h6v3m-5 4v6m4-6v6"/>'
+  trash:'<path d="M4 6h16m-14 0 1 14h10l1-14M9 6V3h6v3m-5 4v6m4-6v6"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  refresh:'<path d="M20 11a8 8 0 1 0-2 6m2-12v6h-6"/>'
 };
 const terminalIcon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${terminalIcons[name]||''}</svg>`;
 document.addEventListener('DOMContentLoaded',()=>{
