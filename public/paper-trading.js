@@ -10,7 +10,7 @@
   const nav=document.createElement('button');
   nav.type='button';nav.className='nav-item';nav.dataset.page='paper';
   nav.innerHTML=`<span class="nav-icon" aria-hidden="true">${terminalIcon('paper')}</span> Paper Trading`;
-  $('mainNav').querySelector('[data-page=charts]').after(nav);
+  $('mainNav').append(nav);
   const page=document.createElement('section');
   page.id='page-paper';page.className='page paper-page hidden';
   page.innerHTML=`
