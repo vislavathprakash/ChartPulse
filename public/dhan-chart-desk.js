@@ -157,10 +157,11 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     const daily=owner.settings.interval==='day';
     const fresh=selectedTradeIsLive&&Number.isFinite(tradeMs)&&now-tradeMs<120000&&tradeMs-now<=60000;
     let close=NaN;
-    if(fresh&&Number.isFinite(startMs)){
-      if(daily){
-        if(!commodity&&Math.floor((startMs+19800000)/86400000)===Math.floor((tradeMs+19800000)/86400000))close=regularCloseMs(tradeMs);
-      }else if(tradeMs>=startMs&&Math.floor((startMs+19800000)/86400000)===Math.floor((tradeMs+19800000)/86400000)){
+    if(fresh){
+      if(daily&&!commodity){
+        const sessionEnd=regularCloseMs(tradeMs);
+        if(tradeMs>=sessionEnd-375*60000&&tradeMs<sessionEnd)close=sessionEnd;
+      }else if(!daily&&Number.isFinite(startMs)&&tradeMs>=startMs&&Math.floor((startMs+19800000)/86400000)===Math.floor((tradeMs+19800000)/86400000)){
         const duration=Number(owner.settings.interval)*60000;
         close=startMs+(Math.floor((tradeMs-startMs)/duration)+1)*duration;
         if(!commodity)close=Math.min(close,regularCloseMs(tradeMs));
@@ -173,7 +174,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       const parts=[Math.floor(remaining/3600),Math.floor(remaining/60)%60,remaining%60];
       const value=parts.slice(parts[0]?0:1).map(part=>String(part).padStart(2,'0')).join(':');
       candleClock.textContent=`Closes in ${value}`;
-      candleClock.title=`Expected close ${quoteTime.format(close)} IST`;
+      candleClock.title=`${daily?'Regular session close':'Expected candle close'} ${quoteTime.format(close)} IST`;
     }
   }
   setInterval(()=>{if(chartPanel.getClientRects().length&&!document.hidden)renderClock();},1000);
