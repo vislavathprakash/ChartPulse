@@ -264,4 +264,4 @@ $('copyWebhook').addEventListener('click', () => copyText($('settingsWebhookUrl'
 $('copyChartWebhook').addEventListener('click', () => copyText($('chartWebhookUrl').textContent));
 $('newTechnicalAlert').addEventListener('click',()=>simulationChart.alertDialog().catch(err=>toast(err.message,true)));
 if(location.pathname==='/app/register')setAuthMode('register');
-bootstrap();
+document.addEventListener('DOMContentLoaded',bootstrap,{once:true});

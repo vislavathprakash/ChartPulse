@@ -14,6 +14,7 @@ const { SimulatedMarket } = require('./simulated-market');
 const dhan = require('./services/dhan-feed');
 const { installPrivateDhan } = require('./services/private-dhan');
 const { installPaperTrading } = require('./services/paper-trading');
+const { practiceDirectory, practiceMarket } = require('./services/paper-practice-market');
 const marketProvider = process.env.MARKET_DATA_PROVIDER || 'simulated';
 const isSimulated = marketProvider === 'simulated';
 const providerName = { simulated: 'Simulated', truedata: 'TrueData', dhan: 'DhanHQ' }[marketProvider] || 'Unknown provider';
@@ -142,10 +143,11 @@ function requirePortal(role) { return asyncRoute(async (req, res, next) => {
 }); }
 const requireAuth = requirePortal('customer'), requireAdminAuth = requirePortal('admin');
 const privateDhan = installPrivateDhan({app,pool,requireAuth,asyncRoute,enabled:isSimulated&&runtime.role==='standalone'});
-const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,market:async(user,source,symbol,ensure)=>{
+const paper = installPaperTrading({app,pool,requireAuth,asyncRoute,practice:simulation?(kind,term)=>practiceDirectory(simulation,kind,term):null,market:async(user,source,symbol,ensure)=>{
   if(typeof symbol!=='string'||symbol.length>100)return null;
   if(source==='dhan')return privateDhan.paperMarket(user,symbol,ensure);
   if(source!=='workspace'||!marketEntitled())return null;
+  if(simulation&&symbol.startsWith('PAPER'))return practiceMarket(simulation,marketRuntime.connected?runtime.quotes:null,symbol);
   const quote=runtime.quotes.get(symbol);
   const known=runtime.symbolMeta?.get(symbol)??simulation?.instruments.get(symbol);
   if(!known)return null;

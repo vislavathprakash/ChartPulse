@@ -75,7 +75,7 @@ function ticketQuote(item,quote) {
   return {symbol:item.symbol,name:item.name,kind:item.kind,lotSize:item.lotSize,expiry:item.expiry,last:rupees(quotePrice(quote)),quoteAt:quote?.updated_at??null,fresh:fresh(quote),expired:Date.now()>=expiryAt(item)};
 }
 
-function installPaperTrading({app,pool,requireAuth,asyncRoute,market}) {
+function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice}) {
   async function setup() {
     await pool.query("CREATE TABLE IF NOT EXISTS paper_accounts (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, cash BIGINT NOT NULL, realized BIGINT NOT NULL DEFAULT 0)");
     await pool.query("CREATE TABLE IF NOT EXISTS paper_positions (user_id INTEGER NOT NULL REFERENCES paper_accounts(user_id) ON DELETE CASCADE, source TEXT NOT NULL, symbol TEXT NOT NULL, instrument JSONB NOT NULL, quantity INTEGER NOT NULL, entry_value BIGINT NOT NULL, capital BIGINT NOT NULL, stop_loss BIGINT, take_profit BIGINT, protected_at TIMESTAMPTZ, mark BIGINT, mark_at TIMESTAMPTZ, PRIMARY KEY(user_id,source,symbol))");
@@ -140,6 +140,14 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market}) {
   }
 
   app.use(ROUTE,(_req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
+  app.get(ROUTE+'/instruments',requireAuth,asyncRoute(async(req,res)=>{
+    if(!practice)throw fail('Practice derivatives are unavailable for this feed.',404);
+    const {kind}=req.query;
+    if(!['equity','futures','options'].includes(kind))throw fail('Choose an instrument group.');
+    const term=typeof req.query.q==='string'?req.query.q.slice(0,80):'';
+    const rows=practice(kind,term);
+    res.json({items:rows.slice(0,50),total:rows.length});
+  }));
   app.get(ROUTE+'/instrument',requireAuth,asyncRoute(async(req,res)=>{
     const {source,symbol}=req.query;
     const data=await getMarket(req.session.user,source,symbol,true);

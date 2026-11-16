@@ -77,6 +77,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   tools.className = 'dhan-chart-actions';
   tools.innerHTML = `<select aria-label="Dhan chart type">${choice([['candles','Candles'],['bars','OHLC bars'],['line','Line'],['area','Area'],['heikin','Heikin Ashi']],'candles')}</select>
     <button type="button" data-dhan-chart="indicators">Indicators</button>
+    <button type="button" data-dhan-chart="paper" disabled aria-label="Paper order for chart symbol">${terminalIcon('paper')} <span>Paper</span></button>
     <button type="button" class="dhan-create-alert" data-dhan-chart="createAlert" aria-label="Create alert" title="Create alert">${terminalIcon('alerts')} <span>Alert</span></button>
     <button type="button" data-dhan-chart="fullscreen" aria-label="Fullscreen chart" aria-pressed="false" title="Fullscreen chart">${terminalIcon('fullscreen')}</button>
     <button type="button" data-dhan-chart="options" aria-label="Chart settings" title="Chart settings">${terminalIcon('settings')}</button>`;
@@ -779,6 +780,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
         dialog.close();dialog.remove();
       });
     },
+    paper:()=>{if(owner.symbol)void window.paperTrading?.open('dhan',owner.symbol);},
     createAlert:()=>createAlert(),
     deleteDrawing,
     drawingAlert:()=>{const drawing=selectedDrawing();if(drawing?.kind==='horizontal')createAlert(drawing.payload.price);},
@@ -875,6 +877,8 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
         reflectViewSettings();
       }
       symbols=items;
+      const tradable=items.find(item=>item.symbol===symbol)?.lotSize;
+      tools.querySelector('[data-dhan-chart=paper]').disabled=!tradable;
       searchButton.querySelector('span').textContent=symbol||'Search symbols';
       quotes=new Map(liveQuotes.map(q=>[q.symbol,q]));
       owner.quote=owner.symbol===symbol?quotes.get(symbol):null;

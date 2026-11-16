@@ -24,7 +24,7 @@
       <div id="paper-activity" role="tabpanel" aria-labelledby="paper-tab-positions" tabindex="0"></div>
       <p class="muted paper-status" role="status"></p>
     </section>
-    <p class="muted paper-disclosure">Paper fills use the latest eligible quote without modelling fees, order-book liquidity, or partial fills. Futures reserve 20% of notional. Short options reserve 20% of underlying notional plus premium. These are practice estimates.</p>`;
+    <p class="muted paper-disclosure">Paper fills use the latest eligible quote without modelling fees, order-book liquidity, or partial fills. Futures reserve 20% of notional. Short options reserve 20% of underlying notional plus premium. These are practice estimates. Practice derivatives use fictional prices and preset lot sizes.</p>`;
   document.querySelector('.content-wrap').append(page);
   const metrics=page.querySelector('.paper-wallet'), body=$('paper-activity'), status=page.querySelector('.paper-status');
   let tab='positions', offset=0, data, generation=0, controller, timer, dialog;
@@ -37,7 +37,7 @@
     return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   function instrument(row) {
-    return `<strong>${html(row.name)}</strong><small>${html(row.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} · ${html(nameOf(row.kind))} · ${row.source==='dhan'?'DhanHQ':'Workspace'}</small>`;
+    return `<strong>${html(row.name)}</strong><small>${html(row.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} · ${html(nameOf(row.kind))} · ${row.source==='dhan'?'DhanHQ':state.meta?.simulated?'Simulated':'Workspace'}</small>`;
   }
   function quantity(row) {
     const q=Math.abs(row.quantity);
@@ -100,7 +100,7 @@
   function search() {
     const d=workspaceDialog('Find an instrument',`
       <div class="paper-form-grid">
-        ${state.meta?.privateDhan?`<label>Quote source<select name="source"><option value="dhan">DhanHQ</option><option value="workspace">Workspace quotes</option></select></label>`:''}
+        ${state.meta?.privateDhan?`<label>Quote source<select name="source"><option value="dhan">DhanHQ</option><option value="workspace">Practice quotes</option></select></label>`:''}
         <label data-paper-kind>Instrument type<select name="kind"><option value="equity">Stocks</option><option value="futures">Futures</option><option value="options">Options</option></select></label>
         <label class="paper-field-wide">Search instruments<input type="search" name="search" placeholder="Symbol or company" autocomplete="off" maxlength="80"></label>
       </div><div class="paper-search-results"></div><p class="muted" role="status"></p>`);
@@ -114,14 +114,17 @@
       const next=new AbortController();
       request=next;
       const mode=provider(),term=field.value.trim();
-      d.querySelector('[data-paper-kind]').classList.toggle('hidden',mode!=='dhan');
+      const simulated=mode==='workspace'&&state.meta?.simulated;
+      d.querySelector('[data-paper-kind]').classList.toggle('hidden',mode!=='dhan'&&!simulated);
       status.textContent='Searching…';
       try{
-        const data=mode==='dhan'?await api('/api/private-dhan/symbols?'+query({kind:kind.value,q:term}),{signal:next.signal}):await api('/api/stocks',{signal:next.signal});
+        const endpoint=mode==='dhan'?'/api/private-dhan/symbols':simulated?'/api/paper/instruments':'/api/stocks';
+        const data=await api(endpoint+'?'+query({kind:kind.value,q:term}),{signal:next.signal});
         if(next.signal.aborted||!d.open)return;
-        items=mode==='dhan'?data.items.filter(item=>item.lotSize):data.data.filter(item=>[item.name,item.symbol].some(value=>String(value).toLowerCase().includes(term.toLowerCase()))).slice(0,50);
+        items=data.items?data.items.filter(item=>item.lotSize):data.data.filter(item=>[item.name,item.symbol].some(value=>String(value).toLowerCase().includes(term.toLowerCase()))).slice(0,50);
         results.innerHTML=items.map((item,i)=>`<button type="button" data-ticket-item="${i}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?item.expiry+' · '+item.lotSize+' units per lot':item.name)}</small></button>`).join('');
-        status.textContent=items.length?'':data.ready===false?'Dhan’s directory is still loading.':'No matching instruments.';
+        status.textContent=items.length?(data.total>items.length?'Showing the first '+items.length+' matches. Refine the search to find a specific contract.':''):data.ready===false?'Dhan’s directory is still loading. Retrying…':'No matching instruments.';
+        if(data.ready===false){clearTimeout(timer);timer=setTimeout(()=>void lookup(),2500);}
       }catch(error){if(!next.signal.aborted){items=[];results.replaceChildren();status.textContent=error.message;}}
     }
     const schedule=()=>{clearTimeout(timer);request?.abort();items=[];results.replaceChildren();timer=setTimeout(()=>void lookup(),180);};
@@ -149,7 +152,7 @@
       if(!d.open||state.user?.id!==owner)return;
       d.querySelector('.paper-ticket-loading').outerHTML=`
         <div class="paper-ticket-intro"><h3>${html(item.name)}</h3><span class="tag">PAPER ONLY</span></div>
-        <p class="muted">${html(nameOf(item.kind))} · ${format(item.last)}${item.fresh?'':' · Last known or unavailable'}${item.expiry?' · Expires '+html(item.expiry):''}</p>
+        <p class="muted">${source==='workspace'&&state.meta?.simulated?'Simulated quotes · ':''}${html(nameOf(item.kind))} · ${format(item.last)}${item.fresh?'':' · Last known or unavailable'}${item.expiry?' · Expires '+html(item.expiry):''}</p>
         <div class="paper-form-grid">
           <label>Side<select name="side"><option value="buy" ${side==='buy'?'selected':''}>Buy</option><option value="sell" ${side==='sell'?'selected':''}>Sell</option></select></label>
           <label>Order type<select name="type"><option value="market">Market</option><option value="limit">Limit</option><option value="stop">Stop market</option></select></label>
