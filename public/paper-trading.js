@@ -7,7 +7,7 @@
   const query=params=>new URLSearchParams(params).toString();
   const nameOf=kind=>({equity:'Stock',futures:'Future',options:'Option'})[kind]??kind;
   const productLabel=(row)=>row.product==='intraday'?'Intraday':row.kind==='equity'?'Delivery':'Carry forward';
-  const tabs=[['chart','Chart'],['positions','Positions'],['orders','Orders'],['trades','Trade history']];
+  const tabs=[['chart','Chart','charts'],['positions','Positions','layers'],['orders','Orders','list'],['trades','Trade history','calendar']];
   const nav=document.createElement('button');
   nav.type='button';nav.className='nav-item';nav.dataset.page='paper';
   nav.innerHTML=`<span class="nav-icon" aria-hidden="true">${terminalIcon('paper')}</span> Paper Trading`;
@@ -21,7 +21,7 @@
     </div>
     <div class="paper-wallet" aria-label="Virtual wallet"></div>
     <section class="panel paper-panel">
-      <div class="dhan-research-nav" role="tablist" aria-label="Paper trading activity">${tabs.map(([id,label],i)=>`<button type="button" id="paper-tab-${id}" role="tab" data-paper-tab="${id}" aria-selected="${!i}" aria-pressed="${!i}" aria-controls="${id==='chart'?'paper-chart':'paper-activity'}" tabindex="${i?-1:0}">${label}</button>`).join('')}</div>
+      <div class="dhan-research-nav paper-tabs" role="tablist" aria-label="Paper trading activity">${tabs.map(([id,label,icon],i)=>`<button type="button" id="paper-tab-${id}" role="tab" data-paper-tab="${id}" aria-selected="${!i}" aria-pressed="${!i}" aria-controls="${id==='chart'?'paper-chart':'paper-activity'}" tabindex="${i?-1:0}">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}</div>
       <div id="paper-chart" role="tabpanel" aria-labelledby="paper-tab-chart"></div>
       <div id="paper-activity" class="hidden" role="tabpanel" aria-labelledby="paper-tab-positions" tabindex="0"></div>
       <p class="muted paper-status" role="status"></p>
@@ -37,9 +37,9 @@
   function grid(rows) {
     return `<dl class="paper-grid">${rows.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
   }
-  function table(headers,rows,empty) {
+  function table(headers,rows,empty,layout='') {
     if(!rows.length)return `<div class="empty-state">${empty}</div>`;
-    return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return `<div class="table-wrap${layout?' '+layout:''}"${layout?' tabindex="0" role="region" aria-label="Paper positions table"':''}><table class="data-table"><thead><tr>${headers.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   function instrument(row) {
     return `<strong>${html(row.name)}</strong><small>${html(row.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} · ${html(nameOf(row.kind))} · ${productLabel(row)} · ${row.source==='dhan'?'DhanHQ':state.meta?.simulated?'Simulated':'Workspace'}</small>`;
@@ -47,6 +47,24 @@
   function quantity(row) {
     const q=Math.abs(row.quantity);
     return row.kind==='equity'?fmt(q,0):`${fmt(q/row.lotSize,0)} lot${q===row.lotSize?'':'s'}<small>${fmt(q,0)} units</small>`;
+  }
+  function positionRow(position) {
+    const {name,symbol,source,product,kind}=position;
+    const detail=[symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''),nameOf(kind),productLabel(position),source==='dhan'?'DhanHQ':state.meta?.simulated?'Simulated':'Workspace'].join(' · ');
+    const long=position.quantity>0;
+    const units=Math.abs(position.quantity);
+    const size=kind==='equity'?fmt(units,0):fmt(units/position.lotSize,0)+' lots · '+fmt(units,0)+' units';
+    const attrs=`data-position-source="${html(source)}" data-position-product="${html(product)}"`;
+    const action=(field,icon,label)=>`<button class="paper-position-action" type="button" ${attrs} data-paper-${field}="${html(symbol)}" aria-label="${html(label+' for '+name)}" title="${html(label)}">${terminalIcon(icon)}</button>`;
+    return [
+      `<span class="paper-position-instrument"><strong>${html(name)}</strong><small>${html(detail)}</small></span>`,
+      `<span class="paper-side ${long?'positive':'negative'}">${long?'Long':'Short'}</span> ${size}`,
+      format(position.average),
+      `<span class="paper-position-quote">${format(position.last)}${position.last!=null&&!position.fresh?`<span class="paper-stale" title="Last known quote" role="img" aria-label="Last known quote">${terminalIcon('calendar')}</span>`:''}</span>`,
+      pnl(position.pnl),
+      `<span class="paper-position-levels"><small>SL <b>${format(position.stopLoss)}</b></small><small>TP <b>${format(position.takeProfit)}</b></small></span>`,
+      position.expired?'<span class="muted">Awaiting settlement</span>':`<span class="paper-position-actions">${action('position-chart','charts','Open chart')}${action('protection','settings','Edit protection')}${action('close','arrow','Close position')}</span>`
+    ];
   }
   function render(force=false) {
     if(!data)return;
@@ -60,11 +78,7 @@
     ]),'No orders in this section.');
     let markup;
     if(tab==='positions'){
-      markup=table(['Instrument','Position','Average','Last','P&L','Protection','Actions'],data.positions.map(p=>[
-        instrument(p),`<strong>${p.quantity>0?'Long':'Short'}</strong> · ${quantity(p)}`,format(p.average),`${format(p.last)}${p.fresh?'':'<small>Last known</small>'}`,pnl(p.pnl),
-        `<small>Stop ${format(p.stopLoss)}</small><small>Target ${format(p.takeProfit)}</small>`,
-        p.expired?'<span class="muted">Awaiting expiry settlement</span>':`<div class="paper-actions"><button class="button secondary" type="button" data-paper-protection="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Protection</button><button class="button secondary" type="button" data-paper-close="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Close position</button><button class="button secondary" type="button" data-paper-position-chart="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Chart</button></div>`
-      ]),'No open positions. Place a paper order to get started.');
+      markup=table(['Instrument','Position','Average','Last','P&L','Protection','Actions'],data.positions.map(positionRow),'No open positions. Place a paper order to get started.','paper-positions-table');
     }else if(tab==='orders'){
       const protection=data.positions.flatMap(position=>[['Stop loss',position.stopLoss],['Take profit',position.takeProfit]].filter(([,value])=>value!=null).map(([label,value])=>[
         instrument(position),position.quantity>0?'Sell':'Buy',label,format(value),position.expired?'Awaiting settlement':'Armed',positionButton(position,'Edit protection')
