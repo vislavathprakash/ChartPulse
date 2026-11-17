@@ -279,8 +279,13 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     const underlying=item.underlying?lookup(item.exchange+':'+item.underlying):null;
     const symbols=[item.symbol,...(underlying?[underlying.symbol]:[])];
     track(symbols);
-    if(refresh)await refreshSelected(item.symbol);
-    return {item,quote:mergedQuote(item.symbol),underlying:underlying?mergedQuote(underlying.symbol):null};
+    if(refresh===true)await refreshSelected(item.symbol);
+    let quote=mergedQuote(item.symbol);
+    if(refresh==='chart'&&(!client?.isReady()||!quote||Date.now()-Date.parse(quote.updated_at??0)>=120000)){
+      await refreshSnapshot();
+      quote=mergedQuote(item.symbol);
+    }
+    return {item,quote,underlying:underlying?mergedQuote(underlying.symbol):null,streaming:Boolean(client?.isReady()&&quote?.source==='stream'),feedIssue:snapshotError};
   }
 
   return { allows, paperMarket, hasSymbol: (user, symbol) => allows(user) && Boolean(lookup(symbol)), alerts, start, stop() { stopped = true; client?.stop(); quotes.clear(); } };

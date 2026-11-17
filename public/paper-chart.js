@@ -3,6 +3,7 @@ function createPaperChart(panel,{search,trade}) {
   const seconds={'1m':60,'5m':300,'15m':900,'1h':3600,'1D':86400};
   const studies=['sma','ema','bollinger','rsi','macd','volume'];
   const price=value=>value==null?'—':quotePrice.format(value);
+  const tradeTime=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
   panel.innerHTML=`
     <div class="paper-chart-toolbar" aria-label="Chart controls">
       <button type="button" class="button secondary" data-paper-chart="symbol">${terminalIcon('search')} <span>Choose instrument</span></button>
@@ -15,13 +16,13 @@ function createPaperChart(panel,{search,trade}) {
         <button type="button" class="button secondary paper-chart-sell" data-paper-chart="sell" disabled>Sell</button>
       </div>
     </div>
-    <div class="paper-chart-info"><strong id="paperChartInstrument"></strong><span id="paperChartOHLC"></span><span id="paperChartQuote" role="status"></span></div>
+    <div class="paper-chart-info"><strong id="paperChartInstrument"></strong><span id="paperChartOHLC"></span><span class="paper-quote-strip"><strong id="paperChartQuote"></strong><span id="paperChartChange"></span><span id="paperChartFeed" class="tag" role="status"></span><time id="paperChartTradeTime"></time></span></div>
     <div class="paper-chart-box"><canvas aria-label="Paper trading candlestick chart" tabindex="0" class="hidden"></canvas><p class="paper-chart-message muted" role="status"></p></div>
     <div class="paper-chart-legend"><span><b class="positive">B</b> Buy fill</span><span><b class="negative">S</b> Sell fill</span><span class="muted">Scroll to zoom · Drag to pan · Times shown in IST</span></div>
     <div class="paper-chart-fills muted" aria-label="Recent fills for this chart"></div>`;
   const box=panel.querySelector('.paper-chart-box'),canvas=box.querySelector('canvas');
   const message=box.querySelector('[role=status]'), select=panel.querySelector('select');
-  const instrument=$('paperChartInstrument'),ohlc=$('paperChartOHLC'),quote=$('paperChartQuote');
+  const instrument=$('paperChartInstrument'),ohlc=$('paperChartOHLC'),quote=$('paperChartQuote'),change=$('paperChartChange'),feed=$('paperChartFeed'),lastTrade=$('paperChartTradeTime');
   const fillsInfo=panel.querySelector('.paper-chart-fills');
   const symbolButton=panel.querySelector('[data-paper-chart=symbol] span');
   const fullscreen=panel.querySelector('[data-paper-chart=expand]');
@@ -75,6 +76,20 @@ function createPaperChart(panel,{search,trade}) {
     const next=time===last.time?{...last,high:Math.max(last.high,meta.last),low:Math.min(last.low,meta.last),close:meta.last}:{time,open:meta.last,high:meta.last,low:meta.last,close:meta.last,volume:0};
     installBars([next]);
   }
+  function renderQuote(meta,mode){
+    const live=meta.fresh&&meta.streaming;
+    quote.textContent=price(meta.last);
+    change.textContent=meta.changePct==null?'':changeText(meta.changePct);
+    change.className=changeTone(meta.changePct);
+    const label=mode!=='dhan'?'Practice quotes':live?'Live · DhanHQ':meta.feedIssue==='authentication'?'Dhan token needs renewal':meta.fresh&&meta.quoteSource==='snapshot'?'DhanHQ snapshot':meta.last!=null?'Last known · DhanHQ':'Waiting for DhanHQ';
+    if(feed.textContent!==label)feed.textContent=label;
+    feed.classList.toggle('paper-feed-live',mode==='dhan'&&live);
+    feed.classList.toggle('paper-feed-warn',mode==='dhan'&&meta.feedIssue==='authentication');
+    const received=Date.parse(meta.quoteAt);
+    const timed=Number.isFinite(received)&&mode==='dhan';
+    lastTrade.textContent=timed?(live?quoteTime.format(received):tradeTime.format(received))+' IST':'';
+    lastTrade.dateTime=timed?meta.quoteAt:'';
+  }
   function pause(){
     clearTimeout(timer);controller?.abort();controller=null;
   }
@@ -100,7 +115,8 @@ function createPaperChart(panel,{search,trade}) {
       owner.settings.volume=mode==='dhan'||meta.kind==='equity';
       owner.symbol=meta.name;owner.quote=meta.last?{price:meta.last}:null;
       instrument.textContent=meta.name+(meta.expiry?' · '+meta.expiry:'');
-      quote.textContent=(meta.last?price(meta.last)+' · ':'')+(mode==='dhan'?(meta.fresh?'Live DhanHQ quote':'Last known DhanHQ quote'):'Simulated feed');
+      symbolButton.textContent=meta.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,'');
+      renderQuote(meta,mode);
       for(const side of ['buy','sell'])panel.querySelector('[data-paper-chart='+side+']').disabled=Boolean(meta.expired);
       if(history.status==='fulfilled'&&history.value){historyAt=Date.now();installBars(history.value.candles,first);sampled=null;}
       if(updates)installBars(updates);
@@ -116,7 +132,9 @@ function createPaperChart(panel,{search,trade}) {
   function choose(nextSource,nextItem){
     pause();source=nextSource;item=nextItem;currentInstrument=null;candles=[];fills=[];owner.markers=[];owner.quote=null;sampled=null;historyAt=0;
     symbolButton.textContent=nextItem?.name||nextItem?.symbol||'Choose instrument';
-    instrument.textContent='';ohlc.textContent='';quote.textContent='';fillsInfo.textContent='';
+    instrument.textContent='';ohlc.textContent='';quote.textContent='';change.textContent='';fillsInfo.textContent='';
+    feed.textContent=nextSource==='dhan'?'Connecting to DhanHQ…':nextSource==='workspace'?'Practice quotes':'';
+    feed.classList.remove('paper-feed-live','paper-feed-warn');lastTrade.textContent='';lastTrade.dateTime='';
     for(const side of ['buy','sell'])panel.querySelector('[data-paper-chart='+side+']').disabled=true;
     fit();
     if(shown)void load();
@@ -177,7 +195,8 @@ function createPaperChart(panel,{search,trade}) {
   return {choose,refresh:load,positions(rows){walletPositions=rows;paint();},
     show(){
       shown=true;
-      if(!item&&state.meta?.simulated)choose('workspace',{symbol:'NSE:SIM001'});
+      if(!item&&state.meta?.privateDhan)choose('dhan',{symbol:'NSE:RELIANCE'});
+      else if(!item&&state.meta?.simulated)choose('workspace',{symbol:'NSE:SIM001'});
       else if(item)void load();
       else message.textContent='Choose an instrument to open its chart.';
     },

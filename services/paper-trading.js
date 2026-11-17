@@ -74,7 +74,9 @@ function publicOrder(o) {
     level:rupees(o.level),stopLoss:rupees(o.stop_loss),takeProfit:rupees(o.take_profit),state:o.state,reason:o.reason,createdAt:o.created_at,fill:rupees(o.fill_price),filledAt:o.filled_at,reserved:rupees(o.reserved),pnl:rupees(o.pnl)};
 }
 function ticketQuote(item,quote) {
-  return {symbol:item.symbol,name:item.name,kind:item.kind,lotSize:item.lotSize,expiry:item.expiry,last:rupees(quotePrice(quote)),quoteAt:quote?.updated_at??null,fresh:fresh(quote),expired:Date.now()>=expiryAt(item)};
+  return {symbol:item.symbol,name:item.name,kind:item.kind,lotSize:item.lotSize,expiry:item.expiry,
+    last:rupees(quotePrice(quote)),changePct:Number.isFinite(quote?.change_pct)?quote.change_pct:null,
+    quoteAt:quote?.updated_at??null,quoteSource:quote?.source??null,fresh:fresh(quote),expired:Date.now()>=expiryAt(item)};
 }
 
 function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,practiceChart}) {
@@ -166,8 +168,8 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
   }));
   app.get(ROUTE+'/chart',requireAuth,asyncRoute(async(req,res)=>{
     const {source,symbol,interval}=req.query, user=req.session.user;
-    const data=await getMarket(user,source,symbol);
-    if(!data)throw fail('Choose a supported paper instrument.',404);
+    const data=await getMarket(user,source,symbol,'chart');
+    if(!data)throw fail('Waiting for this paper instrument. If the Dhan terminal is starting, retry shortly.',404);
     const {item,quote}=data;
     if(!['1m','5m','15m','1h','1D'].includes(interval))throw fail('Choose a supported chart interval.');
     const from=Math.max(0,Number.parseInt(req.query.since,10)||0);
@@ -175,7 +177,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     const {rows}=await query("SELECT id,side,fill_price,filled_at,chart_time FROM paper_orders WHERE user_id=$1 AND source=$2 AND symbol=$3 AND state='filled' ORDER BY filled_at DESC,id DESC LIMIT 200",[user.id,source,symbol]);
     const fills=rows.map(row=>({id:row.id,side:row.side,price:rupees(row.fill_price),filledAt:row.filled_at,
       chartTime:amount(row.chart_time)??(item.practice?null:Math.floor(Date.parse(row.filled_at)/1000))}));
-    res.json({instrument:ticketQuote(item,quote),candles, fills});
+    res.json({instrument:{...ticketQuote(item,quote),streaming:data.streaming??false,feedIssue:data.feedIssue??null},candles,fills});
   }));
   app.get(ROUTE+'/instrument',requireAuth,asyncRoute(async(req,res)=>{
     const {source,symbol}=req.query;

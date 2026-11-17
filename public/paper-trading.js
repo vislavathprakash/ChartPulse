@@ -16,7 +16,7 @@
   page.id='page-paper';page.className='page paper-page hidden';
   page.innerHTML=`
     <div class="page-heading">
-      <div><div class="eyebrow">VIRTUAL PORTFOLIO</div><h1>Paper Trading</h1><p class="muted">Practice trades and manage risk with ₹10 lakh in virtual funds.</p></div>
+      <div class="paper-title"><h1>Paper Trading</h1><span class="tag">Virtual orders</span></div>
       <button class="button primary" type="button" data-paper-new>New paper order</button>
     </div>
     <div class="paper-wallet" aria-label="Virtual wallet"></div>
@@ -113,6 +113,7 @@
         <label class="paper-field-wide">Search instruments<input type="search" name="search" placeholder="Symbol or company" autocomplete="off" maxlength="80"></label>
       </div><div class="paper-search-results"></div><p class="muted" role="status"></p>`);
     dialog=d;
+    d.classList.add('paper-dialog');
     const field=d.querySelector('[name=search]'), kind=d.querySelector('[name=kind]'), source=d.querySelector('[name=source]');
     const results=d.querySelector('.paper-search-results'), status=d.querySelector('[role=status]');
     const provider=()=>source?.value??'workspace';
@@ -157,6 +158,7 @@
     if(!owner)return;
     const d=workspaceDialog('Paper order',`<div class="paper-ticket-loading" role="status">Loading instrument and quote…</div>`);
     dialog=d;
+    d.classList.add('paper-dialog');
     try {
       const item=await api('/api/paper/instrument?'+query({source,symbol}));
       if(!d.open||state.user?.id!==owner)return;
