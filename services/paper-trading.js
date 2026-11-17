@@ -243,19 +243,27 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
   app.patch(ROUTE+'/protection',requireAuth,asyncRoute(async(req,res)=>{
     const user=req.session.user,{source,symbol,product='delivery'}=req.body??{};
     if(!['intraday','delivery'].includes(product)||!['workspace','dhan'].includes(source)||typeof symbol!=='string'||!symbol||symbol.length>100)throw fail('Choose a position.');
-    const {stop,target}=protection(req.body);
-    const data=stop!==null||target!==null?await needMarket(user,{source,symbol},true):null;
-    await pool.transaction(async()=>{
+    const hasStop=Object.hasOwn(req.body,'stopLoss'),hasTarget=Object.hasOwn(req.body,'takeProfit');
+    if(!hasStop&&!hasTarget)throw fail('Choose a stop loss or take profit to update.');
+    const requested=protection(req.body);
+    const data=requested.stop!==null||requested.target!==null?await needMarket(user,{source,symbol},true):null;
+    const result=await pool.transaction(async()=>{
       await account(user.id);
       const p=await position(user.id,source,symbol,product);
       if(!p)throw fail('This position is already closed.',409);
+      if(p.session_end&&Date.now()>=Date.parse(p.session_end))throw fail('The Intraday session ended for this position.',409);
+      const priorStop=amount(p.stop_loss),priorTarget=amount(p.take_profit);
+      const expected=req.body.expected;
+      if(expected&&((hasStop&&priceInput(expected.stopLoss,'previous stop loss')!==priorStop)||(hasTarget&&priceInput(expected.takeProfit,'previous take profit')!==priorTarget)))throw fail('This protection changed. Refresh the position and try again.',409);
+      const stop=hasStop?requested.stop:priorStop,target=hasTarget?requested.target:priorTarget;
       if(data){
         if(!fresh(data.quote))throw fail('Wait for a fresh quote before changing protection.',409);
         bracketValid(Math.sign(p.quantity),quotePrice(data.quote),stop,target);
       }
       await query('UPDATE paper_positions SET stop_loss=$4,take_profit=$5,protected_at=NOW() WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$6',[user.id,source,symbol,stop,target,product]);
+      return {stopLoss:rupees(stop),takeProfit:rupees(target)};
     });
-    res.json({ok:true});
+    res.json({ok:true,...result});
   }));
   app.get(ROUTE,requireAuth,asyncRoute(async(req,res)=>{
     const user=req.session.user;

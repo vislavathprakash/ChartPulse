@@ -52,6 +52,7 @@ class MarketChartRenderer {
     const allIndicators=active.map(spec=>({spec,series:Technicals.calculate(candles,spec)}));
     let min=Math.min(...visible.map(c=>c.low)),max=Math.max(...visible.map(c=>c.high));
     for(const {spec,series} of allIndicators.filter(v=>overlay.includes(v.spec)))for(const line of series)for(const v of line.data.slice(start,end))if(Number.isFinite(v)&&v>0){min=Math.min(min,v);max=Math.max(max,v);}
+    if(!secondary)for(const level of o.priceLevels??[]){if(Number.isFinite(level)&&level>0){min=Math.min(min,level);max=Math.max(max,level);}}
     if(o.manualRange&&!secondary){min=o.manualRange.min;max=o.manualRange.max;}else {const pad=(max-min)*.1||1;min=Math.max(.000001,min-pad);max+=pad;}
     const log=s.scale==='log',low=log?Math.log(min):min,high=log?Math.log(max):max;
     const y=price=>top+(high-(log?Math.log(Math.max(price,.000001)):price))/(high-low)*(bottom-top);

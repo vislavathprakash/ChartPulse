@@ -180,6 +180,9 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     const requestedCommodity=words.filter(word=>!['MCX','FUT','OPTION','CALL','PUT'].includes(word)).join('');
     const term=({NIFTY50:'NIFTY',BANKNIFTY:'BANKNIFTY',NIFTYBANK:'BANKNIFTY'})[input]??input;
     const kind=typeof req.query.kind==='string'?req.query.kind:'';
+    const paper=req.query.paper==='1';
+    const derivativeWords=paper?raw.replace(/\b(?:BANK\s+NIFTY|NIFTY\s+BANK)\b/g,'BANKNIFTY').replace(/\bNIFTY\s*50\b/g,'NIFTY')
+      .split(/\s+/).filter(Boolean).map(word=>commodityKeywords[word]??word):[];
     const exchange=typeof req.query.exchange==='string'?req.query.exchange:'';
     const offset=Math.max(0,Math.min(catalog.size+commodityCatalog.size+directory.size,Number.parseInt(req.query.offset,10)||0));
     if(!['','NSE','BSE','MCX'].includes(exchange))return res.status(400).json({error:'Choose NSE, BSE or MCX.'});
@@ -189,6 +192,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     for(const item of entries){
       if((exchange&&item.exchange!==exchange)||(kind&&item.kind!==kind)||(item.expiry&&item.expiry<today))continue;
       if(root&&item.underlying!==root)continue;
+      if(paper&&(!item.lotSize||item.exchange==='MCX'||item.kind==='index'))continue;
       const ticker=normalize(item.symbol.split(':')[1]);
       const symbol=normalize(item.symbol), name=normalize(item.name);
       let rank=!term?0:symbol===term||ticker===term?0:ticker.startsWith(term)||symbol.startsWith(term)?1:name.startsWith(term)?2:name.includes(term)||symbol.includes(term)?3:-1;
@@ -197,6 +201,12 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
         const searchable=[symbol,name,alias,item.kind==='futures'?'FUT':'OPTION'];
         if(words.every(word=>searchable.some(field=>field.includes(word)))){
           rank=requestedCommodity===item.underlying||requestedCommodity===alias?1:4;
+        }
+      }
+      if(rank<0&&paper&&item.expiry){
+        const fields=[symbol,name,item.kind==='futures'?'FUT':'OPTION'];
+        if(derivativeWords.every(word=>fields.some(field=>field.includes(word)))){
+          rank=derivativeWords.includes(item.underlying)?2:4;
         }
       }
       if(rank>=0)matches.push({item,rank});

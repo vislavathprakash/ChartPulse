@@ -31,7 +31,8 @@
   const metrics=page.querySelector('.paper-wallet'), body=$('paper-activity'), status=page.querySelector('.paper-status');
   let tab='chart', offset=0, data, generation=0, controller, timer, dialog;
   const chartPanel=$('paper-chart');
-  const chart=createPaperChart(chartPanel,{search:()=>search(true),trade:(source,symbol,side)=>void open(source,symbol,side,1,'delivery',false,true)});
+  const chart=createPaperChart(chartPanel,{search:kind=>search(true,kind),trade:(source,symbol,side)=>void open(source,symbol,side,1,'delivery',false,true),
+    editProtection,moveProtection:(position,field,value)=>saveProtection(position,{[field]:value})});
   const active=()=>state.user&&state.currentPage==='paper'&&!document.hidden;
   function grid(rows) {
     return `<dl class="paper-grid">${rows.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
@@ -65,7 +66,10 @@
         p.expired?'<span class="muted">Awaiting expiry settlement</span>':`<div class="paper-actions"><button class="button secondary" type="button" data-paper-protection="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Protection</button><button class="button secondary" type="button" data-paper-close="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Close position</button><button class="button secondary" type="button" data-paper-position-chart="${html(p.symbol)}" data-position-source="${html(p.source)}" data-position-product="${html(p.product)}">Chart</button></div>`
       ]),'No open positions. Place a paper order to get started.');
     }else if(tab==='orders'){
-      markup=`<h3>Open orders</h3>${orders(data.pending)}<h3>Order history</h3>${orders(data.history)}${pager(data.hasMoreHistory)}`;
+      const protection=data.positions.flatMap(position=>[['Stop loss',position.stopLoss],['Take profit',position.takeProfit]].filter(([,value])=>value!=null).map(([label,value])=>[
+        instrument(position),position.quantity>0?'Sell':'Buy',label,format(value),position.expired?'Awaiting settlement':'Armed',positionButton(position,'Edit protection')
+      ]));
+      markup=`<h3>Open orders</h3>${orders(data.pending)}<h3>Position protection</h3>${table(['Instrument','Exit side','Trigger','Price','Status','Action'],protection,'No active stop-loss or take-profit orders.')}<h3>Order history</h3>${orders(data.history)}${pager(data.hasMoreHistory)}`;
     }else{
       markup=table(['Instrument','Side / size','Fill price','Realised P&L','Filled (IST)'],data.trades.map(o=>[instrument(o),`${o.side.toUpperCase()} · ${quantity(o)}`,format(o.fill),pnl(o.pnl),date(o.filledAt)]),'Filled paper trades will appear here.')+pager(data.hasMoreTrades);
     }
@@ -105,12 +109,12 @@
   }
 
   function dialogClose(d) { d.close();d.remove(); }
-  function search(forChart=false) {
+  function search(forChart=false,initialKind='equity') {
     const d=workspaceDialog(forChart?'Find a chart instrument':'Find an instrument',`
       <div class="paper-form-grid">
         ${state.meta?.privateDhan?`<label>Quote source<select name="source"><option value="dhan">DhanHQ</option><option value="workspace">Practice quotes</option></select></label>`:''}
-        <label data-paper-kind>Instrument type<select name="kind"><option value="equity">Stocks</option><option value="futures">Futures</option><option value="options">Options</option></select></label>
-        <label class="paper-field-wide">Search instruments<input type="search" name="search" placeholder="Symbol or company" autocomplete="off" maxlength="80"></label>
+        <label data-paper-kind>Instrument type<select name="kind">${choice([['equity','Stocks'],['futures','Futures'],['options','Options']],initialKind)}</select></label>
+        <label class="paper-field-wide">Search instruments<input type="search" name="search" placeholder="Symbol, company, expiry or strike" autocomplete="off" maxlength="80"></label>
       </div><div class="paper-search-results"></div><p class="muted" role="status"></p>`);
     dialog=d;
     d.classList.add('paper-dialog');
@@ -128,7 +132,7 @@
       status.textContent='Searching…';
       try{
         const endpoint=mode==='dhan'?'/api/private-dhan/symbols':simulated?'/api/paper/instruments':'/api/stocks';
-        const data=await api(endpoint+'?'+query({kind:kind.value,q:term}),{signal:next.signal});
+        const data=await api(endpoint+'?'+query({kind:kind.value,q:term,...(mode==='dhan'?{paper:'1'}:{})}),{signal:next.signal});
         if(next.signal.aborted||!d.open)return;
         items=data.items?data.items.filter(item=>item.lotSize):data.data.filter(item=>[item.name,item.symbol].some(value=>String(value).toLowerCase().includes(term.toLowerCase()))).slice(0,50);
         results.innerHTML=items.map((item,i)=>`<button type="button" data-ticket-item="${i}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?item.expiry+' · '+item.lotSize+' units per lot':item.name)}</small></button>`).join('');
@@ -137,7 +141,11 @@
       }catch(error){if(!next.signal.aborted){items=[];results.replaceChildren();status.textContent=error.message;}}
     }
     const schedule=()=>{clearTimeout(timer);request?.abort();items=[];results.replaceChildren();timer=setTimeout(()=>void lookup(),180);};
-    field.addEventListener('input',schedule);
+    field.addEventListener('input',()=>{
+      if(/\bFUT(?:URES?)?\b/i.test(field.value))kind.value='futures';
+      else if(/\b(?:OPTIONS?|CALLS?|PUTS?)\b/i.test(field.value))kind.value='options';
+      schedule();
+    });
     kind.addEventListener('change',schedule);
     source?.addEventListener('change',schedule);
     d.addEventListener('close',()=>{clearTimeout(timer);request?.abort();});
@@ -234,6 +242,21 @@
     }catch(error){if(d.open)d.querySelector('.paper-ticket-loading').textContent=error.message;}
   }
 
+  function positionButton(position,label) {
+    return `<button class="button secondary" type="button" data-paper-protection="${html(position.symbol)}" data-position-source="${html(position.source)}" data-position-product="${html(position.product)}">${label}</button>`;
+  }
+  async function saveProtection(position,values) {
+    const expected=Object.fromEntries(Object.keys(values).map(key=>[key,position[key]??null]));
+    try{
+      const result=await api('/api/paper/protection',{method:'PATCH',body:JSON.stringify({source:position.source,symbol:position.symbol,product:position.product,...values,expected})});
+      const live=data?.positions.find(p=>p.source===position.source&&p.symbol===position.symbol&&p.product===position.product);
+      if(live)Object.assign(live,{stopLoss:result.stopLoss,takeProfit:result.takeProfit});
+      if(data)render(true);
+      return result;
+    }finally{
+      if(active())void refresh(true);
+    }
+  }
   function editProtection(position) {
     const d=workspaceDialog('Position protection',`
       <p class="muted">${html(position.name)} · ${position.quantity>0?'Long':'Short'} · leave either price blank to remove it.</p>
@@ -245,8 +268,8 @@
       if(save.disabled)throw new Error('Saving protection…');
       save.disabled=true;
       try{
-        await api('/api/paper/protection',{method:'PATCH',body:JSON.stringify({source:position.source,symbol:position.symbol,product:position.product,stopLoss:values.get('stop')?Number(values.get('stop')):null,takeProfit:values.get('target')?Number(values.get('target')):null})});
-        toast('Position protection updated.');void refresh();
+        await saveProtection(position,{stopLoss:values.get('stop')?Number(values.get('stop')):null,takeProfit:values.get('target')?Number(values.get('target')):null});
+        toast('Position protection updated.');
       }finally{save.disabled=false;}
     });
     dialog=d;
