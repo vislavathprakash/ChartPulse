@@ -5,6 +5,11 @@ const WebSocket = require('ws');
 const MASTER = 'https://images.dhan.co/api-data/api-scrip-master.csv';
 const COMMODITY_MASTER = 'https://api.dhan.co/v2/instrument/MCX_COMM';
 const COMMODITIES = ['GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS', 'COPPER'];
+// Number of exchange quote units per MCX lot. Dhan's LOT_SIZE is in contracts.
+const MCX_QUOTE_UNITS = Object.freeze({
+  GOLD:100, GOLDM:10, SILVER:30, SILVERM:5, CRUDEOIL:100, CRUDEOILM:10,
+  NATURALGAS:1250, NATGASMINI:250, COPPER:2500, ZINC:5000
+});
 const EXCHANGES = { NSE: { segment: 'NSE_EQ', code: 1 }, BSE: { segment: 'BSE_EQ', code: 4 } };
 const INDEX_SYMBOLS = ['NSE:NIFTY', 'NSE:BANKNIFTY', 'BSE:SENSEX'];
 const DEFAULT_SYMBOLS = 'NSE:RELIANCE,NSE:TCS,NSE:INFY,NSE:HDFCBANK,NSE:SBIN,NSE:ICICIBANK,BSE:RELIANCE,BSE:TCS,BSE:INFY,BSE:HDFCBANK,BSE:SBIN,BSE:ICICIBANK';
@@ -121,14 +126,18 @@ async function resolveCommodityContracts(now = Date.now()) {
       if (exchange!=='MCX'||!['FUTCOM','FUTIDX','OPTFUT','OPTIDX'].includes(instrument) || !/^\d+$/.test(id) || !/^[A-Z0-9]+$/.test(ticker) || !/^\d{4}-\d{2}-\d{2}$/.test(expiry) || expiry<today) continue;
       const kind=instrument.startsWith('FUT')?'futures':'options', strike=Number(strikeValue);
       if(kind==='options'&&(!(strike>0)||!['CE','PE'].includes(right)))continue;
-      const item={id,instrument,kind,symbol:'MCX:'+ticker+'-'+expiry+(kind==='options'?'-'+strike+'-'+right:''),name,expiry,underlying:ticker,underlyingId,exchange:'MCX',segment:'MCX_COMM',code:5};
+      const symbol='MCX:'+ticker+'-'+expiry+(kind==='options'?'-'+strike+'-'+right:'');
+      const item={id,instrument,kind,symbol,name,expiry,underlying:ticker,underlyingId,exchange:'MCX',segment:'MCX_COMM',code:5,lotSize:MCX_QUOTE_UNITS[ticker]??null};
       contracts.push(item);
       if(kind==='futures'&&(!nearest.has(ticker)||nearest.get(ticker).expiry>expiry))nearest.set(ticker,item);
     }
   } finally { lines.close(); stream.destroy(); }
   if (!contracts.length) throw new Error('No active MCX contracts were listed by Dhan.');
-  for(const ticker of COMMODITIES){const item=nearest.get(ticker);if(item)item.symbol='MCX:'+ticker;}
-  return {catalog:new Map(contracts.map(item=>[item.symbol,item])),defaults:COMMODITIES.map(ticker=>nearest.get(ticker)).filter(Boolean)};
+  const defaults=COMMODITIES.flatMap(ticker=>{
+    const item=nearest.get(ticker);
+    return item?[{...item,symbol:'MCX:'+ticker,contractSymbol:item.symbol}]:[];
+  });
+  return {catalog:new Map(contracts.map(item=>[item.symbol,item])),defaults};
 }
 
 const positive = n => Number.isFinite(n) && n > 0 ? n : null;

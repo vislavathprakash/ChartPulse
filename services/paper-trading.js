@@ -2,6 +2,7 @@ const STARTING_CASH=100000000; // paise
 const ROUTE='/api/paper';
 const LIVE_AGE=120000;
 const EXCHANGE_END='T15:30:00+05:30';
+const newYorkOffset=new Intl.DateTimeFormat('en',{timeZone:'America/New_York',timeZoneName:'shortOffset'});
 const sign=side=>side==='buy'?1:-1;
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const amount=value=>value===null||value===undefined?null:Number(value);
@@ -9,8 +10,16 @@ const rupees=value=>value==null?null:Number(value)/100;
 const quotePrice=quote=>Number.isFinite(quote?.price)&&quote.price>0&&quote.price<=1e8?Math.round(quote.price*100):null;
 const quoteAt=quote=>Date.parse(quote?.updated_at);
 const fresh=quote=>quotePrice(quote)>0&&quoteAt(quote)>=Date.now()-LIVE_AGE&&quoteAt(quote)<=Date.now()+3000;
-const expiryAt=item=>item.expiry?Date.parse(item.expiry+EXCHANGE_END):Infinity;
-const intradayEnd=item=>new Date(Date.now()+19800000).toISOString().slice(0,10)+(item.practice?'T23:55:00+05:30':'T15:20:00+05:30');
+function sessionEnd(item,day,intraday=false) {
+  if(item.exchange==='MCX'){
+    const daylight=newYorkOffset.formatToParts(new Date(day+'T12:00:00Z')).some(part=>part.type==='timeZoneName'&&part.value==='GMT-4');
+    const minute=daylight?(intraday?'20':'30'):(intraday?'45':'55');
+    return `${day}T23:${minute}:00+05:30`;
+  }
+  return day+(intraday?(item.practice?'T23:55:00+05:30':'T15:20:00+05:30'):EXCHANGE_END);
+}
+const expiryAt=item=>item.expiry?Date.parse(sessionEnd(item,item.expiry)):Infinity;
+const intradayEnd=item=>sessionEnd(item,new Date(Date.now()+19800000).toISOString().slice(0,10),true);
 
 function priceInput(value,label,required=false) {
   if(value===null||value===undefined||value===''){
@@ -74,7 +83,7 @@ function publicOrder(o) {
     level:rupees(o.level),stopLoss:rupees(o.stop_loss),takeProfit:rupees(o.take_profit),state:o.state,reason:o.reason,createdAt:o.created_at,fill:rupees(o.fill_price),filledAt:o.filled_at,reserved:rupees(o.reserved),pnl:rupees(o.pnl)};
 }
 function ticketQuote(item,quote) {
-  return {symbol:item.symbol,name:item.name,kind:item.kind,lotSize:item.lotSize,expiry:item.expiry,
+  return {symbol:item.symbol,name:item.name,kind:item.kind,exchange:item.exchange,lotSize:item.lotSize,expiry:item.expiry,intradayCutoff:intradayEnd(item),
     last:rupees(quotePrice(quote)),changePct:Number.isFinite(quote?.change_pct)?quote.change_pct:null,
     quoteAt:quote?.updated_at??null,quoteSource:quote?.source??null,fresh:fresh(quote),expired:Date.now()>=expiryAt(item)};
 }
@@ -113,11 +122,12 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     const result=await market(user,source,symbol,ensure);
     if(!result?.item)return null;
     const {item}=result;
-    return {...result,item:{symbol:item.symbol,name:item.name,kind:item.kind,lotSize:item.lotSize,expiry:item.expiry??null,practice:item.practice===true}};
+    return {...result,item:{symbol:item.symbol,name:item.name,kind:item.kind,exchange:item.exchange,lotSize:item.lotSize,expiry:item.expiry??null,practice:item.practice===true}};
   }
   async function needMarket(user,input,ensure=false) {
     const data=await getMarket(user,input.source,input.symbol,ensure);
     if(!data)throw fail('Paper trading is unavailable for this instrument.',404);
+    if(data.item.symbol!==input.symbol)throw fail('Select the dated contract before placing a paper order.',409);
     if(Date.now()>=expiryAt(data.item))throw fail('This contract has expired.',409);
     return data;
   }
@@ -182,7 +192,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
   app.get(ROUTE+'/instrument',requireAuth,asyncRoute(async(req,res)=>{
     const {source,symbol}=req.query;
     const data=await getMarket(req.session.user,source,symbol,true);
-    if(!data)throw fail('Choose a supported stock or NSE/BSE derivative.',404);
+    if(!data)throw fail('Choose a supported stock, equity derivative, or dated MCX contract.',404);
     const underlying=data.underlying;
     res.json({...ticketQuote(data.item,data.quote),underlyingLast:fresh(underlying)?underlying.price:null});
   }));
@@ -335,7 +345,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
           continue;
         }
         if(!fresh(quote))continue;
-        if((p.instrument.expiry||p.session_end)&&at>Date.parse(p.mark_at)&&price!==Number(p.mark))await query('UPDATE paper_positions SET mark=$4,mark_at=$5,mark_chart_time=$7 WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$6',[id,p.source,p.symbol,price,quote.updated_at,p.product,quote.chart_time??null]);
+        if((p.instrument.expiry||p.session_end)&&at>Date.parse(p.mark_at))await query('UPDATE paper_positions SET mark=$4,mark_at=$5,mark_chart_time=$7 WHERE user_id=$1 AND source=$2 AND symbol=$3 AND product=$6',[id,p.source,p.symbol,price,quote.updated_at,quote.chart_time??null]);
         if(at<=Date.parse(p.protected_at))continue;
         const direction=Math.sign(p.quantity);
         const stop=p.stop_loss!=null&&(price-Number(p.stop_loss))*direction<=0;
