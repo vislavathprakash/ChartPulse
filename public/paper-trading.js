@@ -8,6 +8,11 @@
   const nameOf=kind=>({equity:'Stock',futures:'Future',options:'Option'})[kind]??kind;
   const productLabel=(row)=>row.product==='intraday'?'Intraday':row.kind==='equity'?'Delivery':'Carry forward';
   const tabs=[['chart','Chart','charts'],['positions','Positions','layers'],['orders','Orders','list'],['trades','Trade history','calendar']];
+  const activityTabs={
+    positions:[['intraday','Intraday'],['delivery','Delivery & holdings']],
+    orders:[['open','Open orders'],['closed','Closed orders']]
+  };
+  const defaultActivity={positions:'delivery',orders:'open'};
   const nav=document.createElement('button');
   nav.type='button';nav.className='nav-item';nav.dataset.page='paper';
   nav.innerHTML=`<span class="nav-icon" aria-hidden="true">${terminalIcon('paper')}</span> Paper Trading`;
@@ -23,12 +28,17 @@
     <section class="panel paper-panel">
       <div class="dhan-research-nav paper-tabs" role="tablist" aria-label="Paper trading activity">${tabs.map(([id,label,icon],i)=>`<button type="button" id="paper-tab-${id}" role="tab" data-paper-tab="${id}" aria-selected="${!i}" aria-pressed="${!i}" aria-controls="${id==='chart'?'paper-chart':'paper-activity'}" tabindex="${i?-1:0}">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}</div>
       <div id="paper-chart" role="tabpanel" aria-labelledby="paper-tab-chart"></div>
-      <div id="paper-activity" class="hidden" role="tabpanel" aria-labelledby="paper-tab-positions" tabindex="0"></div>
+      <div id="paper-activity" class="hidden" role="tabpanel" aria-labelledby="paper-tab-positions" tabindex="0">
+        <div class="paper-activity-tabs" role="tablist" hidden></div>
+        <div id="paper-activity-content"></div>
+      </div>
       <p class="muted paper-status" role="status"></p>
     </section>
     <p class="muted paper-disclosure">Paper fills use the latest eligible quote without modelling fees, order-book liquidity, or partial fills. Futures reserve 20% of notional. Short options reserve 20% of underlying notional plus premium. These are practice estimates. Practice derivatives use fictional prices and preset lot sizes.</p>`;
   document.querySelector('.content-wrap').append(page);
   const metrics=page.querySelector('.paper-wallet'), body=$('paper-activity'), status=page.querySelector('.paper-status');
+  const activityNav=body.querySelector('.paper-activity-tabs'), activityContent=$('paper-activity-content');
+  const activitySelection={...defaultActivity};
   let tab='chart', offset=0, data, generation=0, controller, timer, dialog;
   const chartPanel=$('paper-chart');
   const chart=createPaperChart(chartPanel,{search:kind=>search(true,kind),trade:(source,symbol,side)=>void open(source,symbol,side,1,'delivery',false,true),
@@ -66,28 +76,60 @@
       position.expired?'<span class="muted">Awaiting settlement</span>':`<span class="paper-position-actions">${action('position-chart','charts','Open chart')}${action('protection','settings','Edit protection')}${action('close','arrow','Close position')}</span>`
     ];
   }
+  function showActivityTabs() {
+    const items=activityTabs[tab];
+    activityNav.hidden=!items;
+    if(!items){
+      activityContent.removeAttribute('role');
+      activityContent.removeAttribute('aria-labelledby');
+      activityContent.removeAttribute('tabindex');
+      return;
+    }
+    activityNav.setAttribute('aria-label',tab==='positions'?'Position products':'Order status');
+    activityNav.innerHTML=items.map(([id,label])=>`<button type="button" role="tab" id="paper-activity-tab-${id}" data-paper-activity-tab="${id}" aria-controls="paper-activity-content">${label}</button>`).join('');
+    activityContent.setAttribute('role','tabpanel');
+    activityContent.tabIndex=0;
+    selectActivity(activitySelection[tab]);
+  }
+  function selectActivity(id) {
+    activitySelection[tab]=id;
+    for(const button of activityNav.querySelectorAll('[data-paper-activity-tab]')){
+      const selected=button.dataset.paperActivityTab===id;
+      button.setAttribute('aria-selected',String(selected));
+      button.tabIndex=selected?0:-1;
+    }
+    activityContent.setAttribute('aria-labelledby','paper-activity-tab-'+id);
+  }
   function render(force=false) {
     if(!data)return;
     metrics.innerHTML=grid([['Available funds',format(data.available)],['Portfolio value',format(data.equity)],['In positions',format(data.capital)],['Reserved by orders',format(data.reserved)],['Unrealised P&L',pnl(data.unrealized)],['Realised P&L',pnl(data.realized)]]);
     chart.positions(data.positions);
-    if(tab==='chart'||!force&&body.contains(document.activeElement))return;
+    if(tab==='chart'||!force&&activityContent.contains(document.activeElement))return;
     const pager=hasMore=>`<nav class="paper-pager" aria-label="History pages"><button class="button secondary" type="button" data-paper-page="-25" ${offset?'':'disabled'}>Previous</button><span>Page ${offset/25+1}</span><button class="button secondary" type="button" data-paper-page="25" ${hasMore?'':'disabled'}>Next</button></nav>`;
-    const orders=rows=>table(['Instrument','Side / size','Order type','Price','Status','Time','Action'],rows.map(o=>[
+    const orders=(rows,empty)=>table(['Instrument','Side / size','Order type','Price','Status','Time','Action'],rows.map(o=>[
       instrument(o),`<span class="${o.side==='buy'?'positive':'negative'}">${o.side.toUpperCase()}</span> · ${quantity(o)}`,html({market:'Market',limit:'Limit',stop:'Stop market'}[o.type]),format(o.fill??o.level),
       `<span class="paper-order-state">${html(o.state)}</span>${o.reason?`<small>${html(o.reason)}</small>`:o.reserved?`<small>${format(o.reserved)} reserved</small>`:''}`,date(o.filledAt??o.createdAt),o.state==='pending'?`<button class="button secondary" type="button" data-paper-cancel="${o.id}">Cancel</button>`:'—'
-    ]),'No orders in this section.');
+    ]),empty);
     let markup;
     if(tab==='positions'){
-      markup=table(['Instrument','Position','Average','Last','P&L','Protection','Actions'],data.positions.map(positionRow),'No open positions. Place a paper order to get started.','paper-positions-table');
+      const intraday=activitySelection.positions==='intraday';
+      const positions=data.positions.filter(position=>(position.product==='intraday')===intraday);
+      const empty=intraday?'No open intraday positions.':'No delivery holdings or carried-forward positions.';
+      markup=table(['Instrument','Position','Average','Last','P&L','Protection','Actions'],positions.map(positionRow),empty,'paper-positions-table');
     }else if(tab==='orders'){
-      const protection=data.positions.flatMap(position=>[['Stop loss',position.stopLoss],['Take profit',position.takeProfit]].filter(([,value])=>value!=null).map(([label,value])=>[
-        instrument(position),position.quantity>0?'Sell':'Buy',label,format(value),position.expired?'Awaiting settlement':'Armed',positionButton(position,'Edit protection')
-      ]));
-      markup=`<h3>Open orders</h3>${orders(data.pending)}<h3>Position protection</h3>${table(['Instrument','Exit side','Trigger','Price','Status','Action'],protection,'No active stop-loss or take-profit orders.')}<h3>Order history</h3>${orders(data.history)}${pager(data.hasMoreHistory)}`;
+      if(activitySelection.orders==='closed'){
+        markup=orders(data.history,'Filled, cancelled, and other completed orders will appear here.')+(offset||data.hasMoreHistory?pager(data.hasMoreHistory):'');
+      }else{
+        const protection=data.positions.flatMap(position=>[['Stop loss',position.stopLoss],['Take profit',position.takeProfit]].filter(([,value])=>value!=null).map(([label,value])=>[
+          instrument(position),position.quantity>0?'Sell':'Buy',label,format(value),position.expired?'Awaiting settlement':'Armed',positionButton(position,'Edit protection')
+        ]));
+        markup=orders(data.pending,'No pending paper orders.');
+        if(protection.length)markup+='<h3>Position protection</h3>'+table(['Instrument','Exit side','Trigger','Price','Status','Action'],protection);
+      }
     }else{
       markup=table(['Instrument','Side / size','Fill price','Realised P&L','Filled (IST)'],data.trades.map(o=>[instrument(o),`${o.side.toUpperCase()} · ${quantity(o)}`,format(o.fill),pnl(o.pnl),date(o.filledAt)]),'Filled paper trades will appear here.')+pager(data.hasMoreTrades);
     }
-    if(body.dataset.markup!==markup){body.innerHTML=markup;body.dataset.markup=markup;}
+    if(activityContent.dataset.markup!==markup){activityContent.innerHTML=markup;activityContent.dataset.markup=markup;}
   }
   function pause() { clearTimeout(timer);controller?.abort();generation++; }
   async function refresh(quiet=false) {
@@ -115,6 +157,7 @@
       button.setAttribute('aria-pressed',String(current));
     }
     body.setAttribute('aria-labelledby','paper-tab-'+id);
+    showActivityTabs();
     body.classList.toggle('hidden',id==='chart');
     chartPanel.classList.toggle('hidden',id!=='chart');
     if(id==='chart'&&active())chart.show();else chart.hide();
@@ -293,6 +336,10 @@
     if(!b)return;
     if(b.hasAttribute('data-paper-new'))search();
     if(b.dataset.paperTab&&b.dataset.paperTab!==tab)activate(b.dataset.paperTab);
+    if(b.dataset.paperActivityTab&&b.dataset.paperActivityTab!==activitySelection[tab]){
+      selectActivity(b.dataset.paperActivityTab);
+      render(true);
+    }
     if(b.dataset.paperPage){offset+=Number(b.dataset.paperPage);void refresh();}
     if(b.dataset.positionSource){
       const p=data?.positions.find(p=>p.source===b.dataset.positionSource&&p.product===b.dataset.positionProduct&&p.symbol===(b.dataset.paperClose??b.dataset.paperProtection??b.dataset.paperPositionChart));
@@ -307,14 +354,17 @@
       catch(error){toast(error.message,true);b.disabled=false;}
     }
   });
-  page.querySelector('[role=tablist]').addEventListener('keydown',event=>{
-    const index=tabs.findIndex(([id])=>id===event.target.dataset.paperTab);
-    const next={ArrowRight:(index+1)%tabs.length,ArrowLeft:(index-1+tabs.length)%tabs.length,Home:0,End:tabs.length-1}[event.key];
-    if(index<0||next===undefined)return;
-    event.preventDefault();
-    activate(tabs[next][0]);
-    $(`paper-tab-${tab}`).focus();
-  });
+  for(const list of [page.querySelector('.paper-tabs'),activityNav]){
+    list.addEventListener('keydown',event=>{
+      const buttons=[...list.querySelectorAll('[role=tab]')];
+      const index=buttons.indexOf(event.target), length=buttons.length;
+      const next={ArrowRight:(index+1)%length,ArrowLeft:(index-1+length)%length,Home:0,End:length-1}[event.key];
+      if(index<0||next===undefined)return;
+      event.preventDefault();
+      buttons[next].click();
+      buttons[next].focus();
+    });
+  }
   document.body.addEventListener('click',event=>{
     const button=event.target.closest('[data-paper-symbol]');
     if(button)void open(button.dataset.paperSource,button.dataset.paperSymbol,button.dataset.paperSide);
@@ -323,7 +373,8 @@
   window.paperTrading={open,navigate(target){if(target==='paper'){if(tab==='chart')chart.show();void refresh();}else {pause();chart.hide();}},reset(){
     pause();chart.reset();data=null;tab='chart';offset=0;
     if(dialog?.open)dialogClose(dialog);
-    metrics.replaceChildren();body.replaceChildren();body.dataset.markup='';
+    Object.assign(activitySelection,defaultActivity);
+    metrics.replaceChildren();activityContent.replaceChildren();activityContent.dataset.markup='';
     activate('chart');
   }};
 })();
