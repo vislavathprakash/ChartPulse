@@ -3,6 +3,7 @@
   const format=value=>value==null?'—':money.format(value);
   const pnl=value=>`<span class="${value>0?'positive':value<0?'negative':''}">${value>0?'+':''}${format(value)}</span>`;
   const fullTime=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'medium'});
+  const cutoffTime=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
   const date=value=>value?`${fullTime.format(new Date(value))} IST`:'—';
   const query=params=>new URLSearchParams(params).toString();
   const nameOf=kind=>({equity:'Stock',futures:'Future',options:'Option'})[kind]??kind;
@@ -41,7 +42,7 @@
   const activitySelection={...defaultActivity};
   let tab='chart', offset=0, data, generation=0, controller, timer, dialog;
   const chartPanel=$('paper-chart');
-  const chart=createPaperChart(chartPanel,{search:kind=>search(true,kind),trade:(source,symbol,side)=>void open(source,symbol,side,1,'delivery',false,true),
+  const chart=createPaperChart(chartPanel,{search:(kind,exchange)=>search(true,kind,exchange),trade:(source,symbol,side)=>void open(source,symbol,side,1,'delivery',false,true),
     editProtection,moveProtection:(position,field,value)=>saveProtection(position,{[field]:value})});
   const active=()=>state.user&&state.currentPage==='paper'&&!document.hidden;
   function grid(rows) {
@@ -166,16 +167,19 @@
   }
 
   function dialogClose(d) { d.close();d.remove(); }
-  function search(forChart=false,initialKind='equity') {
+  function search(forChart=false,initialKind='equity',initialExchange='') {
     const d=workspaceDialog(forChart?'Find a chart instrument':'Find an instrument',`
       <div class="paper-form-grid">
         ${state.meta?.privateDhan?`<label>Quote source<select name="source"><option value="dhan">DhanHQ</option><option value="workspace">Practice quotes</option></select></label>`:''}
         <label data-paper-kind>Instrument type<select name="kind">${choice([['equity','Stocks'],['futures','Futures'],['options','Options']],initialKind)}</select></label>
+        ${state.meta?.privateDhan?`<label data-paper-exchange>Exchange<select name="exchange">${choice([['','All exchanges'],['NSE','NSE'],['BSE','BSE'],['MCX','MCX · Commodities']],initialExchange)}</select></label>`:''}
         <label class="paper-field-wide">Search instruments<input type="search" name="search" placeholder="Symbol, company, expiry or strike" autocomplete="off" maxlength="80"></label>
       </div><div class="paper-search-results"></div><p class="muted" role="status"></p>`);
     dialog=d;
     d.classList.add('paper-dialog');
     const field=d.querySelector('[name=search]'), kind=d.querySelector('[name=kind]'), source=d.querySelector('[name=source]');
+    const exchange=d.querySelector('[name=exchange]');
+    const stockOption=kind.querySelector('option[value=equity]');
     const results=d.querySelector('.paper-search-results'), status=d.querySelector('[role=status]');
     const provider=()=>source?.value??'workspace';
     let timer,request,items=[];
@@ -185,14 +189,18 @@
       request=next;
       const mode=provider(),term=field.value.trim();
       const simulated=mode==='workspace'&&state.meta?.simulated;
+      const selectedExchange=mode==='dhan'?exchange.value:'';
+      if(exchange)d.querySelector('[data-paper-exchange]').classList.toggle('hidden',mode!=='dhan');
+      stockOption.disabled=selectedExchange==='MCX';
+      if(stockOption.disabled&&kind.value==='equity')kind.value='futures';
       d.querySelector('[data-paper-kind]').classList.toggle('hidden',mode!=='dhan'&&!simulated);
       status.textContent='Searching…';
       try{
         const endpoint=mode==='dhan'?'/api/private-dhan/symbols':simulated?'/api/paper/instruments':'/api/stocks';
-        const data=await api(endpoint+'?'+query({kind:kind.value,q:term,...(mode==='dhan'?{paper:'1'}:{})}),{signal:next.signal});
+        const data=await api(endpoint+'?'+query({kind:kind.value,q:term,...(mode==='dhan'?{paper:'1',exchange:selectedExchange}:{})}),{signal:next.signal});
         if(next.signal.aborted||!d.open)return;
         items=data.items?data.items.filter(item=>item.lotSize):data.data.filter(item=>[item.name,item.symbol].some(value=>String(value).toLowerCase().includes(term.toLowerCase()))).slice(0,50);
-        results.innerHTML=items.map((item,i)=>`<button type="button" data-ticket-item="${i}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?item.expiry+' · '+item.lotSize+' units per lot':item.name)}</small></button>`).join('');
+        results.innerHTML=items.map((item,i)=>`<button type="button" data-ticket-item="${i}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?[item.exchange,item.expiry,item.exchange==='MCX'?item.lotSize+' quote units per lot':item.lotSize+' units per lot'].filter(Boolean).join(' · '):item.name)}</small></button>`).join('');
         status.textContent=items.length?(data.total>items.length?'Showing the first '+items.length+' matches. Refine the search to find a specific contract.':''):data.ready===false?'Dhan’s directory is still loading. Retrying…':'No matching instruments.';
         if(data.ready===false){clearTimeout(timer);timer=setTimeout(()=>void lookup(),2500);}
       }catch(error){if(!next.signal.aborted){items=[];results.replaceChildren();status.textContent=error.message;}}
@@ -204,6 +212,7 @@
       schedule();
     });
     kind.addEventListener('change',schedule);
+    exchange?.addEventListener('change',schedule);
     source?.addEventListener('change',schedule);
     d.addEventListener('close',()=>{clearTimeout(timer);request?.abort();});
     d.addEventListener('submit',event=>{event.preventDefault();results.querySelector('button')?.click();});
@@ -226,6 +235,7 @@
     d.classList.add('paper-dialog');
     try {
       const item=await api('/api/paper/instrument?'+query({source,symbol}));
+      symbol=item.symbol;
       if(!d.open||state.user?.id!==owner)return;
       d.querySelector('.paper-ticket-loading').outerHTML=`
         <div class="paper-ticket-intro"><h3>${html(item.name)}</h3><span class="tag">PAPER ONLY</span></div>
@@ -234,12 +244,12 @@
           <label>Side<select name="side"><option value="buy" ${side==='buy'?'selected':''}>Buy</option><option value="sell" ${side==='sell'?'selected':''}>Sell</option></select></label>
           <label>Product<select name="product" ${closing?'disabled':''}><option value="delivery" ${product==='delivery'?'selected':''}>${item.kind==='equity'?'Delivery':'Carry forward'}</option><option value="intraday" ${product==='intraday'?'selected':''}>Intraday</option></select></label>
           <label>Order type<select name="type"><option value="market">Market</option><option value="limit">Limit</option><option value="stop">Stop market</option></select></label>
-          <label>${item.kind==='equity'?'Shares':`Lots · ${item.lotSize} units each`}<input type="number" name="units" min="1" max="100000" step="1" value="${units}" required></label>
+          <label>${item.kind==='equity'?'Shares':`Lots · ${item.lotSize} ${item.exchange==='MCX'?'quote units':'units'} each`}<input type="number" name="units" min="1" max="100000" step="1" value="${units}" required></label>
           <label data-paper-order-level class="hidden"><span>Limit price (₹)</span><input type="number" name="level" min="0.01" step="0.01" disabled></label>
           <label>Stop loss (₹)<input type="number" name="stopLoss" min="0.01" step="0.01" placeholder="Optional"></label>
           <label>Take profit (₹)<input type="number" name="takeProfit" min="0.01" step="0.01" placeholder="Optional"></label>
         </div>
-        <p class="muted paper-ticket-note">Intraday trades are scheduled to close at 15:20 IST for NSE/BSE and 23:55 IST for Practice quotes. Stop loss and take profit use eligible quotes.</p>
+        <p class="muted paper-ticket-note">${item.intradayCutoff?'Intraday paper cutoff: '+cutoffTime.format(new Date(item.intradayCutoff))+' IST. ':''}Stop loss and take profit use eligible quotes.${item.exchange==='MCX'?' MCX values use the contract’s quote multiplier. Short-option margin uses an estimate based on a related futures quote.':''}</p>
         <div class="paper-preview" aria-live="polite"></div>`;
       const form=d.querySelector('form'), issue=d.querySelector('.dialog-error'), preview=d.querySelector('.paper-preview');
       const actions=d.querySelector('.dialog-actions');
@@ -291,7 +301,11 @@
           if(!stayOnChart&&document.fullscreenElement)await document.exitFullscreen().catch(()=>{});
           toast(order.state==='filled'? 'Paper order filled at '+format(order.fill)+'.':'Paper order is pending.');
           if(stayOnChart&&active()&&tab==='chart'){void refresh();void chart.refresh();}
-          else{navigate('paper');activate(order.state==='filled'?'positions':'orders');}
+          else{
+            activitySelection.positions=order.product==='intraday'?'intraday':'delivery';
+            activitySelection.orders='open';
+            navigate('paper');activate(order.state==='filled'?'positions':'orders');
+          }
         }catch(error){if(d.open)issue.textContent=error.message;}
         finally{busy=false;submit.disabled=false;review.disabled=false;fields.forEach(field=>field.disabled=false);}
       });

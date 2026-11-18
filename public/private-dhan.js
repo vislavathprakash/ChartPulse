@@ -476,10 +476,10 @@
     }).join('');
     if(!front.contains(document.activeElement)&&front.innerHTML!==frontHtml)front.innerHTML=frontHtml;
     const host=$('mcxContracts'), items=commodityData?.items??[];
-    const markup=items.length?table(['Contract','Expiry','Last (₹)','Change','Volume','View'],items.map(item=>{
+    const markup=items.length?table(['Contract','Expiry','Last (₹)','Change','Volume','View','Paper trade'],items.map(item=>{
       const q=bySymbol.get(item.symbol);
       return [`<strong>${html(item.name)}</strong><small>${html(item.underlying)}</small>`,html(item.expiry),researchNumber(q?.price),changeMarkup(q?.change_pct),researchNumber(q?.volume,0),
-        chartButton(item.symbol,'Chart')+` <button class="dhan-inline-chart" type="button" data-mcx-chain="${html(item.symbol)}">Option chain</button>`];
+        chartButton(item.symbol,'Chart')+` <button class="dhan-inline-chart" type="button" data-mcx-chain="${html(item.symbol)}">Option chain</button>`,item.lotSize?paperButtons('dhan',item.symbol):'—'];
     })):'';
     if(!host.contains(document.activeElement)&&host.innerHTML!==markup)host.innerHTML=markup;
     const pager=$('mcxPager');

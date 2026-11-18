@@ -9,6 +9,7 @@ function createPaperChart(panel,{search,trade,editProtection,moveProtection}) {
       <button type="button" class="button secondary" data-paper-chart="symbol">${terminalIcon('search')} <span>Choose instrument</span></button>
       <button type="button" class="button secondary" data-paper-chart="futures">Futures</button>
       <button type="button" class="button secondary" data-paper-chart="options">Options</button>
+      <button type="button" class="button secondary hidden" data-paper-chart="commodities">MCX</button>
       <label>Interval<select aria-label="Paper chart interval">${intervals.map(([label])=>`<option>${label}</option>`).join('')}</select></label>
       <button type="button" class="button secondary" data-paper-chart="indicators">Indicators</button>
       <button type="button" class="button secondary" data-paper-chart="fit">Reset view</button>
@@ -224,6 +225,7 @@ function createPaperChart(panel,{search,trade,editProtection,moveProtection}) {
     const action=event.target.closest('[data-paper-chart]')?.dataset.paperChart;
     if(action==='symbol')search();
     else if(action==='futures'||action==='options')search(action);
+    else if(action==='commodities')search('futures','MCX');
     else if(action==='protection'){
       const p=matchingPositions().find(p=>p.product===event.target.closest('button').dataset.product);
       if(p)editProtection(p);
@@ -312,6 +314,7 @@ function createPaperChart(panel,{search,trade,editProtection,moveProtection}) {
     show(){
       shown=true;
       for(const kind of ['futures','options'])panel.querySelector('[data-paper-chart='+kind+']').classList.toggle('hidden',!state.meta?.privateDhan&&!state.meta?.simulated);
+      panel.querySelector('[data-paper-chart=commodities]').classList.toggle('hidden',!state.meta?.privateDhan);
       if(!item&&state.meta?.privateDhan)choose('dhan',{symbol:'NSE:RELIANCE'});
       else if(!item&&state.meta?.simulated)choose('workspace',{symbol:'NSE:SIM001'});
       else if(item)void load();
