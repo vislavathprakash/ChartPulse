@@ -3,6 +3,7 @@
   const root=document.createElement('div');root.id='liveScreeners';page.append(root);
   const groups=[['intraday','Intraday','charts'],['investing','Investing','research'],['fundamental','Fundamentals','overview'],['options','Options','layers'],['futures','Futures','list'],['commodities','Commodities','commodity']];
   const universes=[['NSE:NIFTY','Nifty 50'],['NSE:BANKNIFTY','Bank Nifty'],['NSE:NIFTYNXT50','Nifty Next 50'],['NSE:NIFTYIT','Nifty IT'],['BSE:SENSEX','Sensex']];
+  const commodityRoots=[['MCX:ALL','All MCX futures'],['MCX:GOLD','Gold'],['MCX:GOLDM','Gold Mini'],['MCX:SILVER','Silver'],['MCX:SILVERM','Silver Mini'],['MCX:CRUDEOIL','Crude Oil'],['MCX:CRUDEOILM','Crude Oil Mini'],['MCX:NATURALGAS','Natural Gas'],['MCX:NATGASMINI','Natural Gas Mini'],['MCX:COPPER','Copper'],['MCX:ZINC','Zinc']];
   const fmt=new Intl.NumberFormat('en-IN',{maximumFractionDigits:2});
   const value=v=>v==null?'—':fmt.format(v);
   const time=v=>v?new Date(v).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'})+' IST':'Trade time unavailable';
@@ -15,8 +16,9 @@
       <div class="live-scan-groups" role="tablist" aria-label="Screener categories">${groups.map(([id,label,icon])=>`<button type="button" role="tab" data-scan-group="${id}" aria-selected="${id===group}">${terminalIcon(icon)}${label}</button>`).join('')}</div>
       <div class="live-scan-layout"><aside class="panel live-scan-library"><h2>${groups.find(([id])=>id===group)[1]} screeners</h2><div class="live-scan-presets">${model.presets.filter(p=>p.group===group).map(p=>`<button type="button" data-scan-preset="${p.id}" aria-pressed="${preset.id===p.id}"><strong>${html(p.name)}</strong><small>${html(p.description)}</small></button>`).join('')}</div></aside>
       <section class="panel live-scan-editor"><div class="panel-heading"><div><h2>${html(preset.name)}</h2><p class="muted">${html(preset.description)}</p></div></div>
-      <form id="liveScanForm"><div class="live-scan-inputs"><label ${group==='commodities'?'hidden':''}>${group==='options'?'Underlying':'Stock universe'}<select name="universe">${options(universes,config.universe)}</select></label>
+      <form id="liveScanForm"><div class="live-scan-inputs"><label>${group==='commodities'?'Commodity':group==='options'?'Underlying':'Stock universe'}<select name="universe">${options(group==='commodities'?commodityRoots:universes,config.universe)}</select></label>
       ${group==='options'?`<label>Expiry<select name="expiry"><option value="">Nearest listed expiry</option>${options((lastResult?.expiries||[]).map(d=>[d,d]),config.expiry)}</select></label><label>Option side<select name="side">${options([['','Calls and puts'],['CE','Calls'],['PE','Puts']],config.side)}</select></label>`:''}
+      ${['futures','commodities'].includes(group)?`<label>Expiry (optional)<input type="date" name="expiry" value="${html(config.expiry)}"></label>`:''}
       <label>Sort by<select name="sort">${options(Object.entries(model.fields),config.sort)}</select></label><label>Order<select name="direction">${options([['desc','Highest first'],['asc','Lowest first']],config.direction)}</select></label></div>
       <div class="live-scan-condition-heading"><b>Match all conditions</b><button type="button" id="liveScanAdd">＋ Add condition</button></div><div id="liveScanRules"></div><p class="live-scan-help">Enter a number or another field name, such as <code>sma50</code>, to compare two fields. Prices in ₹, market cap in ₹ crore.</p><div class="live-scan-run"><label class="live-scan-auto"><input type="checkbox" name="auto" ${config.auto?'checked':''}>Auto refresh</label><span id="liveScanProgress" role="status" aria-live="polite"></span><button type="button" id="liveScanCancel" class="button secondary" hidden>Cancel</button><button type="submit" id="liveScanRun" class="button primary">Run scan</button></div><p id="liveScanError" role="alert" hidden></p></form></section></div>
       <section class="panel live-scan-results"><div class="panel-heading"><div><h2>Scan results <span class="count-pill" id="liveScanCount">0</span></h2><p id="liveScanSummary" class="muted">Select a screener to find matching instruments.</p></div><button type="button" id="liveScanSave" class="button secondary">Save screener</button></div><p id="liveScanCoverage" class="live-scan-coverage"></p><div id="liveScanTable" class="table-wrap"><p class="empty-state">Your scan results will appear here.</p></div></section>
@@ -40,7 +42,7 @@
   function showError(message){const e=root.querySelector('#liveScanError');e.textContent=message;e.hidden=!message;}
   function setBusy(value){busy=value;const button=root.querySelector('#liveScanRun');if(!button)return;button.disabled=value;button.textContent=value?'Scanning…':'Run scan';root.querySelector('#liveScanCancel').hidden=!value;root.querySelector('#liveScanForm').setAttribute('aria-busy',String(value));}
   async function cancel(){version++;clearTimeout(timer);const old=job;job=null;setBusy(false);const progress=root.querySelector('#liveScanProgress');if(progress)progress.textContent='Scan cancelled.';if(old)try{await api('/api/private-dhan/scans/'+old,{method:'DELETE'});}catch{}}
-  async function choose(next,savedConfig){await cancel();group=next.group;preset=next;config=savedConfig?JSON.parse(JSON.stringify(savedConfig)):{universe:'NSE:NIFTY',expiry:'',side:'',sort:next.sort,direction:next.direction,rules:JSON.parse(JSON.stringify(next.rules)),auto:true};lastResult=null;render();void run();}
+  async function choose(next,savedConfig){await cancel();group=next.group;preset=next;config=savedConfig?JSON.parse(JSON.stringify(savedConfig)):{universe:next.group==='commodities'?'MCX:ALL':'NSE:NIFTY',expiry:'',side:'',sort:next.sort,direction:next.direction,rules:JSON.parse(JSON.stringify(next.rules)),auto:true};lastResult=null;render();void run();}
   async function run(){
     if(!active()||busy)return;clearTimeout(timer);showError('');let current=++version;const user=owner;
     try{
@@ -53,7 +55,7 @@
       const result=await api('/api/private-dhan/scans',{method:'POST',body:JSON.stringify({preset:preset.id,rules:config.rules,sort:config.sort,direction:config.direction,symbols,underlying:config.universe,expiry:config.expiry,side:config.side})});
       if(current!==version||user!==state.user?.id){void api('/api/private-dhan/scans/'+result.id,{method:'DELETE'}).catch(()=>{});return;}
       job=result.id;void poll(current,user,result);
-    }catch(error){if(current===version){showError(error.message);setBusy(false);root.querySelector('#liveScanProgress').textContent='Scan failed.';}}
+    }catch(error){if(current===version){showError(error.message);setBusy(false);root.querySelector('#liveScanProgress').textContent='Scan failed.';if(active()&&config.auto&&[429,502,503].includes(error.status)){root.querySelector('#liveScanProgress').textContent='Provider warming up. Retrying shortly…';timer=setTimeout(()=>void run(),5000);}}}
   }
   async function poll(current,user,initial){
     if(current!==version||user!==state.user?.id)return;
