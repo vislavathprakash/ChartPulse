@@ -88,6 +88,7 @@
   async function enter(){
     const enabled=state.meta?.privateDhan===true;page.classList.toggle('live-screeners-active',enabled);
     if(!enabled)return;
+    $('simulationBanner').classList.add('hidden');
     if(owner!==state.user?.id){owner=state.user.id;model=null;lastResult=null;try{saved=JSON.parse(localStorage.getItem('alertpe-live-scans:'+owner)||'[]');if(!Array.isArray(saved))saved=[];}catch{saved=[];}}
     if(!model){root.innerHTML='<p class="panel" role="status">Loading live screener library…</p>';try{const user=owner;model=await api('/api/private-dhan/screeners');if(user!==state.user?.id)return;void choose(model.presets[0]);}catch(error){root.innerHTML='<p class="panel" role="alert">'+html(error.message)+'</p>';}}
     else if(paused){paused=false;setBusy(false);if(config.auto)void run();}
