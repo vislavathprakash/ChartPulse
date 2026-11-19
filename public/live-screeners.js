@@ -32,7 +32,7 @@
     };
     root.querySelectorAll('[data-scan-group]').forEach(b=>b.onclick=()=>void choose(model.presets.find(p=>p.group===b.dataset.scanGroup)));
     root.querySelectorAll('[data-scan-preset]').forEach(b=>b.onclick=()=>void choose(model.presets.find(p=>p.id===b.dataset.scanPreset)));
-    root.querySelectorAll('select[name=universe],select[name=expiry],select[name=side]').forEach(el=>el.onchange=()=>{if(el.name==='universe'){lastResult=null;const expiry=root.querySelector('[name=expiry]');if(expiry){expiry.innerHTML='<option value="">Nearest listed expiry</option>';}}void run();});
+    root.querySelectorAll('[name=universe],[name=expiry],[name=side]').forEach(el=>el.onchange=async()=>{if(el.name==='universe'){lastResult=null;const expiry=root.querySelector('[name=expiry]');if(expiry){if(expiry.tagName==='SELECT')expiry.innerHTML='<option value="">Nearest listed expiry</option>';else expiry.value='';}}await cancel();void run();});
     root.querySelector('[name=auto]').onchange=e=>{config.auto=e.target.checked;clearTimeout(timer);if(config.auto&&!busy)void run();};
     if(lastResult)showResults(lastResult);
   }
