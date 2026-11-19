@@ -658,6 +658,8 @@
   function reset() { stopUniverse(); stopCommodityRequest(); setCommodityFilters(''); $('mcxSearch').value=''; commodityOffset=0; commodityWaiting=false; commodityData=null; commodityQuotes=[]; renderCommodities([],''); overviewQuotes=[]; $('dhanOverviewIndex').value='NSE:NIFTY'; $('dhanOverviewSearch').value=''; $('dhanOverviewExchange').value=''; switchUniverse('indices',0,0,false); placeOverview(false); simulatedHeading.classList.add('hidden'); renderOverview(); chooseResearch('stock'); pause(); historyController?.abort();researchController?.abort();chartHistory=null;$('dhanResearchBody').replaceChildren();$('dhanResearchContext').textContent='';$('dhanResearchStatus').textContent='Choose a symbol to start.'; symbolList=''; query=''; nav.classList.add('hidden'); page.classList.add('hidden'); $('privateHistorySymbol').replaceChildren(); $('privateHistorySymbol').disabled=true; $('privateHistoryStatus').textContent='Loading the Dhan symbol list…'; $('privateDhanStats').replaceChildren();desk.reset(); $('privateDhanQuery').value=''; $('privateDhanBadge').textContent='WAITING FOR QUOTES'; $('privateDhanStatus').textContent='Waiting for Dhan.'; updateMarketWatch($('privateDhanTable'),[]); }
   window.privateDhanView = {
     reset,
+    openChart(symbol){navigate('private-dhan');openChart(symbol);desk.maximize();},
+    openAlert(symbol){navigate('private-dhan');openChart(symbol);desk.alertFor(symbol);},
     configure(allowed) {
       reset();
       nav.classList.toggle('hidden',!allowed);

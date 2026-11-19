@@ -857,6 +857,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     searchSymbols:(initial,kind)=>openSymbolSearch(initial,kind),
     maximize:()=>{if(!document.fullscreenElement&&!chartPanel.classList.contains('dhan-focus-chart'))void actions.fullscreen();},
     watchSymbols:()=>currentList()?.symbols??[],
+    alertFor:symbol=>createAlert(undefined,{symbol}),
     updateQuotes(items,liveQuotes,symbol,isLive=false) {
       if(favoriteOwner!==state.user?.id){
         favoriteOwner=state.user?.id;
