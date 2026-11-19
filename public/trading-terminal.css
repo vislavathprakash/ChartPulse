@@ -455,6 +455,12 @@ body.chart-workspace-open .content-wrap { max-width: none; }
 .dhan-index-grid article,.dhan-mover-grid section { min-width:0; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--panel2); }
 .dhan-index-grid header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; background:none; border:0; padding:0; }
 .dhan-index-grid article > strong { display:block; font-size:clamp(20px,2vw,28px); font-variant-numeric:tabular-nums; margin:6px 0; }
+.dhan-index-chart { display:inline-grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--muted);cursor:pointer; }
+.dhan-index-chart .terminal-icon { width:18px;height:18px; }
+.dhan-index-chart:hover { color:var(--green);border-color:var(--green); }
+.dhan-index-chart:focus-visible { outline:2px solid var(--green);outline-offset:2px; }
+.dhan-index-change { display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:0 0 10px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums; }
+@media(max-width:640px){.dhan-index-chart{width:44px;height:44px;}}
 .dhan-inline-chart,.dhan-search-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:4px 8px; color:var(--text); background:transparent; border:1px solid var(--line); border-radius:8px; cursor:pointer; }
 .dhan-inline-chart:hover,.dhan-search-actions button:hover { color:var(--green); border-color:var(--green); }
 .dhan-inline-chart svg,.dhan-search-row button svg { width:16px; height:16px; flex:none; }

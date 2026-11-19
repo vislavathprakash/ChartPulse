@@ -405,7 +405,15 @@
     const chosenIndex=universe?.indices?.find(item=>item.symbol===universe.symbol);
     const markup=!indexView?list:`<div class="dhan-index-grid">${[...benchmarks].map(([symbol,name])=>{
       const q=bySymbol.get(symbol);
-      return `<article><header><button type="button" class="dhan-index-select" data-market-index="${html(symbol)}" ${universe?'':'disabled'} aria-pressed="${universe?.symbol===symbol}">${html(name)}</button><span>${changeMarkup(q?.change_pct)}</span></header><strong>${researchNumber(q?.price)}</strong><small class="muted">${q?.updated_at?html(researchTime(q.updated_at)):q?'Quote snapshot':'Waiting for quote'}</small></article>`;
+      const hasPrice=Number.isFinite(q?.price)&&q.price>0;
+      const previous=Number.isFinite(q?.previous_close)&&q.previous_close>0?q.previous_close:null;
+      const points=hasPrice&&previous!==null?q.price-previous:null;
+      const percent=points!==null?points/previous*100:Number.isFinite(q?.change_pct)?q.change_pct:null;
+      const signed=value=>(value>0?'+':value<0?'−':'')+researchNumber(Math.abs(value));
+      const change=points===null?'—':signed(points);
+      const percentText=percent===null?'—':signed(percent)+'%';
+      const tone=(points??percent??0)>0?'positive':(points??percent??0)<0?'negative':'muted';
+      return `<article><header><button type="button" class="dhan-index-select" data-market-index="${html(symbol)}" ${universe?'':'disabled'} aria-pressed="${universe?.symbol===symbol}">${html(name)}</button><button type="button" class="dhan-index-chart" data-dhan-open-chart="${html(symbol)}" aria-label="Open ${html(name)} chart" title="Open ${html(name)} chart">${terminalIcon('charts')}</button></header><strong>${researchNumber(q?.price)}</strong><div class="dhan-index-change ${tone}" aria-label="Change from previous close">${change} <span>(${percentText})</span></div><small class="muted">${q?.updated_at?html(researchTime(q.updated_at)):q?'Quote snapshot':'Waiting for quote'}</small></article>`;
     }).join('')}</div>
     ${chosenIndex?`<section class="dhan-overview-breadth">
       <div class="dhan-stock-summary"><div><h3>${html(chosenIndex.name)} insights</h3><p class="muted">${ranked.length} of ${items.length} constituents with a reported daily move${universe.asOf?' · Membership as of '+html(universe.asOf):''}${universe.stale?' · Cached membership':''}</p></div>${chartButton(chosenIndex.symbol,'Index chart')}</div>
