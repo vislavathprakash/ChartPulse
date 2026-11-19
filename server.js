@@ -334,7 +334,7 @@ app.post('/api/webhooks/tradingview/:token', asyncRoute(async (req, res) => {
 }));
 
 async function deliverWhatsAppAlert(alert) {
-  if (isSimulated && alert.source!=='dhan') { await pool.query("UPDATE alerts SET status='simulated' WHERE id=$1", [alert.id]); return; }
+  if (isSimulated && !['dhan','news'].includes(alert.source)) { await pool.query("UPDATE alerts SET status='simulated' WHERE id=$1", [alert.id]); return; }
   const { rows } = await pool.query('SELECT id,whatsapp_phone,whatsapp_opt_in FROM users WHERE id=$1 AND active=TRUE', [alert.user_id]);
   const user = rows[0];
   if (!user || !user.whatsapp_opt_in || !user.whatsapp_phone) {

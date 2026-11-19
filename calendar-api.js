@@ -12,6 +12,7 @@ function fail(message){throw Object.assign(new Error(message),{status:400});}
 function safeUrl(value){if(!value)return null;let url;try{url=new URL(value);}catch{fail('Enter a valid source URL.');}if(url.protocol!=='https:')fail('Source links must use HTTPS.');return url.href.slice(0,1000);}
 function installCalendar({app,pool,requireAuth,requireAdminAuth,asyncRoute,deliveryStatus,runtime}){
   const feeds=createCalendarFeeds(pool);
+  const news=require('./services/news-workspace').installNews({app,pool,requireAuth,asyncRoute,runtime});
   app.get('/api/calendar/feeds',requireAuth,asyncRoute(async(req,res)=>{res.set('Cache-Control','no-store');res.json({feeds:await feeds.status(),ipoDocuments:await feeds.documents()});}));
   app.get('/api/admin/calendar/feeds',requireAdminAuth,asyncRoute(async(req,res)=>{res.set('Cache-Control','no-store');res.json({feeds:await feeds.status()});}));
   app.post('/api/admin/calendar/feeds/refresh',requireAdminAuth,asyncRoute(async(req,res)=>{await feeds.refresh();res.json({feeds:await feeds.status()});}));
@@ -48,7 +49,7 @@ function installCalendar({app,pool,requireAuth,requireAdminAuth,asyncRoute,deliv
     CREATE INDEX IF NOT EXISTS calendar_reminders_owner_idx ON calendar_reminders(user_id,due_at DESC);
     CREATE INDEX IF NOT EXISTS calendar_ipo_time_idx ON calendar_events(category,starts_at DESC);
     CREATE INDEX IF NOT EXISTS calendar_events_time_idx ON calendar_events(starts_at);
-    CREATE INDEX IF NOT EXISTS calendar_reminders_due_idx ON calendar_reminders(due_at) WHERE enabled=TRUE AND fired_at IS NULL;`);await feeds.setup();}
+    CREATE INDEX IF NOT EXISTS calendar_reminders_due_idx ON calendar_reminders(due_at) WHERE enabled=TRUE AND fired_at IS NULL;`);await feeds.setup();await news.setup();}
   async function validate(body){if(!body||typeof body!=='object')fail('Enter valid event details.');const metadata={};const keys=['actual','forecast','previous','country','currency','importance','epsActual','epsEstimate','revenueActual','revenueEstimate','dividendAmount','exDate','recordDate','ipoPriceBand','lotSize','issueOpen','issueClose','listingDate','company','securityType','ipoSymbol','issueStatus','issueSize','documentUrl'];if(body.metadata!==undefined){if(!body.metadata||typeof body.metadata!=='object'||Array.isArray(body.metadata))fail('Event metadata must be an object.');for(const [key,value] of Object.entries(body.metadata)){if(!keys.includes(key))fail('Unknown event data field: '+key);if(value===null)continue;if(!(typeof value==='string'||typeof value==='number')||String(value).length>200||(typeof value==='number'&&!Number.isFinite(value)))fail('Invalid event data field: '+key);metadata[key]=key==='documentUrl'?safeUrl(value):value;}}const category=body.category,title=String(body.title||'').trim(),startsAt=body.startsAt;
     if(!CATEGORIES.includes(category)||!title||title.length>160)fail('Choose a category and enter a title up to 160 characters.');
     if(!Number.isFinite(Date.parse(startsAt)))fail('Choose an event date and time.');
@@ -74,10 +75,10 @@ function installCalendar({app,pool,requireAuth,requireAdminAuth,asyncRoute,deliv
     const dueAt=req.body.dueAt?new Date(req.body.dueAt):new Date(Date.parse(e.starts_at)-lead*60000);if(!Number.isFinite(+dueAt))fail('Choose a valid alert date.');if(+dueAt<=Date.now())fail('This reminder time has passed. Choose a later reminder.');
     const reminder=await pool.transaction(async()=>{const {rows}=await pool.query('INSERT INTO calendar_reminders(user_id,event_id,due_at,notification,message) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,event_id,due_at,notification) DO UPDATE SET enabled=TRUE,message=EXCLUDED.message WHERE calendar_reminders.fired_at IS NULL RETURNING *',[req.session.user.id,eventId,dueAt.toISOString(),notification,String(req.body.message||'').slice(0,500)]);if(!rows[0])fail('This reminder has already been sent.');await history(req.session.user.id,rows[0].id,'scheduled',dueAt.toISOString()+' · '+notification);return rows[0];});res.status(201).json({reminder});
   }));
-  async function scan(){if(runtime.shard===0)feeds.refresh().catch(err=>console.error('Calendar RSS refresh failed:',err.message));await pool.transaction(async()=>{
+  async function scan(){if(runtime.shard===0){feeds.refresh().catch(err=>console.error('Calendar RSS refresh failed:',err.message));news.refresh().catch(err=>console.error('News RSS refresh failed:',err.message));}await pool.transaction(async()=>{
     await runtime.assertLeadership();const {rows}=await pool.query(`SELECT r.*,e.title,e.symbol,e.starts_at,e.source_name,e.source_url,u.whatsapp_opt_in FROM calendar_reminders r JOIN calendar_events e ON e.id=r.event_id JOIN users u ON u.id=r.user_id WHERE r.enabled=TRUE AND r.fired_at IS NULL AND r.due_at<=NOW() AND u.active=TRUE AND u.role='customer' AND (r.user_id % $1)=$2 ORDER BY r.due_at LIMIT 100 FOR UPDATE OF r SKIP LOCKED`,[runtime.shards,runtime.shard]);
     for(const r of rows){await pool.query("INSERT INTO alerts(user_id,symbol,title,detail,source,status,event_key,email_requested) VALUES($1,$2,$3,$4,'calendar',$5,$6,$7) ON CONFLICT(event_key) DO NOTHING",[r.user_id,r.symbol||'CALENDAR','Calendar alert · '+r.title,`${r.title}. Scheduled ${new Date(r.starts_at).toISOString()}. ${r.message?r.message+' · ':''}Source: ${r.source_name}${r.source_url?' · '+r.source_url:''}. Reminder scheduled ${new Date(r.due_at).toISOString()}.`,deliveryStatus(r.whatsapp_opt_in,r.notification),'calendar-reminder:'+r.id,['email','all'].includes(r.notification)]);await history(r.user_id,r.id,'triggered','Alert created and queued for notification delivery.');await pool.query('UPDATE calendar_reminders SET fired_at=NOW(),enabled=FALSE WHERE id=$1',[r.id]);}
-  });}
+  });await news.scan();}
   return {setup,scan};
 }
 module.exports={installCalendar};
