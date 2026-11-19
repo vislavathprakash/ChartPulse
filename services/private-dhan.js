@@ -3,6 +3,7 @@ const { parseQuery, evaluateQuery } = require('../market-query');
 const { installDhanResearch, quoteDepth } = require('./dhan-research');
 const { installDhanAlerts } = require('./dhan-alerts');
 const { installDhanConstituents } = require('./dhan-constituents');
+const { installLiveScreeners } = require('./live-screeners');
 const istDate = time => new Date(time + 19800000).toISOString().slice(0, 10);
 const commodityNames={GOLDM:'GOLD MINI',SILVERM:'SILVER MINI',SILVERMIC:'SILVER MICRO',CRUDEOILM:'CRUDE OIL MINI',NATGASMINI:'NATURAL GAS MINI'};
 const commodityKeywords={FUTURES:'FUT',FUTURE:'FUT',OPTIONS:'OPTION',OPT:'OPTION',CE:'CALL',CALLS:'CALL',PE:'PUT',PUTS:'PUT'};
@@ -193,6 +194,8 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     if (!allows(req.session.user)) return res.status(404).json({ error: 'Not found.' });
     next();
   }
+  installLiveScreeners({app,pool,requireAuth,ownerOnly,asyncRoute,fetchData,
+    instruments:()=>new Map([...catalog,...commodityCatalog]),lookup,tradeDate});
   app.get('/api/private-dhan/symbols',requireAuth,ownerOnly,asyncRoute(async(req,res)=>{
     const normalize=value=>value.toUpperCase().replace(/\s+/g,'');
     const raw=typeof req.query.q==='string'?req.query.q.trim().slice(0,80).toUpperCase():'';

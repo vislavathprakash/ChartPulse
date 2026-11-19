@@ -132,4 +132,4 @@ function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,cre
   }));
 }
 
-module.exports={installDhanResearch,quoteDepth};
+module.exports={installDhanResearch,quoteDepth,metricGroups,company};
