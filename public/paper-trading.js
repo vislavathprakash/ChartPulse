@@ -232,28 +232,29 @@
     if(!owner)return;
     const d=workspaceDialog('Paper order',`<div class="paper-ticket-loading" role="status">Loading instrument and quote…</div>`);
     dialog=d;
-    d.classList.add('paper-dialog');
+    d.classList.add('paper-dialog','paper-order-ticket');
     try {
       const item=await api('/api/paper/instrument?'+query({source,symbol}));
       symbol=item.symbol;
       if(!d.open||state.user?.id!==owner)return;
       d.querySelector('.paper-ticket-loading').outerHTML=`
-        <div class="paper-ticket-intro"><h3>${html(item.name)}</h3><span class="tag">PAPER ONLY</span></div>
-        <p class="muted">${source==='workspace'&&state.meta?.simulated?'Simulated quotes · ':''}${html(nameOf(item.kind))} · ${format(item.last)}${item.fresh?'':' · Last known or unavailable'}${item.expiry?' · Expires '+html(item.expiry):''}</p>
-        <div class="paper-form-grid">
-          <label>Side<select name="side"><option value="buy" ${side==='buy'?'selected':''}>Buy</option><option value="sell" ${side==='sell'?'selected':''}>Sell</option></select></label>
-          <label>Product<select name="product" ${closing?'disabled':''}><option value="delivery" ${product==='delivery'?'selected':''}>${item.kind==='equity'?'Delivery':'Carry forward'}</option><option value="intraday" ${product==='intraday'?'selected':''}>Intraday</option></select></label>
+        <section class="paper-ticket-security" aria-label="Order instrument"><div class="paper-ticket-security-name"><span class="paper-ticket-security-icon">${terminalIcon('charts')}</span><div><h3>${html(item.name)}</h3><p>${html(symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} <span>· ${html(nameOf(item.kind))}${item.expiry?' · '+html(item.expiry):''}</span></p></div><span class="paper-ticket-practice">${terminalIcon('paper')}Practice</span></div><div class="paper-ticket-price"><strong>${format(item.last)}</strong><span class="paper-ticket-feed ${item.fresh?'is-live':'is-stale'}"><i></i>${source==='workspace'&&state.meta?.simulated?'Simulated quote':item.fresh?'Live quote':item.last==null?'Quote unavailable':'Last known price'}</span></div></section>
+        <fieldset class="paper-ticket-side"><legend>Order side</legend>${['buy','sell'].map(value=>`<label class="paper-side-${value}"><input type="radio" name="side" value="${value}" ${side===value?'checked':''}><span>${terminalIcon('arrow')}${value==='buy'?'Buy':'Sell'}</span></label>`).join('')}</fieldset>
+        <div class="paper-ticket-section-label">Order details</div><div class="paper-form-grid">
+          <label class="paper-field-wide">Product<select name="product" ${closing?'disabled':''}><option value="delivery" ${product==='delivery'?'selected':''}>${item.kind==='equity'?'Delivery · hold overnight':'Carry forward · hold overnight'}</option><option value="intraday" ${product==='intraday'?'selected':''}>Intraday · same-day trade</option></select></label>
           <label>Order type<select name="type"><option value="market">Market</option><option value="limit">Limit</option><option value="stop">Stop market</option></select></label>
-          <label>${item.kind==='equity'?'Shares':`Lots · ${item.lotSize} ${item.exchange==='MCX'?'quote units':'units'} each`}<input type="number" name="units" min="1" max="100000" step="1" value="${units}" required></label>
+          <label>${item.kind==='equity'?'Quantity · shares':'Quantity · lots'}<input type="number" name="units" min="1" max="100000" step="1" value="${units}" required>${item.kind!=='equity'?`<small>1 lot = ${html(item.lotSize)} ${item.exchange==='MCX'?'quote units':'units'}</small>`:''}</label>
           <label data-paper-order-level class="hidden"><span>Limit price (₹)</span><input type="number" name="level" min="0.01" step="0.01" disabled></label>
+        </div>
+        <details class="paper-risk-settings"><summary>${terminalIcon('lock')}<span>Stop loss & target</span><small>Optional</small><span class="paper-risk-chevron">⌄</span></summary><div class="paper-form-grid">
           <label>Stop loss (₹)<input type="number" name="stopLoss" min="0.01" step="0.01" placeholder="Optional"></label>
           <label>Take profit (₹)<input type="number" name="takeProfit" min="0.01" step="0.01" placeholder="Optional"></label>
-        </div>
-        <p class="muted paper-ticket-note">${item.intradayCutoff?'Intraday paper cutoff: '+cutoffTime.format(new Date(item.intradayCutoff))+' IST. ':''}Stop loss and take profit use eligible quotes.${item.exchange==='MCX'?' MCX values use the contract’s quote multiplier. Short-option margin uses an estimate based on a related futures quote.':''}</p>
+        </div><p class="paper-risk-help">Price levels per unit. Protection uses eligible quotes.</p></details>
+        <p class="muted paper-ticket-note">${terminalIcon('paper')}<span>Virtual funds only. ${item.intradayCutoff?'Intraday cutoff '+cutoffTime.format(new Date(item.intradayCutoff))+' IST. ':''}${item.exchange==='MCX'?'MCX calculations use the contract multiplier; short-option margin is an estimate.':''}</span></p>
         <div class="paper-preview" aria-live="polite"></div>`;
       const form=d.querySelector('form'), issue=d.querySelector('.dialog-error'), preview=d.querySelector('.paper-preview');
       const actions=d.querySelector('.dialog-actions');
-      actions.insertAdjacentHTML('beforeend','<button class="button secondary" type="submit">Review order</button><button class="button primary hidden" type="button" data-submit-paper>Place paper order</button>');
+      actions.insertAdjacentHTML('beforeend','<button class="button primary" type="submit">Review order '+terminalIcon('arrow')+'</button><button class="button primary hidden" type="button" data-submit-paper>Place paper order</button>');
       const review=actions.querySelector('button[type=submit]'), submit=actions.querySelector('[data-submit-paper]');
       const level=d.querySelector('[data-paper-order-level]'), levelInput=level.querySelector('input');
       let payload, requestId=crypto.randomUUID(), revision=0, busy=false;
@@ -262,6 +263,7 @@
         payload=null;
         issue.textContent='';
         preview.replaceChildren();
+        review.classList.remove('hidden');
         submit.classList.add('hidden');
         const type=form.elements.type.value;
         level.classList.toggle('hidden',type==='market');
@@ -276,6 +278,7 @@
         const numeric=key=>values.get(key)?Number(values.get(key)):null;
         const input={source,symbol,product:closing?product:values.get('product'),side:values.get('side'),type:values.get('type'),units:numeric('units'),level:numeric('level'),stopLoss:numeric('stopLoss'),takeProfit:numeric('takeProfit'),requestId};
         review.disabled=true;
+        review.setAttribute('aria-busy','true');review.textContent='Reviewing…';
         submit.classList.add('hidden');
         issue.textContent='';
         try{
@@ -284,9 +287,10 @@
           preview.innerHTML=grid([['Units',fmt(estimate.quantity,0)],['Estimated price',format(estimate.price)],['Notional',format(estimate.notional)],estimate.closing?['Capital released',format(estimate.releases)]:['Required paper funds',format(estimate.required)],['Available now',format(estimate.available)],estimate.closing?['Estimated realised P&L',pnl(estimate.pnl)]:['Available after this order',format(estimate.available-estimate.required)]]);
           if(estimate.required>estimate.available&&estimate.required>0){issue.textContent='Insufficient virtual funds for this order.';return;}
           payload=input;
+          review.classList.add('hidden');
           submit.classList.remove('hidden');
         }catch(error){if(d.open&&token===revision)issue.textContent=error.message;}
-        finally{review.disabled=false;}
+        finally{review.disabled=false;review.removeAttribute('aria-busy');review.innerHTML='Review order '+terminalIcon('arrow');}
       });
       submit.addEventListener('click',async()=>{
         if(!payload||busy)return;
