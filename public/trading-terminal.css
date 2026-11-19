@@ -463,6 +463,17 @@ body.chart-workspace-open .content-wrap { max-width: none; }
 @media(max-width:640px){.dhan-index-chart{width:44px;height:44px;}}
 .dhan-inline-chart,.dhan-search-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:4px 8px; color:var(--text); background:transparent; border:1px solid var(--line); border-radius:8px; cursor:pointer; }
 .dhan-inline-chart:hover,.dhan-search-actions button:hover { color:var(--green); border-color:var(--green); }
+.dhan-instrument-actions { display:inline-flex;align-items:center;gap:5px;white-space:nowrap; }
+.dhan-depth-name { border:0;background:transparent;padding:6px 3px;color:var(--text);font-size:13px;font-weight:600;min-height:36px;cursor:pointer;text-align:left; }
+.dhan-depth-name:hover { color:var(--green);text-decoration:underline;text-underline-offset:4px; }
+.dhan-instrument-icon { display:inline-grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--muted);cursor:pointer; }
+.dhan-instrument-icon .terminal-icon { width:17px;height:17px; }
+.dhan-instrument-icon:hover { color:var(--green);border-color:var(--green); }
+.dhan-instrument-actions :is(button):focus-visible { outline:2px solid var(--green);outline-offset:2px; }
+.dhan-depth-sides { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px; }
+.dhan-depth-sides h3 { font-size:14px;margin:8px 0; }
+.dhan-depth-sides h3:last-child { text-align:right; }
+@media(max-width:640px){.dhan-instrument-icon{width:44px;height:44px;}.dhan-depth-name{min-height:44px;}}
 .dhan-inline-chart svg,.dhan-search-row button svg { width:16px; height:16px; flex:none; }
 .dhan-overview-breadth,.dhan-mover-grid { margin-top:24px; }
 .dhan-mover-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
