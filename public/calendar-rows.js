@@ -44,12 +44,9 @@
     const all=calendar.data?.events||[], today=calendar.date(new Date());
     for(const day of host.querySelectorAll('[data-calendar-day]')){
       const date=day.dataset.calendarDay, events=all.filter(e=>calendar.date(new Date(e.starts_at))===date);
-      const totals=Object.entries(categories).map(([key,label])=>[label,events.filter(e=>e.category===key).length]).filter(([,n])=>n);
       const formatted=new Date(date+'T12:00:00+05:30').toLocaleDateString('en-IN',{weekday:'short',timeZone:'Asia/Kolkata'});
-      day.innerHTML=`<span class="calendar-day-heading"><small>${formatted}</small>${date===today?'<small class="calendar-day-today">Today</small>':''}</span><b>${Number(date.slice(-2))}</b><span class="calendar-day-total">${events.length} event${events.length===1?'':'s'}</span><span class="calendar-day-categories">${totals.map(([label,n])=>`<span>${label} (${n})</span>`).join('')||'<span>No events</span>'}</span>`;
-      day.title=date+' · '+(totals.map(([label,n])=>label+' ('+n+')').join(', ')||'No events');
-      const reminders=calendar.centre().reminders.filter(r=>r.enabled&&!r.fired_at&&calendar.date(new Date(r.due_at))===date).length;
-      if(reminders){const note=document.createElement('small');note.className='calendar-day-reminders';note.textContent=reminders+' alert'+(reminders===1?'':'s');day.append(note);}
+      day.innerHTML=`<span class="calendar-day-heading"><small>${formatted}</small>${date===today?'<small class="calendar-day-today">Today</small>':''}</span><b>${Number(date.slice(-2))}</b><span class="calendar-day-total">${events.length} event${events.length===1?'':'s'}</span>`;
+      day.title=date+' · '+events.length+' events';
     }
     const group=host.querySelector('.calendar-categories');
     const allTab=document.createElement('button');allTab.type='button';allTab.setAttribute('role','tab');allTab.dataset.calendarCategory='all';group.prepend(allTab);
@@ -61,14 +58,29 @@
       button.onclick=()=>{calendar.category=key;calendar.render();};
     }
   }
+  function moveDay(calendar,direction){
+    const base=calendar.day||calendar.week()[0];
+    const date=new Date(base+'T12:00:00+05:30');
+    date.setUTCDate(date.getUTCDate()+direction);
+    const selected=calendar.date(date),week=calendar.week();
+    calendar.day=selected;
+    if(selected<week[0]||selected>week[6]){
+      calendar.offset+=Math.floor((Date.parse(selected+'T00:00:00Z')-Date.parse(week[0]+'T00:00:00Z'))/(7*86400000));
+      calendar.data=null;
+      calendar.render();
+      void calendar.load();
+    }else calendar.render();
+  }
   marketCalendar.renderPage=function(){
     if(owner!==state.user?.id){owner=state.user?.id;this.day=this.date(new Date());this.category='all';this.economicFeedOpen=false;}
+    this.preferences();
+    this.view='list';
     originalRender();
     const host=$('calendarWorkspace');if(!host)return;
     host.classList.add('calendar-single-rows','calendar-refined');
     if(this.section!=='events')return;
     counts(this,host);
-    host.querySelectorAll('[data-calendar-view]').forEach(b=>b.textContent=b.dataset.calendarView==='table'?'Compact':'Comfortable');
+    host.querySelector('[aria-label="Event view"]')?.remove();
     host.querySelector('.calendar-table-heading')?.remove();
     const list=host.querySelector('.calendar-list');
     list.classList.remove('calendar-table-view');
@@ -86,6 +98,10 @@
     const feed=list.querySelector('.calendar-feed-panel');
     if(feed){const details=document.createElement('details');details.className='calendar-source-details';const summary=document.createElement('summary');summary.textContent='Data sources and updates';details.append(summary);feed.before(details);details.append(feed);}
     const controls=host.querySelector('.calendar-view-controls');
+    const dayNav=document.createElement('nav');dayNav.className='calendar-day-navigation';dayNav.setAttribute('aria-label','Navigate event days');
+    const previous=action('Previous day','arrow',()=>moveDay(this,-1));previous.classList.add('calendar-previous-day');
+    const selected=document.createElement('span');selected.className='calendar-navigation-date';selected.textContent=this.day?new Date(this.day+'T12:00:00+05:30').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',timeZone:'Asia/Kolkata'}):'All week';selected.setAttribute('aria-live','polite');
+    dayNav.append(previous,selected,action('Next day','arrow',()=>moveDay(this,1)));controls?.append(dayNav);
     const summary=controls?.querySelector(':scope > span');
     if(summary)summary.textContent=selectedEvents(this).length+' saved events '+(this.day?'on selected day':'this week');
     this.filterPage(host);
