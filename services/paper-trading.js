@@ -89,6 +89,7 @@ function ticketQuote(item,quote) {
 }
 
 function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,practiceChart}) {
+  require('./paper-report').installPaperReport({app,pool,requireAuth,asyncRoute,publicOrder});
   async function setup() {
     await pool.query("CREATE TABLE IF NOT EXISTS paper_accounts (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, cash BIGINT NOT NULL, realized BIGINT NOT NULL DEFAULT 0)");
     await pool.query("CREATE TABLE IF NOT EXISTS paper_positions (user_id INTEGER NOT NULL REFERENCES paper_accounts(user_id) ON DELETE CASCADE, source TEXT NOT NULL, symbol TEXT NOT NULL, instrument JSONB NOT NULL, quantity INTEGER NOT NULL, entry_value BIGINT NOT NULL, capital BIGINT NOT NULL, stop_loss BIGINT, take_profit BIGINT, protected_at TIMESTAMPTZ, mark BIGINT, mark_at TIMESTAMPTZ, PRIMARY KEY(user_id,source,symbol))");
@@ -103,6 +104,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     await pool.query("ALTER TABLE paper_orders ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'delivery', ADD COLUMN IF NOT EXISTS session_end TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS chart_time BIGINT");
     await pool.query("CREATE INDEX IF NOT EXISTS paper_pending_user ON paper_orders(user_id) WHERE state='pending'");
     await pool.query("CREATE INDEX IF NOT EXISTS paper_order_history ON paper_orders(user_id,id DESC)");
+    await pool.query("CREATE INDEX IF NOT EXISTS paper_filled_report ON paper_orders(user_id,filled_at DESC,id DESC) WHERE state='filled'");
   }
   const query=(...args)=>pool.query(...args);
   async function account(userId) {
