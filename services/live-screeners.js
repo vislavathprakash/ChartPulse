@@ -129,10 +129,11 @@ function installLiveScreeners({app,pool,requireAuth,ownerOnly,asyncRoute,fetchDa
         const directory=instruments(),today=new Date(Date.now()+19800000).toISOString().slice(0,10);
         if(config.group==='futures'||config.group==='commodities'){
           const roots=new Set(config.symbols.map(s=>s.split(':')[1]));
-          items=[...directory.values()].filter(i=>i.kind==='futures'&&i.expiry>=today&&(config.group==='commodities'?i.exchange==='MCX':i.exchange!=='MCX'&&(roots.has(i.underlying)||i.underlying===config.underlying.split(':')[1])));
+          items=[...directory.values()].filter(i=>i.kind==='futures'&&i.expiry>=today&&(config.group==='commodities'?i.exchange==='MCX'&&(config.underlying==='MCX:ALL'||i.underlying===config.underlying.split(':')[1]):i.exchange!=='MCX'&&(roots.has(i.underlying)||i.underlying===config.underlying.split(':')[1])));
           if(config.expiry)items=items.filter(i=>i.expiry===config.expiry);
           items.sort((a,b)=>a.expiry.localeCompare(b.expiry)||a.symbol.localeCompare(b.symbol));
         }else items=config.symbols.map(s=>directory.get(s)).filter(i=>i?.kind==='equity');
+        if(config.group==='commodities')job.universe=config.underlying==='MCX:ALL'?'MCX futures':config.underlying.split(':')[1]+' futures';
         job.available=items.length;items=items.slice(0,100);job.total=items.length;
         if(!items.length)throw fail('No contracts or stocks are available in this universe. Choose another universe.');
         const key=items.map(i=>i.id+':'+i.segment).join(',');
