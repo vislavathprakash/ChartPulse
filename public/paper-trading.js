@@ -132,8 +132,8 @@
       markup=table(['Instrument','Side / size','Fill price','Realised P&L','Filled (IST)'],data.trades.map(o=>[instrument(o),`${o.side.toUpperCase()} · ${quantity(o)}`,format(o.fill),pnl(o.pnl),date(o.filledAt)]),'Filled paper trades will appear here.')+pager(data.hasMoreTrades);
     }
     if(activityContent.dataset.markup!==markup){
-      const focused=!force&&document.activeElement.closest?.('.paper-position-record');
-      const focusKey=focused?.dataset.positionKey;
+      const focused=!force?document.activeElement.closest?.('.paper-position-record'):null;
+      const focusKey=focused?.dataset?.positionKey;
       const focusAction=focused&&['data-paper-position-chart','data-paper-protection','data-paper-close'].find(attribute=>document.activeElement.hasAttribute(attribute));
       activityContent.innerHTML=markup;activityContent.dataset.markup=markup;
       if(focusKey){const replacement=[...activityContent.querySelectorAll('.paper-position-record')].find(row=>row.dataset.positionKey===focusKey);replacement?.querySelector(focusAction?'['+focusAction+']':'summary')?.focus({preventScroll:true});}
