@@ -219,12 +219,34 @@ async function loadQueries() {
   } catch { }
 }
 
+// Provider acceptance is distinct from recipient delivery confirmation.
+function renderAlertEvent(a) {
+  const icons = {
+    email:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/>',
+    whatsapp:'<path d="M20 11.5a8 8 0 0 1-12 7L3 20l1.5-5A8 8 0 1 1 20 11.5Z"/><path d="M8 8c0 4 2 6 6 6l1-2-2-1-1 1-2-2 1-1-1-2Z"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    chevron:'<path d="m9 5 7 7-7 7"/>'
+  };
+  const icon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${icons[name]||terminalIcons[name]||terminalIcons.alerts}</svg>`;
+  const labels = {logged:'Recorded',done:'Sent',delivered:'Delivered',read:'Read',sent:'Sent',failed:'Failed',ready:'Queued',queued:'Queued',processing:'Sending',sending:'Sending',skipped:'Skipped',simulated:'Simulated'};
+  const tone = status => ['failed'].includes(status)?'error':['done','delivered','read','sent'].includes(status)?'success':['queued','ready','sending','processing'].includes(status)?'pending':'neutral';
+  const deliveries = Array.isArray(a.deliveries)?a.deliveries:[];
+  const channels = deliveries.map(d=>{
+    const name={email:'Email',whatsapp:'WhatsApp',in_app:'In-app'}[d.channel]||d.channel||'Notification';
+    const label=d.channel==='in_app'&&d.status==='done'?'Recorded':labels[d.status]||d.status||'Pending';
+    return `<span class="activity-channel activity-${tone(d.status)}" title="${html(name+' · '+label)}">${icon(d.channel==='in_app'?'alerts':d.channel)}<span>${html(name)}</span><span class="activity-channel-state">${html(label)}</span></span>`;
+  }).join('');
+  const date = new Date(a.created_at), valid = Number.isFinite(date.getTime());
+  const day=valid?new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}).format(date):'Date unavailable';
+  const time=valid?new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}).format(date)+' IST':'';
+  return `<details class="activity-event"><summary><span class="activity-event-icon">${icon('alerts')}</span><span class="activity-main"><span class="activity-title">${html(a.title||'Market alert')}</span><span class="activity-meta"><span class="activity-symbol">${html(a.symbol||'Market')}</span><span>${html(a.source==='tradingview'?'TradingView':a.source==='dhan'?'DhanHQ':'AlertPe')}</span></span><span class="activity-preview">${html(a.detail||'Open to view notification details.')}</span></span><span class="activity-delivery">${channels||`<span class="activity-channel activity-${tone(a.status)}">${html(labels[a.status]||a.status||'Recorded')}</span>`}</span><time class="activity-time"${valid?` datetime="${date.toISOString()}"`:''}>${icon('clock')}<span><b>${html(day)}</b><span>${html(time)}</span></span></time><span class="activity-expand" title="Expand event details">${icon('chevron')}</span></summary><div class="activity-detail"><div><span class="activity-detail-label">Alert message</span><p>${html(a.detail||'No additional message.')}</p></div><div class="activity-detail-note"><span class="activity-detail-label">Event status</span><p>${html(labels[a.status]||a.status||'Recorded')} · ${html(a.source||'AlertPe')}</p><small>Sent means accepted by the notification provider. Delivery is confirmed only when reported by the provider.</small></div></div></details>`;
+}
 async function loadAlerts() {
   loadTechnicalAlerts();
   loadAlertRules();
   try {
     const { alerts } = await api('/api/alerts'); $('alertCount').textContent = alerts.length; $('overviewAlertCount').textContent = alerts.length;
-    $('alertList').innerHTML = alerts.length ? alerts.map(a => `<div class="alert-row"><span class="alert-type-icon">${a.source === 'tradingview' ? '⌁' : '♧'}</span><div><b>${html(a.title)} · ${html(a.symbol || 'Market')}</b><p>${html(a.detail)}</p></div><div><span class="status-chip ${html(a.status)}">${html(a.status)}</span>${(a.deliveries||[]).filter(d=>d.channel!=='in_app').map(d=>`<br><span class="tiny muted">${html(d.channel)}: ${html(d.status)}</span>`).join('')}<br><time>${new Date(a.created_at).toLocaleString()}</time></div></div>`).join('') : '<p class="muted">No alert events yet. Create a TradingView alert and send it to your private webhook endpoint.</p>';
+    $('alertList').innerHTML = alerts.length ? alerts.map(renderAlertEvent).join('') : '<div class="activity-empty">'+terminalIcon('alerts')+'<b>Your alert activity will appear here</b><p>Create an alert to track its trigger time and notification status.</p></div>';
   } catch { $('alertList').innerHTML = '<p class="muted">Sign in to view account alerts.</p>'; }
 }
 async function loadAlertRules() {
