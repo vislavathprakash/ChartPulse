@@ -1,34 +1,93 @@
-/* A single, horizontally scrollable row for each calendar record. */
-(()=>{
-  const names={actual:'Actual',forecast:'Forecast',previous:'Previous',company:'Company',country:'Country',currency:'Currency',importance:'Impact',epsActual:'EPS actual',epsEstimate:'EPS estimate',revenueActual:'Revenue actual',revenueEstimate:'Revenue estimate',dividendAmount:'Dividend',exDate:'Ex-dividend date',recordDate:'Record date',ipoPriceBand:'Price band',lotSize:'Lot size',issueOpen:'Issue opens',issueClose:'Issue closes',listingDate:'Listing date',securityType:'Security type',ipoSymbol:'IPO symbol',issueStatus:'Status',issueSize:'Issue size'};
-  const orders={economic:['actual','forecast','previous','importance','country','currency'],earnings:['epsActual','epsEstimate','revenueActual','revenueEstimate','company','country','currency'],dividends:['dividendAmount','exDate','recordDate','currency','company','country'],events:['company','country','currency']};
-  const before=marketCalendar.renderPage.bind(marketCalendar);
-  const cell=(row,text,className='')=>{const td=document.createElement('td');td.className=className;td.textContent=text??'—';row.appendChild(td);return td;};
-  const table=(label,headers)=>{const wrap=document.createElement('div');wrap.className='calendar-row-scroll';wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label',label+'; scroll horizontally for all details');const t=document.createElement('table');t.className='calendar-row-table';const caption=document.createElement('caption');caption.textContent=label; t.appendChild(caption);const head=t.createTHead().insertRow();headers.forEach(s=>{const th=document.createElement('th');th.scope='col';th.textContent=s;head.appendChild(th);});wrap.appendChild(t);return {wrap,t,body:t.createTBody()};};
+/* Compact, expandable calendar records with shared alert actions. */
+(() => {
+  const categories={economic:'Economic',earnings:'Earnings',dividends:'Dividends',ipo:'IPO',events:'Events'};
+  const fields={actual:'Actual',forecast:'Forecast',previous:'Previous',dividendAmount:'Dividend',epsActual:'EPS actual',epsEstimate:'EPS estimate',importance:'Impact'};
+  const mainFields={economic:['actual','forecast','previous'],earnings:['epsActual','epsEstimate'],dividends:['dividendAmount','exDate'],events:[],ipo:[]};
+  const originalRender=marketCalendar.renderPage.bind(marketCalendar);
+  let owner;
+  const selectedEvents=calendar=>(calendar.data?.events||[]).filter(e=>!calendar.day||calendar.date(new Date(e.starts_at))===calendar.day);
+  function icon(name){return terminalIcon(name);}
+  function action(label,name,callback){
+    const button=document.createElement('button');
+    button.type='button';button.className='calendar-inline-action';button.title=label;button.setAttribute('aria-label',label);
+    button.innerHTML=icon(name);button.onclick=callback;return button;
+  }
+  function record(calendar,event){
+    const card=document.createElement('article');
+    card.className='calendar-event calendar-expandable-event';
+    card.dataset.search=[event.title,event.symbol,event.source_name,event.details,...Object.values(event.metadata||{})].join(' ').toLowerCase();
+    const details=document.createElement('details');
+    const summary=document.createElement('summary');
+    const metadata=event.metadata||{};
+    const category=categories[event.category]||'Event';
+    const metrics=(mainFields[event.category]||[]).filter(k=>metadata[k]!=null&&metadata[k]!=='').slice(0,3);
+    summary.innerHTML=`<span class="calendar-event-chevron" aria-hidden="true">${icon('arrow')}</span><time datetime="${html(event.starts_at)}">${html(metadata.dateOnly?calendar.date(new Date(event.starts_at))+' · Date only':calendar.time(event.starts_at))}</time><span class="calendar-event-name"><strong>${html(event.title)}</strong><small>${html(event.symbol||metadata.company||category)}</small></span><span class="calendar-event-metrics">${metrics.map(k=>`<span><small>${html(fields[k]||k)}</small><b>${html(String(metadata[k]))}</b></span>`).join('')}</span>`;
+    summary.setAttribute('aria-label','Show details for '+event.title);
+    const content=document.createElement('div');content.className='calendar-expanded-content';
+    content.innerHTML=`<dl class="calendar-data-grid">${calendar.eventData(event)}</dl>${event.details?`<p>${html(event.details)}</p>`:''}${metadata.eventTimeNote?`<p>${html(metadata.eventTimeNote)}</p>`:''}<small>${html(event.source_name||'Personal event')}</small>`;
+    if(event.source_url){
+      const source=document.createElement('a');source.href=event.source_url;source.target='_blank';source.rel='noopener';source.textContent='Verify with source ↗';content.append(source);
+    }
+    details.append(summary,content);
+    const actions=document.createElement('div');actions.className='calendar-inline-actions';
+    const alert=action('Create event alert for '+event.title,'alerts',()=>calendar.reminder(event));alert.classList.add('calendar-inline-alert');actions.append(alert);
+    const count=calendar.centre().reminders.filter(r=>String(r.event_id)===String(event.id)&&r.enabled&&!r.fired_at).length;
+    if(count){const badge=document.createElement('span');badge.className='calendar-inline-count';badge.textContent=count;badge.title=count+' scheduled alerts';actions.append(badge);}
+    if(event.symbol){
+      actions.append(action('Create price alert for '+event.symbol,'alerts',()=>nativeAlerts.open(event.symbol,{startsAt:event.starts_at,name:event.title+' · price alert'})));
+      actions.lastElementChild.innerHTML=icon('research');
+      actions.append(action('Open chart for '+event.symbol,'charts',()=>{navigate('charts');stockWorkspace.open({symbol:event.symbol,name:event.symbol});}));
+    }
+    card.append(details,actions);return card;
+  }
+  function counts(calendar,host){
+    const all=calendar.data?.events||[], today=calendar.date(new Date());
+    for(const day of host.querySelectorAll('[data-calendar-day]')){
+      const date=day.dataset.calendarDay, events=all.filter(e=>calendar.date(new Date(e.starts_at))===date);
+      const totals=Object.entries(categories).map(([key,label])=>[label,events.filter(e=>e.category===key).length]).filter(([,n])=>n);
+      const formatted=new Date(date+'T12:00:00+05:30').toLocaleDateString('en-IN',{weekday:'short',timeZone:'Asia/Kolkata'});
+      day.innerHTML=`<span class="calendar-day-heading"><small>${formatted}</small>${date===today?'<small class="calendar-day-today">Today</small>':''}</span><b>${Number(date.slice(-2))}</b><span class="calendar-day-total">${events.length} event${events.length===1?'':'s'}</span><span class="calendar-day-categories">${totals.map(([label,n])=>`<span>${label} (${n})</span>`).join('')||'<span>No events</span>'}</span>`;
+      day.title=date+' · '+(totals.map(([label,n])=>label+' ('+n+')').join(', ')||'No events');
+      const reminders=calendar.centre().reminders.filter(r=>r.enabled&&!r.fired_at&&calendar.date(new Date(r.due_at))===date).length;
+      if(reminders){const note=document.createElement('small');note.className='calendar-day-reminders';note.textContent=reminders+' alert'+(reminders===1?'':'s');day.append(note);}
+    }
+    const group=host.querySelector('.calendar-categories');
+    const allTab=document.createElement('button');allTab.type='button';allTab.setAttribute('role','tab');allTab.dataset.calendarCategory='all';group.prepend(allTab);
+    const selected=selectedEvents(calendar);
+    for(const button of group.querySelectorAll('[data-calendar-category]')){
+      const key=button.dataset.calendarCategory, count=key==='all'?selected.length:selected.filter(e=>e.category===key).length;
+      button.textContent=(key==='all'?'All events':categories[key])+' ('+count+')';
+      button.setAttribute('aria-selected',String(key===calendar.category));
+      button.onclick=()=>{calendar.category=key;calendar.render();};
+    }
+  }
   marketCalendar.renderPage=function(){
-    before();if(this.section!=='events')return;
+    if(owner!==state.user?.id){owner=state.user?.id;this.day=this.date(new Date());this.category='all';this.economicFeedOpen=false;}
+    originalRender();
     const host=$('calendarWorkspace');if(!host)return;
-    host.classList.add('calendar-single-rows');
+    host.classList.add('calendar-single-rows','calendar-refined');
+    if(this.section!=='events')return;
+    counts(this,host);
     host.querySelectorAll('[data-calendar-view]').forEach(b=>b.textContent=b.dataset.calendarView==='table'?'Compact':'Comfortable');
     host.querySelector('.calendar-table-heading')?.remove();
-    const cards=[...host.querySelectorAll('.calendar-event')];
-    const events=(this.data?.events||[]).filter(e=>e.category===this.category&&(!this.day||this.date(new Date(e.starts_at))===this.day));
-    if(cards.length){
-      const available=Object.keys(names).filter(k=>events.some(e=>e.metadata?.[k]!==undefined&&e.metadata[k]!==null&&e.metadata[k]!==''));
-      const preferred=orders[this.category]||[];
-      const keys=[...preferred.filter(k=>available.includes(k)),...available.filter(k=>!preferred.includes(k))];
-      const {wrap,body}=table('Saved '+this.category+' events', ['Date / time','Event',...keys.map(k=>names[k]),'Symbol','Source','Notes','Actions']);
-      wrap.classList.toggle('calendar-row-compact',this.view==='table');cards[0].before(wrap);
-      cards.forEach((card,i)=>{const e=events[i];if(!e)return;const row=body.insertRow();row.className='calendar-event calendar-record-row';row.dataset.search=[e.title,e.symbol,e.source_name,e.details,...Object.values(e.metadata||{})].join(' ').toLowerCase();
-        cell(row,card.querySelector('.calendar-event-time').textContent,'calendar-row-date');cell(row,e.title,'calendar-row-title');keys.forEach(k=>cell(row,e.metadata?.[k]));cell(row,e.symbol||e.metadata?.ipoSymbol||'—','calendar-row-symbol');
-        const source=cell(row,'');if(e.source_url){const a=document.createElement('a');a.href=e.source_url;a.target='_blank';a.rel='noopener';a.textContent=(e.source_name||'View source')+' ↗';source.appendChild(a);}else source.textContent=e.source_name||'Personal event';
-        cell(row,e.details||e.metadata?.eventTimeNote||'—','calendar-row-notes');const actions=cell(row,'','calendar-row-actions');actions.appendChild(card.querySelector('.calendar-event-actions'));actions.querySelectorAll('button').forEach(b=>{const label=b.textContent;if(label==='Details'||label==='Price alert'||label==='Open chart ↗'){b.setAttribute('aria-label',label);b.title=label;b.textContent=label==='Details'?'ⓘ':label==='Price alert'?'♧':'⌁';b.classList.add('calendar-row-icon');}});card.remove();
-      });
+    const list=host.querySelector('.calendar-list');
+    list.classList.remove('calendar-table-view');
+    list.querySelectorAll('.calendar-feed-note').forEach(e=>e.remove());
+    if(this.category!=='ipo'){
+      list.querySelectorAll('.calendar-event,.calendar-empty').forEach(e=>e.remove());
+      const records=selectedEvents(this).filter(e=>this.category==='all'||e.category===this.category);
+      const section=document.createElement('section');section.className='calendar-event-records';
+      const heading=document.createElement('h3');heading.className='calendar-selection-title';
+      heading.textContent=(this.day===this.date(new Date())?"Today's events":this.day?new Date(this.day+'T12:00:00+05:30').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',timeZone:'Asia/Kolkata'})+' events':'This week’s events')+' · '+records.length;
+      section.append(heading,...records.map(e=>record(this,e)));
+      if(!records.length){const empty=document.createElement('p');empty.className='calendar-empty';empty.textContent=this.data?'No saved events in this category for the selected dates.':'Loading events…';section.append(empty);}
+      list.prepend(section);
     }
-    const docs=[...host.querySelectorAll('.ipo-document')];
-    if(docs.length){const {wrap,body}=table('Latest IPO filings',['Company / filing','Filed on','Details','Actions']);docs[0].parentElement.prepend(wrap);
-      docs.forEach(card=>{const row=body.insertRow();row.className='ipo-document calendar-record-row';cell(row,card.querySelector('b').textContent,'calendar-row-title');cell(row,card.querySelector('small').textContent.replace(/^Filed /,''),'calendar-row-date');cell(row,card.querySelector('p').textContent,'calendar-row-notes');cell(row,'','calendar-row-actions').appendChild(card.querySelector('.calendar-event-actions'));card.remove();});
-    }
+    const feed=list.querySelector('.calendar-feed-panel');
+    if(feed){const details=document.createElement('details');details.className='calendar-source-details';const summary=document.createElement('summary');summary.textContent='Data sources and updates';details.append(summary);feed.before(details);details.append(feed);}
+    const controls=host.querySelector('.calendar-view-controls');
+    const summary=controls?.querySelector(':scope > span');
+    if(summary)summary.textContent=selectedEvents(this).length+' saved events '+(this.day?'on selected day':'this week');
     this.filterPage(host);
   };
 })();
