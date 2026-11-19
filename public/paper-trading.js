@@ -41,6 +41,29 @@
   const activityNav=body.querySelector('.paper-activity-tabs'), activityContent=$('paper-activity-content');
   const activitySelection={...defaultActivity};
   const expandedPositions=new Set();
+  const expandedTrades=new Set();
+  let reportData=null, reportParams={};
+  const reportToday=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const reportControls=document.createElement('form');
+  reportControls.className='paper-report-filters';reportControls.hidden=true;reportControls.setAttribute('aria-label','Trade report filters');
+  reportControls.innerHTML=`<div class="paper-report-heading"><div><h3>${terminalIcon('calendar')}Trade report</h3><p>Filter all filled paper orders · Dates in IST</p></div><button class="button secondary" type="button" data-report-reset>Reset filters</button></div><div class="paper-report-fields"><label>Period<select name="period"><option value="all">All time</option><option value="today">Today</option><option value="day">Specific day</option><option value="month">Month</option><option value="year">Year</option><option value="custom">Custom range</option></select></label><label data-report-period="day" hidden>Day<input type="date" name="day" value="${reportToday}"></label><label data-report-period="month" hidden>Month<input type="month" name="month" value="${reportToday.slice(0,7)}"></label><label data-report-period="year" hidden>Year<input type="number" name="year" min="2000" max="2100" step="1" value="${reportToday.slice(0,4)}"></label><label data-report-period="custom" hidden>From<input type="date" name="from" value="${reportToday}"></label><label data-report-period="custom" hidden>To<input type="date" name="to" value="${reportToday}"></label><label>Product<select name="product"><option value="">All products</option><option value="intraday">Intraday</option><option value="delivery">Delivery / carry forward</option></select></label><label>Instrument<select name="kind"><option value="">All instruments</option><option value="equity">Stocks</option><option value="futures">Futures</option><option value="options">Options</option></select></label><label>Side<select name="side"><option value="">Buy & sell</option><option value="buy">Buy</option><option value="sell">Sell</option></select></label><label class="paper-report-search">Stock or symbol<input name="q" maxlength="100" placeholder="Search company or symbol"></label><button class="button primary" type="submit">${terminalIcon('search')}Apply filters</button></div><p class="paper-report-filter-error" role="alert"></p>`;
+  activityNav.after(reportControls);
+  const showReportPeriod=()=>{const period=reportControls.elements.period.value;reportControls.querySelectorAll('[data-report-period]').forEach(label=>{label.hidden=label.dataset.reportPeriod!==period;label.querySelector('input').disabled=label.hidden;});};
+  reportControls.elements.period.addEventListener('change',showReportPeriod);showReportPeriod();
+  reportControls.addEventListener('submit',event=>{
+    event.preventDefault();const values=Object.fromEntries(new FormData(reportControls)),next={};
+    if(values.period==='today')next.from=next.to=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    if(values.period==='day')next.from=next.to=values.day;
+    if(values.period==='month'&&/^\d{4}-\d{2}$/.test(values.month)){next.from=values.month+'-01';const [year,month]=values.month.split('-').map(Number);next.to=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);}
+    if(values.period==='year'){next.from=values.year+'-01-01';next.to=values.year+'-12-31';}
+    if(values.period==='custom'){next.from=values.from;next.to=values.to;}
+    const issue=reportControls.querySelector('[role=alert]');issue.textContent='';
+    if(values.period!=='all'&&(!next.from||!next.to)){issue.textContent='Choose the date or period to report on.';return;}
+    if(next.from&&next.from>next.to){issue.textContent='Start date must be on or before end date.';return;}
+    for(const key of ['product','kind','side','q'])if(values[key]?.trim())next[key]=values[key].trim();
+    reportParams=next;reportData=null;offset=0;expandedTrades.clear();render(true);void refresh();
+  });
+  reportControls.querySelector('[data-report-reset]').onclick=()=>{reportControls.reset();showReportPeriod();reportControls.requestSubmit();};
   let tab='chart', offset=0, data, generation=0, controller, timer, dialog;
   const chartPanel=$('paper-chart');
   const chart=createPaperChart(chartPanel,{search:(kind,exchange)=>search(true,kind,exchange),trade:(source,symbol,side)=>void open(source,symbol,side,1,'delivery',false,true),
@@ -79,6 +102,7 @@
     return `<details class="paper-position-record" data-position-key="${html(key)}" ${expandedPositions.has(key)?'open':''}><summary><span class="position-record-name"><span class="position-record-icon">${terminalIcon(kind==='equity'?'charts':'commodity')}</span><span><strong>${html(name)}</strong><small>${html(detail)}</small></span></span>${metric('Position',`<span class="paper-side ${long?'positive':'negative'}">${long?'Long':'Short'}</span>`, `<span class="position-size">${size}</span>`)}${metric('Average',format(position.average))}${metric('Last price',format(position.last),`<span class="position-quote-status ${position.fresh?'positive':''}">${quoteStatus}</span>`)}${metric('Unrealised P&L',pnl(position.pnl))}<span class="position-expand" aria-hidden="true">⌄</span></summary><div class="position-record-detail"><div class="position-detail-heading">${terminalIcon('list')}<h3>Position details</h3><span>${html(symbol)}</span></div><dl>${more.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="position-detail-footer"><p>${position.expired?'Contract expired · awaiting settlement.':'Virtual position · P&L uses the latest available quote.'}</p>${position.expired?'':`<div class="position-detail-actions">${action('position-chart','charts','Open chart')}${action('protection','settings','Edit protection')}${action('close','arrow','Close position')}</div>`}</div></div></details>`;
   }
   function showActivityTabs() {
+    reportControls.hidden=tab!=='trades';
     const items=activityTabs[tab];
     activityNav.hidden=!items;
     if(!items){
@@ -129,7 +153,7 @@
         if(protection.length)markup+='<h3>Position protection</h3>'+table(['Instrument','Exit side','Trigger','Price','Status','Action'],protection);
       }
     }else{
-      markup=table(['Instrument','Side / size','Fill price','Realised P&L','Filled (IST)'],data.trades.map(o=>[instrument(o),`${o.side.toUpperCase()} · ${quantity(o)}`,format(o.fill),pnl(o.pnl),date(o.filledAt)]),'Filled paper trades will appear here.')+pager(data.hasMoreTrades);
+      markup=tradeReportMarkup(pager);
     }
     if(activityContent.dataset.markup!==markup){
       const focused=!force?document.activeElement.closest?.('.paper-position-record'):null;
@@ -139,9 +163,26 @@
       if(focusKey){const replacement=[...activityContent.querySelectorAll('.paper-position-record')].find(row=>row.dataset.positionKey===focusKey);replacement?.querySelector(focusAction?'['+focusAction+']':'summary')?.focus({preventScroll:true});}
     }
   }
+  function tradeReportMarkup(pager){
+    if(!reportData)return '<div class="empty-state" role="status">Loading your trade report…</div>';
+    const s=reportData.summary;
+    const reportDay=value=>new Date(value+'T00:00:00+05:30').toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric'});
+    const period=reportParams.from?`${reportDay(reportParams.from)} — ${reportDay(reportParams.to)} · IST`:'All time · IST';
+    const totals=grid([['Filled orders',fmt(s.fills,0)],['Realised P&L',pnl(s.realized)],['Buy turnover',format(s.bought)],['Sell turnover',format(s.sold)],['Profitable / loss exits',`${s.wins} / ${s.losses}`],['Exit fills',fmt(s.exits,0)]]);
+    const rows=reportData.trades.map(o=>{
+      const filled=new Date(o.filledAt),valid=Number.isFinite(filled.getTime());
+      const day=valid?filled.toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric'}):'Date unavailable';
+      const clock=valid?filled.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
+      const details=[['Order ID','#'+html(o.id)],['Product',html(productLabel(o))],['Order type',html({market:'Market',limit:'Limit',stop:'Stop market'}[o.type]||o.type)],['Data source',o.source==='dhan'?'DhanHQ':state.meta?.simulated?'Simulated':'Workspace'],['Filled quantity',fmt(o.quantity,0)+' units'],['Fill value',format(o.fill*o.quantity)],['Placed (IST)',html(date(o.createdAt))],['Filled (IST)',html(date(o.filledAt))],['Stop loss',o.stopLoss==null?'Not set':format(o.stopLoss)],['Take profit',o.takeProfit==null?'Not set':format(o.takeProfit)]];
+      if(o.kind!=='equity')details.push(['Contract size',fmt(o.lotSize,0)+' units per lot']);
+      return `<details class="paper-trade-record paper-position-record" data-trade-id="${html(o.id)}" ${expandedTrades.has(String(o.id))?'open':''}><summary><span class="position-record-name"><span class="position-record-icon">${terminalIcon(o.kind==='equity'?'charts':'commodity')}</span><span><strong>${html(o.name)}</strong><small>${html(o.symbol.replace(/_\d{4}-\d{2}-\d{2}$/,''))} · ${html(productLabel(o))}</small></span></span><span class="position-metric"><small>Side / size</small><strong class="${o.side==='buy'?'positive':'negative'}">${html(o.side.toUpperCase())}</strong><span class="position-size">${o.kind==='equity'?fmt(o.quantity,0)+' shares':fmt(o.quantity/o.lotSize,0)+' lots'}</span></span><span class="position-metric"><small>Fill price</small><strong>${format(o.fill)}</strong></span><span class="position-metric"><small>Realised P&L</small><strong>${o.pnl==null?'—':pnl(o.pnl)}</strong><span class="position-size">${o.pnl==null?'Entry fill':'Exit fill'}</span></span><time class="position-metric"${valid?` datetime="${filled.toISOString()}"`:''}><small>Filled (IST)</small><strong>${html(day)}</strong><span class="position-size">${html(clock)} IST</span></time><span class="position-expand" aria-hidden="true">⌄</span></summary><div class="position-record-detail"><div class="position-detail-heading">${terminalIcon('list')}<h3>Fill details</h3><span>${html(o.symbol)}</span></div><dl>${details.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="position-detail-footer"><p>${o.pnl==null?'Entry fill · realised P&L is recorded on closing fills.':'Realised paper P&L excludes fees and slippage.'}${o.reason?' '+html(o.reason):''}</p><button class="button secondary" type="button" data-report-chart="${html(o.id)}">${terminalIcon('charts')}Open chart</button></div></div></details>`;
+    }).join('');
+    return `<div class="paper-report-totals">${totals}</div><div class="paper-report-caption"><span>${html(period)}</span><span>${reportData.total?`${offset+1}–${Math.min(offset+25,reportData.total)} of ${fmt(reportData.total,0)} fills`:'0 matching fills'}</span></div><p class="paper-report-note">Totals cover all matching fills. Turnover is traded value, not profit. Opening fills show no realised P&L.</p>${rows||'<div class="empty-state">No fills match these filters. Try another period or reset filters.</div>'}${offset||reportData.hasMore?pager(reportData.hasMore):''}`;
+  }
   function pause() { clearTimeout(timer);controller?.abort();generation++; }
   activityContent.addEventListener('toggle',event=>{
     const row=event.target;
+    if(row.matches?.('.paper-trade-record')){if(row.open)expandedTrades.add(row.dataset.tradeId);else expandedTrades.delete(row.dataset.tradeId);return;}
     if(!row.matches?.('.paper-position-record'))return;
     if(row.open)expandedPositions.add(row.dataset.positionKey);else expandedPositions.delete(row.dataset.positionKey);
   },true);
@@ -152,14 +193,16 @@
     controller=new AbortController();
     const current=()=>version===generation&&active()&&owner===state.user.id;
     if(!quiet)status.textContent='Loading your paper wallet…';
+    const reportSubmit=reportControls.querySelector('[type=submit]');
+    if(tab==='trades'&&!quiet){reportSubmit.disabled=true;reportSubmit.setAttribute('aria-busy','true');}
     try{
-      const result=await api('/api/paper?'+query({offset}),{signal:controller.signal});
+      const results=await Promise.all([api('/api/paper?'+query({offset}),{signal:controller.signal}),tab==='trades'?api('/api/paper/report?'+query({...reportParams,offset}),{signal:controller.signal}):null]);
       if(!current())return;
-      data=result;
+      data=results[0];if(results[1])reportData=results[1];
       render(!quiet);
       status.textContent=data.marked<data.positions.length?'Portfolio value reflects positions with an available price.':'';
-    }catch(error){if(current())status.textContent=error.message;}
-    finally{if(current())timer=setTimeout(()=>void refresh(true),10000);}
+    }catch(error){if(current()){status.textContent=error.message;if(tab==='trades'&&!reportData)activityContent.innerHTML='<div class="empty-state">Could not load the report. '+html(error.message)+' Apply filters to try again.</div>';}}
+    finally{if(current()){reportSubmit.disabled=false;reportSubmit.removeAttribute('aria-busy');timer=setTimeout(()=>void refresh(true),10000);}}
   }
   function activate(id) {
     tab=id;offset=0;
@@ -370,7 +413,8 @@
       selectActivity(b.dataset.paperActivityTab);
       render(true);
     }
-    if(b.dataset.paperPage){offset+=Number(b.dataset.paperPage);void refresh();}
+    if(b.dataset.paperPage){offset+=Number(b.dataset.paperPage);if(tab==='trades'){reportData=null;render(true);}void refresh();}
+    if(b.dataset.reportChart){const trade=reportData?.trades.find(row=>String(row.id)===b.dataset.reportChart);if(trade){chart.choose(trade.source,trade);activate('chart');}}
     if(b.dataset.positionSource){
       const p=data?.positions.find(p=>p.source===b.dataset.positionSource&&p.product===b.dataset.positionProduct&&p.symbol===(b.dataset.paperClose??b.dataset.paperProtection??b.dataset.paperPositionChart));
       if(!p){void refresh();return;}
@@ -403,6 +447,7 @@
   window.paperTrading={open,navigate(target){if(target==='paper'){if(tab==='chart')chart.show();void refresh();}else {pause();chart.hide();}},reset(){
     pause();chart.reset();data=null;tab='chart';offset=0;
     expandedPositions.clear();
+    expandedTrades.clear();reportData=null;reportParams={};reportControls.reset();showReportPeriod();
     if(dialog?.open)dialogClose(dialog);
     Object.assign(activitySelection,defaultActivity);
     metrics.replaceChildren();activityContent.replaceChildren();activityContent.dataset.markup='';
