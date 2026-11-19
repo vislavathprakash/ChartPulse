@@ -43,7 +43,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   let catalog = new Map(), commodityCatalog=new Map(), commodityFutures=new Map(), catalogLoadedAt=0;
   let defaults=new Set(), pinned=new Set(), optionsById=new Map();
   const recent=new Map();
-  const publicInstrument=({symbol,name,exchange,expiry,kind,lotSize,underlying})=>({symbol,name,exchange,expiry,kind,lotSize,underlying});
+  const publicInstrument=({symbol,name,exchange,expiry,kind,lotSize,underlying,optionChainAvailable})=>({symbol,name,exchange,expiry,kind,lotSize,underlying,optionChainAvailable:Boolean(optionChainAvailable)});
   const lookup=symbol=>commodityCatalog.get(symbol)??directory.get(symbol)??catalog.get(symbol);
   function trackedSymbol(item) {
     if(item.exchange!=='MCX'||item.kind!=='futures')return item.symbol;
@@ -107,7 +107,13 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
         }
         for(const futures of commodityFutures.values())futures.sort((a,b)=>a.expiry.localeCompare(b.expiry));
       }
-      if(updatedCatalog||commodities)optionsById=new Map([...catalog.values(),...commodityCatalog.values()].filter(i=>i.kind==='options').map(i=>[`${i.exchange}:${i.id}`,i.symbol]));
+      if(updatedCatalog||commodities){
+        const entries=[...catalog.values(),...commodityCatalog.values()];
+        const options=entries.filter(i=>i.kind==='options');
+        optionsById=new Map(options.map(i=>[`${i.exchange}:${i.id}`,i.symbol]));
+        const underlyings=new Set(options.map(i=>i.exchange+':'+i.underlying));
+        for(const item of [...entries,...(commodities?.defaults||[])])item.optionChainAvailable=item.kind==='options'||underlyings.has(item.underlying?item.exchange+':'+item.underlying:item.symbol);
+      }
       const equitySymbols=[...new Set([...dhan.configuredSymbols(process.env.DHAN_SYMBOLS),...dhan.INDEX_SYMBOLS])];
       const equities=catalog.size?equitySymbols.map(symbol=>catalog.get(symbol)).filter(Boolean):
         client?[...directory.values()].filter(i=>i.exchange!=='MCX'&&defaults.has(i.symbol)):await dhan.resolveInstruments(process.env.DHAN_SYMBOLS);

@@ -80,7 +80,7 @@ function installLiveScreeners({app,pool,requireAuth,ownerOnly,asyncRoute,fetchDa
   function quoteRow(item,q,at){
     const price=positive(q.last_price),previous=positive(q.ohlc?.close),open=positive(q.ohlc?.open),high=positive(q.ohlc?.high),low=positive(q.ohlc?.low);
     const bid=positive(q.depth?.buy?.[0]?.price),ask=positive(q.depth?.sell?.[0]?.price);
-    return {symbol:item.symbol,name:item.name,kind:item.kind,exchange:item.exchange,expiry:item.expiry,lotSize:item.lotSize,price,volume:number(q.volume),vwap:positive(q.average_price),oi:number(q.oi),bid,ask,spread_pct:bid&&ask&&price?(ask-bid)/price*100:null,change_pct:price&&previous?(price/previous-1)*100:null,gap_pct:open&&previous?(open/previous-1)*100:null,from_open_pct:price&&open?(price/open-1)*100:null,high_distance:price&&high?(high-price)/high*100:null,low_distance:price&&low?(price-low)/low*100:null,quoteAt:tradeDate(q.last_trade_time),retrievedAt:at};
+    return {symbol:item.symbol,name:item.name,kind:item.kind,exchange:item.exchange,expiry:item.expiry,lotSize:item.lotSize,optionChainAvailable:item.optionChainAvailable===true,price,volume:number(q.volume),vwap:positive(q.average_price),oi:number(q.oi),bid,ask,spread_pct:bid&&ask&&price?(ask-bid)/price*100:null,change_pct:price&&previous?(price/previous-1)*100:null,gap_pct:open&&previous?(open/previous-1)*100:null,from_open_pct:price&&open?(price/open-1)*100:null,high_distance:price&&high?(high-price)/high*100:null,low_distance:price&&low?(price-low)/low*100:null,quoteAt:tradeDate(q.last_trade_time),retrievedAt:at};
   }
   async function fundamentals(item){
     return cached('fund:'+item.symbol,6*3600000,async()=>{
@@ -115,7 +115,7 @@ function installLiveScreeners({app,pool,requireAuth,ownerOnly,asyncRoute,fetchDa
       if(config.side&&config.side!==side)continue;
       const q=legs[side.toLowerCase()],item=q&&directory.get(String(q.security_id));if(!q)continue;
       const price=positive(q.last_price),previous=positive(q.previous_close_price),previousOI=positive(q.previous_oi),oi=number(q.oi),bid=positive(q.top_bid_price),ask=positive(q.top_ask_price),spot=positive(result.raw.data?.last_price);
-      rows.push({symbol:item?.symbol??null,name:item?.name??`${base.name} ${strike} ${side}`,exchange:base.exchange,kind:'options',expiry,side,strike:number(strike),price,change_pct:price&&previous?(price/previous-1)*100:null,volume:number(q.volume),oi,oi_change_pct:previousOI&&oi!==null?(oi/previousOI-1)*100:null,iv:number(q.implied_volatility),bid,ask,spread_pct:bid&&ask&&price?(ask-bid)/price*100:null,strike_distance:spot?Math.abs(Number(strike)-spot)/spot*100:null,delta:number(q.greeks?.delta),lotSize:item?.lotSize,retrievedAt:result.at,quoteAt:null});
+      rows.push({symbol:item?.symbol??null,name:item?.name??`${base.name} ${strike} ${side}`,exchange:base.exchange,kind:'options',optionChainAvailable:true,expiry,side,strike:number(strike),price,change_pct:price&&previous?(price/previous-1)*100:null,volume:number(q.volume),oi,oi_change_pct:previousOI&&oi!==null?(oi/previousOI-1)*100:null,iv:number(q.implied_volatility),bid,ask,spread_pct:bid&&ask&&price?(ask-bid)/price*100:null,strike_distance:spot?Math.abs(Number(strike)-spot)/spot*100:null,delta:number(q.greeks?.delta),lotSize:item?.lotSize,retrievedAt:result.at,quoteAt:null});
     }
     return {rows,expiries:dates,expiry,universe:base.name+' options'};
   }

@@ -54,7 +54,7 @@ function installDhanConstituents({app,requireAuth,ownerOnly,asyncRoute,getEquiti
     const bse=index.link?new Map([...equities.values()].filter(i=>i.kind==='equity'&&i.exchange==='BSE').map(i=>[i.id,i])):null;
     const items=record.rows.map(row=>{
       const i=row.symbol?equities.get(row.symbol):bse.get(row.id);
-      return {symbol:i?.symbol??null,displaySymbol:i?.symbol??row.symbol??row.id,name:row.name,industry:row.industry};
+      return {symbol:i?.symbol??null,displaySymbol:i?.symbol??row.symbol??row.id,name:row.name,industry:row.industry,optionChainAvailable:i?.optionChainAvailable===true};
     });
     res.json({symbol,indices:available,items,asOf:record.rows[0].asOf,stale:Date.now()-record.checkedAt>=86400000,source:index.link??index.url});
   }));
