@@ -2,6 +2,7 @@ const state = { user: null, meta: null, authMode: 'login', currentPage: 'overvie
 const requestedView = new URLSearchParams(location.search).get('view');
 const privateDhanLink = requestedView === 'private-dhan';
 const paperLink = requestedView === 'paper';
+const newsLink = requestedView === 'news';
 const privateDhanEntry = new URLSearchParams(location.search);
 const privateDhanEntryTab = privateDhanEntry.get('tab');
 function privateDhanPath(path) {
@@ -11,7 +12,7 @@ function privateDhanPath(path) {
   if(privateDhanEntryTab==='commodities'&&/^[A-Z0-9]{1,32}$/.test(root??''))query.set('commodity',root);
   return `${path}?${query}`;
 }
-const entryPage = meta => privateDhanLink&&meta.privateDhan?'private-dhan':paperLink?'paper':'overview';
+const entryPage = meta => newsLink?'news':privateDhanLink&&meta.privateDhan?'private-dhan':paperLink?'paper':'overview';
 const $ = (id) => document.getElementById(id);
 const html = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (value, digits = 2) => Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
@@ -76,10 +77,10 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { workspaceBackStack.length=0; updateWorkspaceBackButton(); window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { workspaceBackStack.length=0; updateWorkspaceBackButton(); window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':newsLink?'/app/login?view=news':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
-  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):paperLink?'/app?view=paper':'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
+  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):paperLink?'/app?view=paper':newsLink?'/app?view=news':'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
   window.privateDhanView?.configure(meta.privateDhan);
   const initial = (user.name || user.email || 'U').slice(0, 1).toUpperCase();
   $('userName').textContent = user.name || user.email; $('userRole').textContent = user.role; $('avatar').textContent = initial; $('topAvatar').textContent = initial;
@@ -122,20 +123,22 @@ $('authForm').addEventListener('submit', async e => {
 $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); state.user = null; showAuth(); });
 
 function navigate(page) {
-  if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan','paper'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
+  if (!['overview','screener','charts','alerts','calendar','news','settings','account','private-dhan','paper'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
   if(state.currentPage!==page&&!returningToWorkspacePage){workspaceBackStack.push(state.currentPage);if(workspaceBackStack.length>50)workspaceBackStack.shift();}
   state.currentPage = page; document.body.classList.toggle('chart-workspace-open',page==='charts'); if(page!=='charts')simulationChart.dispose();
   updateWorkspaceBackButton();
   document.body.classList.toggle('dhan-terminal-open',page==='private-dhan');
-  $('simulationBanner').classList.toggle('hidden',page==='private-dhan'||!state.meta?.simulated);
+  $('simulationBanner').classList.toggle('hidden',page==='private-dhan'||page==='news'||!state.meta?.simulated);
+  if(page==='news')history.replaceState(null,'','/app?view=news');
   if(page==='paper')history.replaceState(null,'','/app?view=paper');
-  else if(new URLSearchParams(location.search).get('view')==='paper'||page!=='private-dhan'&&new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
+  else if(['paper','news'].includes(new URLSearchParams(location.search).get('view'))&&page!=='news'||page!=='private-dhan'&&new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('hidden', p.id !== `page-${page}`));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   $('crumb').textContent = ({ overview: 'Overview', paper:'Paper Trading', screener: 'Screener', charts: 'Charts', alerts: 'Alerts', calendar: 'Calendar', settings: 'Settings', account: 'Account settings' })[page] || page;
   if(page==='private-dhan')$('crumb').textContent='Dhan terminal';
   window.privateDhanView?.navigate(page);
   window.paperTrading?.navigate(page);
+  window.newsWorkspace?.navigate(page);if(page==='news')$('crumb').textContent='News';
   if(page==='account')window.accountSettings?.load(); if(page==='calendar') { marketCalendar.renderPage(); marketCalendar.load(); } if (page === 'charts') mountTvChart(); if (page === 'screener') loadQueries(); if (page === 'alerts') loadAlerts(); if(page!=='charts')liveMarket.subscribe();
 }
 document.body.addEventListener('click', e => { const nav = e.target.closest('[data-page]'); if (nav) navigate(nav.dataset.page); const symbol=e.target.closest('[data-terminal-chart]')?.dataset.terminalChart;if(symbol&&state.user)window.stockWorkspace?.open({symbol}); });
@@ -261,7 +264,7 @@ function renderAlertEvent(a) {
   const date = new Date(a.created_at), valid = Number.isFinite(date.getTime());
   const day=valid?new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}).format(date):'Date unavailable';
   const time=valid?new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}).format(date)+' IST':'';
-  return `<details class="activity-event"><summary><span class="activity-event-icon">${icon('alerts')}</span><span class="activity-main"><span class="activity-title">${html(a.title||'Market alert')}</span><span class="activity-meta"><span class="activity-symbol">${html(a.symbol||'Market')}</span><span>${html(a.source==='tradingview'?'TradingView':a.source==='dhan'?'DhanHQ':'AlertPe')}</span></span><span class="activity-preview">${html(a.detail||'Open to view notification details.')}</span></span><span class="activity-delivery">${channels||`<span class="activity-channel activity-${tone(a.status)}">${html(labels[a.status]||a.status||'Recorded')}</span>`}</span><time class="activity-time"${valid?` datetime="${date.toISOString()}"`:''}>${icon('clock')}<span><b>${html(day)}</b><span>${html(time)}</span></span></time><span class="activity-expand" title="Expand event details">${icon('chevron')}</span></summary><div class="activity-detail"><div><span class="activity-detail-label">Alert message</span><p>${html(a.detail||'No additional message.')}</p></div><div class="activity-detail-note"><span class="activity-detail-label">Event status</span><p>${html(labels[a.status]||a.status||'Recorded')} · ${html(a.source||'AlertPe')}</p><small>Sent means accepted by the notification provider. Delivery is confirmed only when reported by the provider.</small></div></div></details>`;
+  return `<details class="activity-event"><summary><span class="activity-event-icon">${icon('alerts')}</span><span class="activity-main"><span class="activity-title">${html(a.title||'Market alert')}</span><span class="activity-meta"><span class="activity-symbol">${html(a.symbol||'Market')}</span><span>${html(a.source==='tradingview'?'TradingView':a.source==='dhan'?'DhanHQ':a.source==='news'?'News':'AlertPe')}</span></span><span class="activity-preview">${html(a.detail||'Open to view notification details.')}</span></span><span class="activity-delivery">${channels||`<span class="activity-channel activity-${tone(a.status)}">${html(labels[a.status]||a.status||'Recorded')}</span>`}</span><time class="activity-time"${valid?` datetime="${date.toISOString()}"`:''}>${icon('clock')}<span><b>${html(day)}</b><span>${html(time)}</span></span></time><span class="activity-expand" title="Expand event details">${icon('chevron')}</span></summary><div class="activity-detail"><div><span class="activity-detail-label">Alert message</span><p>${html(a.detail||'No additional message.')}</p></div><div class="activity-detail-note"><span class="activity-detail-label">Event status</span><p>${html(labels[a.status]||a.status||'Recorded')} · ${html(a.source||'AlertPe')}</p><small>Sent means accepted by the notification provider. Delivery is confirmed only when reported by the provider.</small></div></div></details>`;
 }
 async function loadAlerts() {
   loadTechnicalAlerts();
