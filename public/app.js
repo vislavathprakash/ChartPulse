@@ -40,7 +40,27 @@ const terminalIcons = {
   settings:'<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="17" r="2"/>'
 };
 const terminalIcon = name => `<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24">${terminalIcons[name]||''}</svg>`;
+const workspaceBackStack = [];
+let returningToWorkspacePage = false;
+function updateWorkspaceBackButton() {
+  const button=$('workspaceBack');
+  if(!button)return;
+  const previous=workspaceBackStack.at(-1);
+  button.disabled=!previous&&state.currentPage==='overview';
+  button.title=previous?'Back to previous page':'Back to Overview';
+}
 document.addEventListener('DOMContentLoaded',()=>{
+  const back=document.createElement('button');
+  back.id='workspaceBack';back.type='button';back.className='workspace-back';
+  back.setAttribute('aria-label','Go back to previous page');
+  back.innerHTML='<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>Back</span>';
+  $('sidebarToggle').after(back);
+  back.addEventListener('click',()=>{
+    const previous=workspaceBackStack.pop()||'overview';
+    returningToWorkspacePage=true;
+    try{navigate(previous);}finally{returningToWorkspacePage=false;updateWorkspaceBackButton();}
+  });
+  updateWorkspaceBackButton();
   document.querySelectorAll('#mainNav [data-page]').forEach(button=>{const icon=button.querySelector('.nav-icon');if(icon&&terminalIcons[button.dataset.page]){icon.setAttribute('aria-hidden','true');icon.innerHTML=terminalIcon(button.dataset.page);}if(button.classList.contains('active'))button.setAttribute('aria-current','page');});
   const notifications=document.querySelector('.notification-btn');if(notifications)notifications.innerHTML=terminalIcon('alerts')+'<i class="notification-dot"></i>';
   $('sidebarToggle').innerHTML=terminalIcon('menu');
@@ -56,7 +76,7 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { workspaceBackStack.length=0; updateWorkspaceBackButton(); window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
   history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):paperLink?'/app?view=paper':'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
@@ -103,7 +123,9 @@ $('logoutBtn').addEventListener('click', async () => { await api('/api/logout', 
 
 function navigate(page) {
   if (!['overview','screener','charts','alerts','calendar','settings','account','private-dhan','paper'].includes(page) || (page==='private-dhan'&&!state.meta?.privateDhan)) return;
+  if(state.currentPage!==page&&!returningToWorkspacePage){workspaceBackStack.push(state.currentPage);if(workspaceBackStack.length>50)workspaceBackStack.shift();}
   state.currentPage = page; document.body.classList.toggle('chart-workspace-open',page==='charts'); if(page!=='charts')simulationChart.dispose();
+  updateWorkspaceBackButton();
   document.body.classList.toggle('dhan-terminal-open',page==='private-dhan');
   $('simulationBanner').classList.toggle('hidden',page==='private-dhan'||!state.meta?.simulated);
   if(page==='paper')history.replaceState(null,'','/app?view=paper');
