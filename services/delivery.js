@@ -17,7 +17,7 @@ async function processNotifications({pool,runtime,deliver}){
       metrics.count('email_'+result.status);continue;
     }
     let deliveryResult;
-    if(alert){if(job.channel==='in_app')await runtime.notify(alert.user_id,{type:'alert',alert});else if(job.channel==='whatsapp'&&(alert.status==='queued'||alert.status==='sending')){await pool.query("UPDATE alerts SET status='sending' WHERE id=$1",[alert.id]);deliveryResult=await deliver(alert);}}
+    if(alert){if(job.channel==='in_app')await runtime.notify(alert.user_id,{type:'alert',alert});else if(job.channel==='whatsapp'&&(alert.status==='queued'||alert.status==='sending')){await pool.query("UPDATE alerts SET status='sending' WHERE id=$1",[alert.id]);deliveryResult=await deliver(alert,job);}}
     const {rows:status}=await pool.query('SELECT status FROM alerts WHERE id=$1',[job.alert_id]);
     if(job.channel==='whatsapp'&&status[0]?.status==='queued'){
       await pool.query("UPDATE notification_jobs SET status='ready',attempts=attempts+1,available_at=(SELECT next_attempt_at FROM alerts WHERE id=$2),last_error=$4,claim_token=NULL,lease_until=NULL WHERE id=$1 AND claim_token=$3",[job.id,job.alert_id,token,deliveryResult?.lastError||null]);
