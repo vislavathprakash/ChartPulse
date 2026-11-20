@@ -26,7 +26,7 @@ function installCalendar({app,pool,requireAuth,requireAdminAuth,asyncRoute,deliv
   app.get('/api/calendar/alerts',requireAuth,asyncRoute(async(req,res)=>{
     const id=req.session.user.id;
     const reminders=(await pool.query('SELECT r.*,e.title,e.symbol,e.starts_at,e.category,e.metadata FROM calendar_reminders r JOIN calendar_events e ON e.id=r.event_id WHERE r.user_id=$1 ORDER BY r.due_at DESC LIMIT 200',[id])).rows;
-    const logs=(await pool.query("SELECT a.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('channel',j.channel,'status',j.status,'attempts',j.attempts)) FROM notification_jobs j WHERE j.alert_id=a.id),'[]'::jsonb) AS deliveries FROM alerts a WHERE a.user_id=$1 AND a.source='calendar' ORDER BY a.created_at DESC LIMIT 200",[id])).rows;
+    const logs=(await pool.query("SELECT a.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('channel',j.channel,'status',j.status,'attempts',j.attempts,'last_error',j.last_error,'next_attempt_at',j.available_at)) FROM notification_jobs j WHERE j.alert_id=a.id),'[]'::jsonb) AS deliveries FROM alerts a WHERE a.user_id=$1 AND a.source='calendar' ORDER BY a.created_at DESC LIMIT 200",[id])).rows;
     const changes=(await pool.query('SELECT h.*,e.title FROM calendar_alert_history h JOIN calendar_reminders r ON r.id=h.reminder_id JOIN calendar_events e ON e.id=r.event_id WHERE h.user_id=$1 ORDER BY h.id DESC LIMIT 200',[id])).rows;
     res.json({reminders,logs,changes});
   }));

@@ -159,6 +159,7 @@ function regenerateSession(req) { return new Promise((resolve, reject) => req.se
 function deliveryStatus(optIn,notification='whatsapp') { return isSimulated ? 'simulated' : ['whatsapp','all'].includes(notification) && optIn && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME ? 'queued' : 'logged'; }
 const workspace = installWorkspace({app,pool,requireAuth,asyncRoute,simulation,isSimulated,deliveryStatus,canWatchPrivateSymbol:privateDhan.hasSymbol,requestEvaluation:()=>runtime.role==='standalone'?runtime.evaluateCurrent():Promise.resolve(),shardMatches,evaluationKey:()=>runtime.evaluationKey,evaluationScope:()=>({shards:runtime.shards,shard:runtime.shard,users:runtime.baselineUsers,symbols:runtime.changedSymbols})});
 const calendar=installCalendar({app,pool,requireAuth,requireAdminAuth,asyncRoute,deliveryStatus,runtime});
+require('./services/whatsapp-retry').installWhatsAppRetry({app,pool,requireAuth,asyncRoute,isSimulated});
 const account=installAccount({app,pool,requireAuth,asyncRoute,publicUser,regenerateSession,runtime});
 function enrichQuote(row) { return row; }
 
@@ -229,7 +230,7 @@ app.post('/api/queries', requireAuth, asyncRoute(async (req, res) => {
   const { rows } = await pool.query('INSERT INTO saved_queries(user_id,name,query_text) VALUES($1,$2,$3) RETURNING *', [req.session.user.id, name.trim(), query.trim()]); res.status(201).json({ query: rows[0] });
 }));
 app.get('/api/queries', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query('SELECT * FROM saved_queries WHERE user_id=$1 ORDER BY created_at DESC', [req.session.user.id]); res.json({ queries: rows }); }));
-app.get('/api/alerts', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query(`SELECT a.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('channel',j.channel,'status',j.status,'attempts',j.attempts)) FROM notification_jobs j WHERE j.alert_id=a.id),'[]'::jsonb) AS deliveries FROM alerts a WHERE a.user_id=$1 ORDER BY a.created_at DESC LIMIT 30`, [req.session.user.id]); res.json({ alerts: rows }); }));
+app.get('/api/alerts', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query(`SELECT a.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('channel',j.channel,'status',j.status,'attempts',j.attempts,'last_error',j.last_error,'next_attempt_at',j.available_at)) FROM notification_jobs j WHERE j.alert_id=a.id),'[]'::jsonb) AS deliveries FROM alerts a WHERE a.user_id=$1 ORDER BY a.created_at DESC LIMIT 30`, [req.session.user.id]); res.json({ alerts: rows }); }));
 app.get('/api/alert-rules', requireAuth, asyncRoute(async (req, res) => { const { rows } = await pool.query('SELECT * FROM alert_rules WHERE user_id=$1 ORDER BY created_at DESC', [req.session.user.id]); res.json({ rules: rows }); }));
 app.post('/api/alert-rules', requireAuth, asyncRoute(async (req, res) => {
   const { name, query } = req.body || {};
@@ -349,13 +350,14 @@ async function deliverWhatsAppAlert(alert) {
       method: 'POST', signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: user.whatsapp_phone.replace(/\D/g, ''), type: 'template', template: { name: process.env.WHATSAPP_TEMPLATE_NAME, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US' }, components: [{ type: 'body', parameters: [{ type: 'text', text: String(alert.symbol || 'Market').slice(0, 60) }, { type: 'text', text: String(alert.title).slice(0, 100) }, { type: 'text', text: String(alert.detail).slice(0, 500) }] }] } })
     });
-    if (!response.ok) { const info = await response.text(); throw new Error(info.slice(0, 700)); }
+    if (!response.ok) { const info = await response.json().catch(()=>({})); const error=new Error(String(info.error?.message||'Meta rejected delivery (HTTP '+response.status+').').slice(0,300));error.metaCode=Number(info.error?.code)||null;throw error; }
     await pool.query("UPDATE alerts SET status='sent' WHERE id=$1", [alert.id]);
   } catch (err) {
-    console.error('WhatsApp delivery failed:', err.message);
+    console.error('WhatsApp delivery failed'+(err.metaCode?' (Meta '+err.metaCode+')':'')+':', err.message);
     const attempts = Number(alert.attempts || 0) + 1;
     if (attempts >= 5) await pool.query("UPDATE alerts SET status='failed', attempts=$2 WHERE id=$1", [alert.id, attempts]);
     else await pool.query("UPDATE alerts SET status='queued', attempts=$2, next_attempt_at=NOW() + ($3 * INTERVAL '1 minute') WHERE id=$1", [alert.id, attempts, Math.min(2 ** attempts, 30)]);
+    return {lastError:err.metaCode===190?'WhatsApp connection needs attention (Meta 190). Please contact support.':err.metaCode?'WhatsApp delivery was rejected by the provider (Meta '+err.metaCode+').':'WhatsApp delivery could not complete. The service will retry when eligible.'};
   }
 }
 async function scanActiveAlertRules() {
