@@ -1,6 +1,7 @@
 const bcrypt=require('./services/passwords');
 function installAccount({app,pool,requireAuth,asyncRoute,publicUser,regenerateSession,runtime}) {
   app.use('/api/account',(req,res,next)=>{res.set('Cache-Control','no-store');next();});
+  const templates=require('./services/notification-templates').installNotificationTemplates({app,pool,requireAuth,asyncRoute,origin:()=>require('./services/email').applicationOrigin()});
   const audit=async(id,action)=>pool.query('INSERT INTO account_activity(user_id,action) VALUES($1,$2)',[id,action]);
   app.use((req,res,next)=>{res.on('finish',()=>{if(req.session?.portal==='customer'&&req.session.user&&((res.statusCode<300&&req.method==='POST'&&['/api/login','/api/register'].includes(req.path))||(res.statusCode===302&&req.path==='/api/auth/google/callback'&&String(res.getHeader('Location')||'').startsWith('/app?google_connected=1'))))audit(req.session.user.id,req.path==='/api/register'?'Account created':req.path.includes('google')?'Signed in with Google':'Signed in').catch(console.error);});next();});
   app.get('/api/account',requireAuth,asyncRoute(async(req,res)=>{
@@ -47,6 +48,7 @@ function installAccount({app,pool,requireAuth,asyncRoute,publicUser,regenerateSe
     await pool.query(`CREATE TABLE IF NOT EXISTS account_settings(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,theme TEXT NOT NULL DEFAULT 'midnight',timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',city TEXT NOT NULL DEFAULT '',bio TEXT NOT NULL DEFAULT '')`);
     await pool.query(`CREATE TABLE IF NOT EXISTS account_activity(id BIGSERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,action TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
     await pool.query('CREATE INDEX IF NOT EXISTS account_activity_user_idx ON account_activity(user_id,id DESC)');
+    await templates.setup();
   }};
 }
 module.exports={installAccount};

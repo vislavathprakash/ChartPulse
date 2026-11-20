@@ -334,9 +334,9 @@ app.post('/api/webhooks/tradingview/:token', asyncRoute(async (req, res) => {
   res.json({ ok: true, received: true });
 }));
 
-async function deliverWhatsAppAlert(alert) {
+async function deliverWhatsAppAlert(alert,job) {
   if (isSimulated && !['dhan','news'].includes(alert.source)) { await pool.query("UPDATE alerts SET status='simulated' WHERE id=$1", [alert.id]); return; }
-  const { rows } = await pool.query('SELECT id,whatsapp_phone,whatsapp_opt_in FROM users WHERE id=$1 AND active=TRUE', [alert.user_id]);
+  const { rows } = await pool.query('SELECT id,name,whatsapp_phone,whatsapp_opt_in FROM users WHERE id=$1 AND active=TRUE', [alert.user_id]);
   const user = rows[0];
   if (!user || !user.whatsapp_opt_in || !user.whatsapp_phone) {
     await pool.query("UPDATE alerts SET status='logged' WHERE id=$1", [alert.id]); return;
@@ -346,9 +346,10 @@ async function deliverWhatsAppAlert(alert) {
   }
   try {
     const version = process.env.WHATSAPP_API_VERSION || 'v23.0';
+    const message=await require('./services/notification-templates').frozenPayload({pool,job,channel:'whatsapp',alert,user,origin:require('./services/email').applicationOrigin()});
     const response = await fetch(`https://graph.facebook.com/${version}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
       method: 'POST', signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: user.whatsapp_phone.replace(/\D/g, ''), type: 'template', template: { name: process.env.WHATSAPP_TEMPLATE_NAME, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US' }, components: [{ type: 'body', parameters: [{ type: 'text', text: String(alert.symbol || 'Market').slice(0, 60) }, { type: 'text', text: String(alert.title).slice(0, 100) }, { type: 'text', text: String(alert.detail).slice(0, 500) }] }] } })
+      body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: user.whatsapp_phone.replace(/\D/g, ''), type: 'template', template: { name: process.env.WHATSAPP_TEMPLATE_NAME, language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US' }, components: [{ type: 'body', parameters: message.parameters.map(text=>({type:'text',text})) }] } })
     });
     if (!response.ok) { const info = await response.json().catch(()=>({})); const error=new Error(String(info.error?.message||'Meta rejected delivery (HTTP '+response.status+').').slice(0,300));error.metaCode=Number(info.error?.code)||null;throw error; }
     await pool.query("UPDATE alerts SET status='sent' WHERE id=$1", [alert.id]);
