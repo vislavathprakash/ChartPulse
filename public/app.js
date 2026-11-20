@@ -258,13 +258,20 @@ function renderAlertEvent(a) {
   const deliveries = Array.isArray(a.deliveries)?a.deliveries:[];
   const channels = deliveries.map(d=>{
     const name={email:'Email',whatsapp:'WhatsApp',in_app:'In-app'}[d.channel]||d.channel||'Notification';
-    const label=d.channel==='in_app'&&d.status==='done'?'Recorded':labels[d.status]||d.status||'Pending';
-    return `<span class="activity-channel activity-${tone(d.status)}" title="${html(name+' · '+label)}">${icon(d.channel==='in_app'?'alerts':d.channel)}<span>${html(name)}</span><span class="activity-channel-state">${html(label)}</span></span>`;
+    const connectionIssue=d.channel==='whatsapp'&&String(d.last_error||'').includes('Meta 190');
+    const label=connectionIssue?'Connection issue':d.channel==='in_app'&&d.status==='done'?'Recorded':labels[d.status]||d.status||'Pending';
+    return `<span class="activity-channel activity-${connectionIssue?'error':tone(d.status)}" title="${html(name+' · '+label+(d.last_error?' · '+d.last_error:''))}">${icon(d.channel==='in_app'?'alerts':d.channel)}<span>${html(name)}</span><span class="activity-channel-state">${html(label)}</span></span>`;
   }).join('');
   const date = new Date(a.created_at), valid = Number.isFinite(date.getTime());
   const day=valid?new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}).format(date):'Date unavailable';
   const time=valid?new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}).format(date)+' IST':'';
-  return `<details class="activity-event"><summary><span class="activity-event-icon">${icon('alerts')}</span><span class="activity-main"><span class="activity-title">${html(a.title||'Market alert')}</span><span class="activity-meta"><span class="activity-symbol">${html(a.symbol||'Market')}</span><span>${html(a.source==='tradingview'?'TradingView':a.source==='dhan'?'DhanHQ':a.source==='news'?'News':'AlertPe')}</span></span><span class="activity-preview">${html(a.detail||'Open to view notification details.')}</span></span><span class="activity-delivery">${channels||`<span class="activity-channel activity-${tone(a.status)}">${html(labels[a.status]||a.status||'Recorded')}</span>`}</span><time class="activity-time"${valid?` datetime="${date.toISOString()}"`:''}>${icon('clock')}<span><b>${html(day)}</b><span>${html(time)}</span></span></time><span class="activity-expand" title="Expand event details">${icon('chevron')}</span></summary><div class="activity-detail"><div><span class="activity-detail-label">Alert message</span><p>${html(a.detail||'No additional message.')}</p></div><div class="activity-detail-note"><span class="activity-detail-label">Event status</span><p>${html(labels[a.status]||a.status||'Recorded')} · ${html(a.source||'AlertPe')}</p><small>Sent means accepted by the notification provider. Delivery is confirmed only when reported by the provider.</small></div></div></details>`;
+  const deliveryIssues=deliveries.filter(d=>d.last_error).map(d=>{
+    const retryAt=new Date(d.next_attempt_at);
+    const retryInfo=d.status==='failed'?'Automatic retries stopped.':d.next_attempt_at&&Number.isFinite(+retryAt)?'Next attempt '+retryAt.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'short'})+' IST.':'Waiting for the next eligible retry.';
+    return `<p class="activity-error">${html(d.channel==='whatsapp'?'WhatsApp':d.channel)}: ${html(d.last_error)}<br><small>${Number(d.attempts)||0} attempt(s) · ${html(retryInfo)}</small></p>`;
+  }).join('');
+  const retry=deliveries.some(d=>d.channel==='whatsapp'&&d.status==='failed')&&a.status==='failed'?`<button type="button" class="button secondary" data-alert-retry="${html(a.id)}">${terminalIcon('refresh')}Retry WhatsApp</button>`:'';
+  return `<details class="activity-event"><summary><span class="activity-event-icon">${icon('alerts')}</span><span class="activity-main"><span class="activity-title">${html(a.title||'Market alert')}</span><span class="activity-meta"><span class="activity-symbol">${html(a.symbol||'Market')}</span><span>${html(a.source==='tradingview'?'TradingView':a.source==='dhan'?'DhanHQ':a.source==='news'?'News':'AlertPe')}</span></span><span class="activity-preview">${html(a.detail||'Open to view notification details.')}</span></span><span class="activity-delivery">${channels||`<span class="activity-channel activity-${tone(a.status)}">${html(labels[a.status]||a.status||'Recorded')}</span>`}</span><time class="activity-time"${valid?` datetime="${date.toISOString()}"`:''}>${icon('clock')}<span><b>${html(day)}</b><span>${html(time)}</span></span></time><span class="activity-expand" title="Expand event details">${icon('chevron')}</span></summary><div class="activity-detail"><div><span class="activity-detail-label">Alert message</span><p>${html(a.detail||'No additional message.')}</p></div><div class="activity-detail-note"><span class="activity-detail-label">Event status</span><p>${html(labels[a.status]||a.status||'Recorded')} · ${html(a.source||'AlertPe')}</p>${deliveryIssues}${retry}<small>Sent means accepted by the notification provider. Delivery is confirmed only when reported by the provider.</small></div></div></details>`;
 }
 async function loadAlerts() {
   loadTechnicalAlerts();
@@ -315,3 +322,15 @@ $('copyChartWebhook').addEventListener('click', () => copyText($('chartWebhookUr
 $('newTechnicalAlert').addEventListener('click',()=>simulationChart.alertDialog().catch(err=>toast(err.message,true)));
 if(location.pathname==='/app/register')setAuthMode('register');
 document.addEventListener('DOMContentLoaded',bootstrap,{once:true});
+
+document.body.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-alert-retry]');if(!button||button.disabled)return;
+  button.disabled=true;
+  try{
+    await api('/api/alerts/'+button.dataset.alertRetry+'/retry-whatsapp',{method:'POST'});
+    toast('WhatsApp retry queued.');
+    if(state.currentPage==='calendar')await marketCalendar.load();
+    else if(state.currentPage==='news')window.newsWorkspace?.navigate('news');
+    else await loadAlerts();
+  }catch(error){toast(error.message,true);button.disabled=false;}
+});
