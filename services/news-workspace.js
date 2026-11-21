@@ -44,9 +44,24 @@ function published(value){
   return s&&Number.isFinite(+date)?date.toISOString():null;
 }
 function safeLink(value){try{const u=new URL(plain(value));return u.protocol==='https:'&&['nsearchives.nseindia.com','archives.nseindia.com','www.nseindia.com','www.nseindia.in','www.rbi.org.in','rbi.org.in','rbidocs.rbi.org.in'].includes(u.hostname)&&!u.username&&!u.password?u.href:null;}catch{return null;}}
+function uniqueItems(items){
+  const byKey=new Map();
+  for(const item of items){
+    const prior=byKey.get(item.key);
+    if(!prior){byKey.set(item.key,item);continue;}
+    // RSS feeds can repeat the same filing. PostgreSQL cannot upsert a key twice
+    // in one statement; merge before batching and preserve the fullest excerpt.
+    byKey.set(item.key,{...prior,categories:[...new Set([...prior.categories,...item.categories])],
+      summary:item.summary.length>prior.summary.length?item.summary:prior.summary,
+      quickRead:item.quickRead.length>prior.quickRead.length?item.quickRead:prior.quickRead,
+      stock:prior.stock||item.stock,publishedAt:prior.publishedAt||item.publishedAt,
+      eventDay:prior.eventDay||item.eventDay,subject:prior.subject||item.subject});
+  }
+  return [...byKey.values()];
+}
 function parseFeed(xml,feed){
   if(/<!DOCTYPE|<!ENTITY/i.test(xml)||!/<rss\b/i.test(xml)||!/<\/rss>/i.test(xml))throw new Error('Source did not return a complete RSS feed.');
-  return [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].slice(0,500).flatMap(match=>{
+  const items=[...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].slice(0,500).flatMap(match=>{
     const tag=name=>plain(match[1].match(new RegExp('<'+name+'(?:\\s[^>]*)?>([\\s\\S]*?)</'+name+'>','i'))?.[1]);
     const title=tag('title').slice(0,240),description=tag('description'),url=safeLink(tag('link'));
     if(!title||!url)return [];
@@ -68,6 +83,7 @@ function parseFeed(xml,feed){
     const readable=feed.id==='nse-insider'?`An insider-transaction disclosure has been published for ${company}. ${insiderFields[2]?'Filing status: '+insiderFields[2]+'. ':''}${insiderFields[3]?'Regulation: '+insiderFields[3]+'. ':''}The feed does not provide a readable transaction narrative. Open the original exchange filing for transaction quantities, prices and persons involved.`:description;
     return [{key:crypto.createHash('sha256').update(url+'|'+title).digest('hex'),title,summary:readable.slice(0,500),quickRead:quickRead(readable),url,source:feed.name,feedId:feed.id,categories:[...new Set(categories)],stock,company,publishedAt:published(tag('pubDate')),eventDay:eventMatch?(()=>{const m=eventMatch.match(/(\d+)-([a-z]+)-(\d+)/i);return m&&months[m[2].toLowerCase()]?`${m[3]}-${months[m[2].toLowerCase()]}-${m[1].padStart(2,'0')}`:null;})():eventDay,subject}];
   });
+  return uniqueItems(items);
 }
 function readRule(body={}){
   const name=String(body.name||'').trim(),stock=String(body.stock||'').trim().toUpperCase().replace(/^(NSE|BSE):/,''),keyword=String(body.keyword||'').trim();
@@ -97,7 +113,7 @@ function installNews({app,pool,requireAuth,asyncRoute,runtime}){
         if(!response.ok)throw new Error('Source responded HTTP '+response.status);
         const reader=response.body.getReader(),parts=[];let size=0;
         try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>2000000)throw new Error('Source exceeds feed size limit.');parts.push(Buffer.from(value));}}finally{await reader.cancel().catch(()=>{});}
-        const xml=Buffer.concat(parts).toString(),hash=crypto.createHash('sha256').update('expanded-topics-v4:'+xml).digest('hex');
+        const xml=Buffer.concat(parts).toString(),hash=crypto.createHash('sha256').update('unique-filings-v5:'+xml).digest('hex');
         if(hash===last.content_hash){await pool.query("UPDATE news_feed_status SET last_success=NOW(),status='ready',error='' WHERE feed_id=$1",[feed.id]);continue;}
         const items=parseFeed(xml,feed);
         await pool.transaction(async()=>{
