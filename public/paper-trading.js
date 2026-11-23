@@ -8,7 +8,7 @@
   const query=params=>new URLSearchParams(params).toString();
   const nameOf=kind=>({equity:'Stock',futures:'Future',options:'Option'})[kind]??kind;
   const productLabel=(row)=>row.product==='intraday'?'Intraday':row.kind==='equity'?'Delivery':'Carry forward';
-  const tabs=[['chart','Chart','charts'],['positions','Positions','layers'],['orders','Orders','list'],['trades','Trade history','calendar']];
+  const tabs=[['chart','Chart','charts'],['strategies','Options strategies','layers'],['positions','Positions','layers'],['orders','Orders','list'],['trades','Trade history','calendar']];
   const activityTabs={
     positions:[['intraday','Intraday'],['delivery','Delivery & holdings']],
     orders:[['open','Open orders'],['closed','Closed orders']]
@@ -27,8 +27,8 @@
     </div>
     <div class="paper-wallet" aria-label="Virtual wallet"></div>
     <section class="panel paper-panel">
-      <div class="dhan-research-nav paper-tabs" role="tablist" aria-label="Paper trading activity">${tabs.map(([id,label,icon],i)=>`<button type="button" id="paper-tab-${id}" role="tab" data-paper-tab="${id}" aria-selected="${!i}" aria-pressed="${!i}" aria-controls="${id==='chart'?'paper-chart':'paper-activity'}" tabindex="${i?-1:0}">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}</div>
-      <div id="paper-chart" role="tabpanel" aria-labelledby="paper-tab-chart"></div>
+      <div class="dhan-research-nav paper-tabs" role="tablist" aria-label="Paper trading activity">${tabs.map(([id,label,icon],i)=>`<button type="button" id="paper-tab-${id}" role="tab" data-paper-tab="${id}" aria-selected="${!i}" aria-pressed="${!i}" aria-controls="${id==='chart'?'paper-chart':id==='strategies'?'paper-strategies':'paper-activity'}" tabindex="${i?-1:0}">${terminalIcon(icon)}<span>${label}</span></button>`).join('')}</div>
+      <div id="paper-chart" role="tabpanel" aria-labelledby="paper-tab-chart"></div><div id="paper-strategies" role="tabpanel" aria-labelledby="paper-tab-strategies" hidden></div>
       <div id="paper-activity" class="hidden" role="tabpanel" aria-labelledby="paper-tab-positions" tabindex="0">
         <div class="paper-activity-tabs" role="tablist" hidden></div>
         <div id="paper-activity-content"></div>
@@ -99,7 +99,7 @@
     const more=[['Instrument',html(nameOf(kind))],['Data source',html(sourceName)],['Product',html(productLabel(position))],['Open quantity',fmt(units,0)+(kind==='equity'?' shares':' units')],['Capital allocated',format(position.capital)],['Stop loss',position.stopLoss==null?'Not set':format(position.stopLoss)],['Take profit',position.takeProfit==null?'Not set':format(position.takeProfit)],['Quote updated (IST)',position.quoteAt?html(date(position.quoteAt)):'Not available']];
     if(kind!=='equity')more.push(['Contract size',fmt(position.lotSize,0)+' units per lot']);
     if(position.expiry)more.push(['Contract expiry',html(position.expiry)]);
-    return `<details class="paper-position-record" data-position-key="${html(key)}" ${expandedPositions.has(key)?'open':''}><summary><span class="position-record-name"><span class="position-record-icon">${terminalIcon(kind==='equity'?'charts':'commodity')}</span><span><strong>${html(name)}</strong><small>${html(detail)}</small></span></span>${metric('Position',`<span class="paper-side ${long?'positive':'negative'}">${long?'Long':'Short'}</span>`, `<span class="position-size">${size}</span>`)}${metric('Average',format(position.average))}${metric('Last price',format(position.last),`<span class="position-quote-status ${position.fresh?'positive':''}">${quoteStatus}</span>`)}${metric('Unrealised P&L',pnl(position.pnl))}<span class="position-expand" aria-hidden="true">⌄</span></summary><div class="position-record-detail"><div class="position-detail-heading">${terminalIcon('list')}<h3>Position details</h3><span>${html(symbol)}</span></div><dl>${more.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="position-detail-footer"><p>${position.expired?'Contract expired · awaiting settlement.':'Virtual position · P&L uses the latest available quote.'}</p>${position.expired?'':`<div class="position-detail-actions">${action('position-chart','charts','Open chart')}${action('protection','settings','Edit protection')}${action('close','arrow','Close position')}</div>`}</div></div></details>`;
+    return `<details class="paper-position-record" data-position-key="${html(key)}" ${expandedPositions.has(key)?'open':''}><summary><span class="position-record-name"><span class="position-record-icon">${terminalIcon(kind==='equity'?'charts':'commodity')}</span><span><strong>${html(name)}</strong><small>${html(detail)}</small></span></span>${metric('Position',`<span class="paper-side ${long?'positive':'negative'}">${long?'Long':'Short'}</span>`, `<span class="position-size">${size}</span>`)}${metric('Average',format(position.average))}${metric('Last price',format(position.last),`<span class="position-quote-status ${position.fresh?'positive':''}">${quoteStatus}</span>`)}${metric('Unrealised P&L',pnl(position.pnl))}<span class="position-expand" aria-hidden="true">⌄</span></summary><div class="position-record-detail"><div class="position-detail-heading">${terminalIcon('list')}<h3>Position details</h3><span>${html(symbol)}</span></div><dl>${more.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="position-detail-footer"><p>${position.expired?'Contract expired · awaiting settlement.':'Virtual position · P&L uses the latest available quote.'}</p>${position.expired?'':`<div class="position-detail-actions">${action('position-chart','charts','Open chart')}${action('protection','settings','Edit protection')}${position.strategyId?'<button type="button" class="button secondary" data-paper-tab="strategies">Manage strategy</button>':action('close','arrow','Close position')}</div>`}</div></div></details>`;
   }
   function showActivityTabs() {
     reportControls.hidden=tab!=='trades';
@@ -130,7 +130,7 @@
     if(!data)return;
     metrics.innerHTML=grid([['Available funds',format(data.available)],['Portfolio value',format(data.equity)],['In positions',format(data.capital)],['Reserved by orders',format(data.reserved)],['Unrealised P&L',pnl(data.unrealized)],['Realised P&L',pnl(data.realized)]]);
     chart.positions(data.positions);
-    if(tab==='chart'||!force&&tab!=='positions'&&activityContent.contains(document.activeElement))return;
+    if(tab==='chart'||tab==='strategies'||!force&&tab!=='positions'&&activityContent.contains(document.activeElement))return;
     const pager=hasMore=>`<nav class="paper-pager" aria-label="History pages"><button class="button secondary" type="button" data-paper-page="-25" ${offset?'':'disabled'}>Previous</button><span>Page ${offset/25+1}</span><button class="button secondary" type="button" data-paper-page="25" ${hasMore?'':'disabled'}>Next</button></nav>`;
     const orders=(rows,empty)=>table(['Instrument','Side / size','Order type','Price','Status','Time','Action'],rows.map(o=>[
       instrument(o),`<span class="${o.side==='buy'?'positive':'negative'}">${o.side.toUpperCase()}</span> · ${quantity(o)}`,html({market:'Market',limit:'Limit',stop:'Stop market'}[o.type]),format(o.fill??o.level),
@@ -214,7 +214,9 @@
     }
     body.setAttribute('aria-labelledby','paper-tab-'+id);
     showActivityTabs();
-    body.classList.toggle('hidden',id==='chart');
+    body.classList.toggle('hidden',['chart','strategies'].includes(id));
+    $('paper-strategies').hidden=id!=='strategies';
+    if(id==='strategies'&&active())window.optionsStrategies?.show($('paper-strategies'));else window.optionsStrategies?.hide();
     chartPanel.classList.toggle('hidden',id!=='chart');
     if(id==='chart'&&active())chart.show();else chart.hide();
     render(true);
@@ -444,8 +446,8 @@
     if(button)void open(button.dataset.paperSource,button.dataset.paperSymbol,button.dataset.paperSide);
   });
   document.addEventListener('visibilitychange',()=>{if(active()){void refresh(true);if(tab==='chart')chart.show();}else {pause();chart.hide();}});
-  window.paperTrading={open,navigate(target){if(target==='paper'){if(tab==='chart')chart.show();void refresh();}else {pause();chart.hide();}},reset(){
-    pause();chart.reset();data=null;tab='chart';offset=0;
+  window.paperTrading={open,navigate(target){if(target==='paper'){if(tab==='chart')chart.show();if(tab==='strategies')window.optionsStrategies?.show($('paper-strategies'));void refresh();}else {pause();chart.hide();window.optionsStrategies?.hide();}},reset(){
+    pause();chart.reset();window.optionsStrategies?.reset();data=null;tab='chart';offset=0;
     expandedPositions.clear();
     expandedTrades.clear();reportData=null;reportParams={};reportControls.reset();showReportPeriod();
     if(dialog?.open)dialogClose(dialog);
