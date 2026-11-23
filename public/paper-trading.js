@@ -205,7 +205,7 @@
     finally{if(current()){reportSubmit.disabled=false;reportSubmit.removeAttribute('aria-busy');timer=setTimeout(()=>void refresh(true),10000);}}
   }
   function activate(id) {
-    tab=id;offset=0;
+    tab=id;offset=0;page.classList.toggle('strategy-workspace',id==='strategies');
     for(const button of page.querySelectorAll('[data-paper-tab]')){
       const current=button.dataset.paperTab===tab;
       button.tabIndex=current?0:-1;
