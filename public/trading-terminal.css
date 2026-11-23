@@ -509,3 +509,49 @@ body { font-size:var(--dashboard-body); }
 
 /* Keep the ChartPulse wordmark and feed status readable in the compact sidebar. */
 .app-shell .sidebar .brand-row{display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:8px;row-gap:8px;align-items:center}.app-shell .sidebar .brand-row>.live-badge{grid-column:2;justify-self:start;margin:0;font-size:10px}
+/* Instrument picker: compact filter bar and a single scrollable results region. */
+.workspace-dialog.dhan-symbol-dialog{width:min(760px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:min(820px,calc(100dvh - 32px));padding:0;border-radius:16px;overflow:hidden;background:var(--panel);border:1px solid var(--line)}
+.dhan-symbol-dialog>form{display:flex;flex-direction:column;max-height:min(820px,calc(100dvh - 32px));padding:24px;min-height:0;gap:0}
+.dhan-symbol-dialog header{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;flex:none}
+.dhan-symbol-dialog header h2{display:flex;align-items:center;gap:10px;font:650 22px/1.3 var(--font);margin:0}
+.dhan-symbol-dialog .terminal-icon{width:18px;height:18px;flex:0 0 18px}
+.dhan-symbol-dialog header h2 svg{color:var(--green);width:22px;height:22px;flex-basis:22px}
+.dhan-symbol-dialog .close-dialog{display:grid;place-items:center;width:40px;height:40px;padding:0;margin:0;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:22px;color:var(--muted);cursor:pointer}
+.dhan-symbol-dialog .dhan-search-intro{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 18px}
+.dhan-symbol-dialog label{display:grid;gap:7px;min-width:0;margin:0;font-size:12px;color:var(--muted);font-weight:500;line-height:1.4}
+.dhan-symbol-dialog .dhan-filter-label{display:flex;align-items:center;gap:7px}
+.dhan-symbol-dialog .dhan-filter-label svg{width:14px;height:14px;flex-basis:14px}
+.dhan-symbol-dialog .dhan-search-box{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:0 14px;color:var(--muted)}
+.dhan-symbol-dialog .dhan-search-box:focus-within{outline:2px solid var(--green);outline-offset:2px;border-color:var(--green)}
+.dhan-symbol-dialog input.dhan-search-input{width:100%;min-width:0;height:48px;min-height:48px;padding:10px 0;margin:0;font-size:15px;border:0;outline:0;box-shadow:none;background:transparent;color:var(--text)}
+.dhan-symbol-dialog .dhan-search-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:16px 0}
+.dhan-symbol-dialog select{width:100%;height:44px;min-height:44px;padding:8px 12px;margin:0;font-size:13px;font-weight:500;line-height:1.4;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+.dhan-symbol-dialog .dhan-search-watch{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin:0 0 18px}
+.dhan-symbol-dialog .dhan-search-create{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:44px;min-height:44px;padding:8px 12px;margin:0;font-size:12px;border-radius:8px;white-space:nowrap}
+.dhan-symbol-dialog .dhan-search-create>span{font-size:20px;font-weight:400;color:var(--green)}
+.dhan-symbol-dialog .dhan-results-heading{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:12px;font-weight:500;color:var(--muted);flex:none}
+.dhan-symbol-dialog .dhan-search-results{overflow-y:auto;overflow-x:hidden;min-height:100px;max-height:340px;flex:1 1 auto;overscroll-behavior:contain;scrollbar-width:thin}
+.dhan-symbol-dialog .dhan-search-row{display:flex;align-items:center;gap:4px;padding:4px 0;min-width:0}
+.dhan-symbol-dialog .dhan-search-row button[data-open-symbol]{display:flex;align-items:center;gap:10px;min-width:0;padding:10px 8px;min-height:68px;border-radius:8px}
+.dhan-symbol-dialog .dhan-instrument-mark{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--muted)}
+.dhan-symbol-dialog .dhan-instrument-copy{flex:1;min-width:0;text-align:left}
+.dhan-symbol-dialog .dhan-instrument-title{display:flex;align-items:center;gap:8px;min-width:0}
+.dhan-symbol-dialog .dhan-instrument-title strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.dhan-symbol-dialog .dhan-instrument-badge{font:500 10px/1.4 var(--mono);padding:2px 5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:4px;flex:none}
+.dhan-symbol-dialog .dhan-search-row small{font-size:12px;margin-top:3px;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+.dhan-symbol-dialog .dhan-instrument-type{font-size:11px;color:var(--muted);display:block;margin-top:3px}
+.dhan-symbol-dialog .dhan-expand-indicator{color:var(--muted);font-size:16px;margin-left:4px}
+.dhan-symbol-dialog [aria-expanded=true] .dhan-expand-indicator{transform:rotate(180deg)}
+.dhan-symbol-dialog .dhan-search-row button[data-symbol-action=chart],.dhan-symbol-dialog .dhan-search-row button[data-save-symbol]{display:inline-grid;place-items:center;flex:0 0 40px;width:40px;min-width:40px;height:44px;min-height:44px;padding:8px;border:1px solid transparent;border-radius:8px;font-size:20px}
+.dhan-symbol-dialog .dhan-search-row button[data-save-symbol]:disabled{opacity:.5;cursor:default}
+.dhan-symbol-dialog .dhan-search-actions{padding:10px;margin:0 0 8px;border:1px solid var(--line);border-radius:8px;gap:6px}
+.dhan-symbol-dialog .dhan-search-actions button{font-size:12px;min-height:40px;padding:8px;gap:6px}
+.dhan-symbol-dialog .dhan-search-actions button svg{width:15px;height:15px}
+.dhan-symbol-dialog .dhan-search-results>p{display:flex;align-items:center;justify-content:center;gap:10px;padding:24px 10px;font-size:13px;line-height:1.6;text-align:center}
+.dhan-symbol-dialog .dhan-search-status{margin:10px 0 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.dhan-symbol-dialog .dhan-search-status:empty,.dhan-symbol-dialog .dialog-error:empty{display:none}
+.dhan-symbol-dialog .dhan-search-more{font-size:12px;padding:8px;min-height:40px;margin:10px 0 0}
+.dhan-symbol-dialog .dialog-actions{display:flex;justify-content:flex-end;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);flex:none}
+.dhan-symbol-dialog .cancel-dialog{height:40px;min-height:40px;padding:8px 16px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;font-size:13px}
+.dhan-symbol-dialog button:focus-visible,.dhan-symbol-dialog select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+@media(max-width:520px){.workspace-dialog.dhan-symbol-dialog{width:calc(100vw - 16px);max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:12px}.dhan-symbol-dialog>form{padding:16px;max-height:calc(100dvh - 16px)}.dhan-symbol-dialog header h2{font-size:20px}.dhan-symbol-dialog .dhan-search-intro{font-size:12px;margin-bottom:12px}.dhan-symbol-dialog .dhan-search-watch{gap:8px}.dhan-symbol-dialog .dhan-search-create{font-size:11px;padding:8px}.dhan-symbol-dialog .dhan-instrument-mark{display:none}.dhan-symbol-dialog .dhan-search-row button[data-open-symbol]{gap:4px;padding:8px 4px}.dhan-symbol-dialog .dhan-instrument-title{gap:5px;flex-wrap:wrap}.dhan-symbol-dialog .dhan-instrument-title strong{font-size:13px}.dhan-symbol-dialog .dhan-search-row button[data-symbol-action=chart],.dhan-symbol-dialog .dhan-search-row button[data-save-symbol]{flex-basis:40px}.dhan-symbol-dialog .dhan-search-results{min-height:80px}}

@@ -427,12 +427,17 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
   }
   function openSymbolSearch(initial='',kind='') {
     const dialog=workspaceDialog('Symbol search',`
-      <label>Search instruments<input class="dhan-search-input" type="search" placeholder="Symbol or company name" autocomplete="off"></label>
-      <label>Exchange<select class="dhan-search-exchange"><option value="">All exchanges</option><option>NSE</option><option>BSE</option><option>MCX</option></select></label>
-      <label>Instrument type<select class="dhan-search-kind"><option value="">All instruments</option><option value="equity">Stocks</option><option value="index">Indices</option><option value="futures">Futures</option><option value="options">Options</option></select></label>
-      <label>Save to watchlist<select class="dhan-search-list"></select></label>
-      <div class="dhan-search-results"></div><button type="button" class="dhan-search-more button secondary hidden">Show more</button>
-      <p class="dhan-search-count muted"></p><p class="dhan-search-status muted" role="status"></p>`);
+      <p class="dhan-search-intro">Find a stock, index or contract. Open its chart or add it to your watchlist.</p>
+      <label class="dhan-search-field"><span class="dhan-filter-label">Search instruments</span><span class="dhan-search-box">${terminalIcon('search')}<input class="dhan-search-input" type="search" placeholder="Symbol or company name" autocomplete="off"></span></label>
+      <div class="dhan-search-filters"><label><span class="dhan-filter-label">${terminalIcon('overview')}Exchange</span><select class="dhan-search-exchange"><option value="">All exchanges</option><option>NSE</option><option>BSE</option><option>MCX</option></select></label>
+      <label><span class="dhan-filter-label">${terminalIcon('layers')}Instrument type</span><select class="dhan-search-kind"><option value="">All instruments</option><option value="equity">Stocks</option><option value="index">Indices</option><option value="futures">Futures</option><option value="options">Options</option></select></label></div>
+      <div class="dhan-search-watch"><label><span class="dhan-filter-label">${terminalIcon('list')}Save to watchlist</span><select class="dhan-search-list"></select></label><button type="button" class="dhan-search-create button secondary"><span aria-hidden="true">+</span>New watchlist</button></div>
+      <div class="dhan-results-heading"><span>Instruments</span><span class="dhan-search-count muted" role="status"></span></div>
+      <div class="dhan-search-results" aria-label="Instrument search results"></div><button type="button" class="dhan-search-more button secondary hidden">Show more</button>
+      <p class="dhan-search-status muted" role="status"></p>`);
+    dialog.classList.add('dhan-symbol-dialog');
+    dialog.querySelector('header h2').innerHTML=terminalIcon('search')+'Symbol search';
+    dialog.querySelector('.close-dialog').innerHTML='<span aria-hidden="true">×</span>';
     const field=dialog.querySelector('.dhan-search-input');
     const results=dialog.querySelector('.dhan-search-results');
     const listField=dialog.querySelector('.dhan-search-list');
@@ -452,15 +457,16 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
       const markup=found.map(item=>{
         const saved=list?.symbols.includes(item.symbol);
         const selected=expanded===item.symbol;
-        return `<div class="dhan-search-result"><div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}" aria-expanded="${selected}"><strong>${html(item.expiry?item.name:item.symbol)}</strong><small>${html(item.expiry?item.exchange+' · '+item.expiry:item.name)}</small></button><button type="button" data-symbol-action="chart" aria-label="Fullscreen chart for ${html(item.name)}" title="Fullscreen chart">${terminalIcon('charts')}</button>
-          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>${selected?`<div class="dhan-search-actions" aria-label="Instrument actions">${[['stock',item.kind==='equity'?'Stock overview':'Instrument overview'],...(item.kind==='index'?[]:[['depth','Market depth']]),...(item.optionChainAvailable?[['chain','Option chain']]:[]),...(item.lotSize?[['paper-buy','Paper buy'],['paper-sell','Paper sell']]:[])].map(([action,label])=>`<button type="button" data-symbol-action="${action}">${label}</button>`).join('')}</div>`:''}</div>`;
-      }).join('')||`<p class="muted">${ready?'No matching instruments.':'Loading Dhan instruments…'}</p>`;
+        const typeName={equity:'Stock',index:'Index',futures:'Future',options:'Option'}[item.kind]||'Instrument';
+        return `<div class="dhan-search-result"><div class="dhan-search-row"><button type="button" data-open-symbol="${html(item.symbol)}" aria-expanded="${selected}"><span class="dhan-instrument-mark" aria-hidden="true">${terminalIcon(item.kind==='index'?'overview':item.kind==='futures'?'commodity':item.kind==='options'?'layers':'charts')}</span><span class="dhan-instrument-copy"><span class="dhan-instrument-title"><strong>${html(item.expiry?item.name:item.symbol.split(':').slice(1).join(':')||item.symbol)}</strong><span class="dhan-instrument-badge">${html(item.exchange)}</span></span><small>${html(item.expiry?item.symbol:item.name)}</small><span class="dhan-instrument-type">${typeName}${item.expiry?' · '+html(item.expiry):''}${item.lotSize?' · '+html(String(item.lotSize))+' / lot':''}</span></span><span class="dhan-expand-indicator" aria-hidden="true">⌄</span></button><button type="button" data-symbol-action="chart" aria-label="Fullscreen chart for ${html(item.name)}" title="Fullscreen chart">${terminalIcon('charts')}</button>
+          <button type="button" data-save-symbol="${html(item.symbol)}" aria-label="Add ${html(item.symbol)} to watchlist" title="${saved?'Already saved':'Add to watchlist'}" ${saved?'disabled':''}>${saved?'✓':'＋'}</button></div>${selected?`<div class="dhan-search-actions" aria-label="Instrument actions">${[['stock',item.kind==='equity'?'Stock overview':'Instrument overview'],...(item.kind==='index'?[]:[['depth','Market depth']]),...(item.optionChainAvailable?[['chain','Option chain']]:[]),...(item.lotSize?[['paper-buy','Paper buy'],['paper-sell','Paper sell']]:[])].map(([action,label])=>`<button type="button" data-symbol-action="${action}">${terminalIcon({stock:'research',depth:'list',chain:'layers','paper-buy':'arrow','paper-sell':'paper'}[action])}${label}</button>`).join('')}</div>`:''}</div>`;
+      }).join('')||`<p class="muted">${terminalIcon(ready?'search':'refresh')}${ready?'No matches. Try another symbol or change the filters.':'Loading Dhan instruments…'}</p>`;
       if(results.dataset.markup!==markup){
         results.innerHTML=markup;
         results.dataset.markup=markup;
       }
       more.classList.toggle('hidden',found.length>=total);
-      count.textContent=ready?`Showing ${fmt(found.length,0)} of ${fmt(total,0)} listings`:'';
+      count.textContent=ready?`${fmt(found.length,0)} of ${fmt(total,0)} listings`:'';
     };
     async function searchCatalog(append=false) {
       pending?.abort();
@@ -547,7 +553,6 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
         status.textContent=`${symbol} added to ${currentList()?.name||'watchlist'}.`;
       }catch(error){status.textContent=error.message;button.disabled=false;}
     };
-    listField.insertAdjacentHTML('afterend','<button type="button" class="dhan-search-create button secondary">New watchlist</button>');
     dialog.querySelector('.dhan-search-create').onclick=()=>listDialog(false,async()=>{if(dialog.open){paintLists();render();}});
   }
   const selectedDrawing=()=>drawings.find(drawing=>drawing.id===owner.selectedDrawing);
