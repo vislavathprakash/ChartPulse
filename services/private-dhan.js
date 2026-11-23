@@ -37,6 +37,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
   const allows = user => Boolean(configured && user?.role === 'customer' && String(user.id) === ownerId && user.email?.toLowerCase() === ownerEmail);
   const quotes = new Map();
   const snapshots = new Map(), history = new Map(), requests = new Map();
+  let catalogIssue='',catalogLoading=false;
   let directory = new Map(), snapshotStatus = '', snapshotError = null, nextSnapshot = 0, snapshotRequest;
   let client, starting = false, stopped = false, status = 'Waiting for the Dhan feed to start.';
   let commodityStatus = '', nextContractCheck = 0;
@@ -89,7 +90,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
       const { rows } = await pool.query("SELECT id,email,role FROM users WHERE id=$1 AND active=TRUE AND role='customer'", [ownerId]);
       if (!allows(rows[0])) return;
       const [updatedCatalog, commodities] = await Promise.all([
-        Date.now()-catalogLoadedAt<86400000 ? null : dhan.readEquities().catch(()=>null),
+        Date.now()-catalogLoadedAt<86400000 ? null : (async()=>{catalogLoading=true;try{const entries=await dhan.readEquities();catalogIssue='';return entries;}catch(error){catalogIssue='Dhan instrument directory could not be loaded. The server will retry.';console.error('Dhan instrument directory:',error.name,error.message);return null;}finally{catalogLoading=false;}})(),
         dhan.resolveCommodityContracts().catch(()=>null)
       ]);
       if (stopped) return;
@@ -243,7 +244,7 @@ function installPrivateDhan({ app, pool, requireAuth, asyncRoute, enabled }) {
     }
     const order={index:0,equity:1,futures:2,options:3};
     matches.sort((a,b)=>a.rank-b.rank||order[a.item.kind]-order[b.item.kind]||(a.item.expiry??'').localeCompare(b.item.expiry??'')||a.item.symbol.localeCompare(b.item.symbol));
-    res.json({items:matches.slice(offset,offset+50).map(({item})=>publicInstrument(item)),total:matches.length,roots:exchange==='MCX'?[...new Set([...commodityCatalog.values()].map(i=>i.underlying))].sort():undefined,ready:(exchange==='MCX'?commodityCatalog:catalog).size>0});
+    res.json({items:matches.slice(offset,offset+50).map(({item})=>publicInstrument(item)),total:matches.length,roots:exchange==='MCX'?[...new Set([...commodityCatalog.values()].map(i=>i.underlying))].sort():undefined,ready:(exchange==='MCX'?commodityCatalog:catalog).size>0,message:exchange==='MCX'?commodityStatus:catalog.size?'':catalogLoading?'Dhan instrument directory is loading. Refresh shortly.':catalogIssue});
   }));
   installDhanConstituents({app,requireAuth,ownerOnly,asyncRoute,getEquities:()=>catalog});
   const alerts=installDhanAlerts({app,pool,requireAuth,ownerOnly,asyncRoute,ownerId,quotes,

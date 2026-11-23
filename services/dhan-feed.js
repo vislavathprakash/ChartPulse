@@ -47,7 +47,7 @@ async function resolveInstruments(input = DEFAULT_SYMBOLS) {
 
 async function readEquities(symbols) {
   const wanted = symbols && new Set(symbols), found = new Map(), priorities = new Map();
-  const response = await fetch(MASTER, { signal: AbortSignal.timeout(25000), redirect: 'error' });
+  const response = await fetch(MASTER, { signal: AbortSignal.timeout(wanted?25000:120000), redirect: 'error' });
   if (!response.ok || !response.body) throw new Error('Could not download the Dhan instrument directory.');
   const stream = Readable.fromWeb(response.body);
   const lines = createInterface({ input: stream, crlfDelay: Infinity });
