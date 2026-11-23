@@ -79,7 +79,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     <button type="button" data-dhan-chart="indicators">Indicators</button>
     <button type="button" data-dhan-chart="paper" disabled aria-label="Paper order for chart symbol">${terminalIcon('paper')} <span>Paper</span></button>
     <button type="button" class="dhan-create-alert" data-dhan-chart="createAlert" aria-label="Create alert" title="Create alert">${terminalIcon('alerts')} <span>Alert</span></button>
-    <button type="button" data-dhan-chart="fullscreen" aria-label="Fullscreen chart" aria-pressed="false" title="Fullscreen chart">${terminalIcon('charts')}</button>
+    <button type="button" data-dhan-chart="fullscreen" aria-label="Fullscreen chart" aria-pressed="false" title="Fullscreen chart">${terminalIcon('fullscreen')}<span class="dhan-fullscreen-label">Fullscreen</span></button>
     <button type="button" data-dhan-chart="options" aria-label="Chart settings" title="Chart settings">${terminalIcon('settings')}</button>`;
   toolbar.append(tools);
   const searchButton=document.createElement('button');
@@ -704,6 +704,7 @@ function createDhanChartDesk(host, toolbar, selectSymbol, watchChanged, quoteSta
     fullscreenButton.setAttribute('aria-pressed',String(expanded));
     fullscreenButton.setAttribute('aria-label',expanded?'Exit fullscreen':'Fullscreen chart');
     fullscreenButton.title=fullscreenButton.getAttribute('aria-label');
+    fullscreenButton.innerHTML=(expanded?'<svg class="terminal-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 9h6V3m12 6h-6V3M3 15h6v6m12-6h-6v6"/></svg>':terminalIcon('fullscreen'))+'<span class="dhan-fullscreen-label">'+(expanded?'Exit fullscreen':'Fullscreen')+'</span>';
     requestAnimationFrame(paint);
   }
   function exitFocus() {
