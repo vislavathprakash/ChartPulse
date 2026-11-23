@@ -506,3 +506,6 @@ body { font-size:var(--dashboard-body); }
   .content-wrap .page-heading h1 { font-size:25px; }
   .content-wrap .data-table td,.content-wrap .data-table th { padding-inline:8px; }
 }
+
+/* Keep the ChartPulse wordmark and feed status readable in the compact sidebar. */
+.app-shell .sidebar .brand-row{display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:8px;row-gap:8px;align-items:center}.app-shell .sidebar .brand-row>.live-badge{grid-column:2;justify-self:start;margin:0;font-size:10px}

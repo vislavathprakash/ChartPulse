@@ -564,7 +564,7 @@
       if(!current())return;
       if(researchView==='technicals'&&(result.error||!Object.keys(result.data??{}).length)) {
         const data=localTechnicals(symbol,interval);
-        if(data){body.innerHTML=renderResearch(data);status.textContent='Calculated by AlertPe from completed Dhan candles. Dhan’s indicator endpoint did not return values.';return;}
+        if(data){body.innerHTML=renderResearch(data);status.textContent='Calculated by ChartPulse from completed Dhan candles. Dhan’s indicator endpoint did not return values.';return;}
       }
       if(result.error){status.textContent=result.error;if(researchView==='chain'&&result.data?.dates)body.innerHTML=renderResearch(result.data);else body.replaceChildren();return;}
       const content=renderResearch(result.data);

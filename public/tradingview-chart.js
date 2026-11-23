@@ -1,5 +1,5 @@
 // Official TradingView hosted widget. No market data or drawing objects are
-// read from its cross-origin iframe by AlertPe.
+// read from its cross-origin iframe by ChartPulse.
 window.tradingViewChart = {
   key: null,
   generation: 0,
