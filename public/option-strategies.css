@@ -59,3 +59,28 @@
 @media(max-width:1200px){#paper-strategies .os-controls{grid-template-columns:minmax(170px,2fr) minmax(150px,1fr) minmax(140px,1fr)}#paper-strategies .os-controls>.button{justify-self:start}#paper-strategies .os-controls>[data-os-refresh]{grid-column:1/2}#paper-strategies .os-controls>[data-os-index-chart]{grid-column:2/4}}
 @media(max-width:700px){#paper-strategies .os-controls{grid-template-columns:1fr 1fr;padding:14px;gap:12px}#paper-strategies .os-controls label:first-child{grid-column:1/-1}#paper-strategies .os-controls>[data-os-index-chart]{grid-column:2}#paper-strategies .os-controls>.button{width:100%;padding:10px 8px;font-size:12px}#paper-strategies .os-settings{grid-template-columns:1fr 1fr}#paper-strategies .os-settings label:first-child{grid-column:1/-1}#paper-strategies .os-settings>[data-os-add]{grid-column:1/-1;justify-self:end}#paper-strategies .os-section-title{align-items:flex-start}#paper-strategies .os-section-title>span{text-align:right;max-width:45%}#paper-strategies .os-heading h2{font-size:21px}#paper-strategies .os-view-tabs{width:100%}#paper-strategies .os-view-tabs button{padding:9px 10px;font-size:13px}#paper-strategies .os-change{white-space:normal;max-width:90px;text-align:right}#paper-strategies .os-metrics strong{font-size:17px}#paper-strategies .os-metrics>div{padding:12px}}
 @media(min-width:701px) and (max-width:1000px){#paper-strategies .os-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#paper-strategies .os-controls label:first-child{grid-column:1/-1}#paper-strategies .os-controls>[data-os-index-chart]{grid-column:2}#paper-strategies .os-controls>.button{width:100%;padding:10px 8px;font-size:12px}#paper-strategies .os-settings{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#paper-strategies .os-settings label:first-child{grid-column:1/-1}#paper-strategies .os-settings>[data-os-add]{grid-column:1/-1;justify-self:end}}
+/* Guided navigation keeps market selection, construction and risk in a single flow. */
+#paper-strategies .os-view-tabs{margin-bottom:8px}
+#paper-strategies .os-view-help{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.6}
+#paper-strategies .os-status{margin:0 0 16px;padding:10px 12px;background:var(--bg);border-left:2px solid var(--muted);border-radius:0 6px 6px 0;font-size:12px;color:var(--muted)}
+#paper-strategies .os-status.negative{color:var(--red);border-left-color:var(--red)}
+#paper-strategies .os-status:empty{display:none}
+#paper-strategies .os-step-number{display:inline-grid;place-items:center;flex:0 0 24px;width:24px;height:24px;border:1px solid var(--line);border-radius:7px;color:var(--green);background:var(--panel2);font-size:12px;font-weight:600}
+#paper-strategies .os-step{margin-top:24px}
+#paper-strategies .os-strategy-info{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:14px 16px;border-left:2px solid var(--green);background:var(--bg);border-radius:0 8px 8px 0;margin:12px 0 18px}
+#paper-strategies .os-strategy-info strong{font-size:15px;font-weight:600}
+#paper-strategies .os-strategy-info p{flex:1 1 100%;font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+#paper-strategies .os-outlook{font-size:11px;background:var(--green2);color:var(--green);padding:4px 8px;border-radius:5px}
+#paper-strategies .os-chain-meta{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 2px;margin:0 0 20px;font-size:12px}
+#paper-strategies .os-chain-meta:before{display:none}
+#paper-strategies .os-quote-item{display:inline-flex;align-items:center;gap:6px}
+#paper-strategies .os-quote-item b{font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+#paper-strategies .os-quote-item svg{width:14px;height:14px;flex-basis:14px}
+#paper-strategies .os-quote-time{margin-left:auto}
+#paper-strategies .os-help{margin:12px 0;border:1px solid var(--line);border-radius:8px;padding:12px;color:var(--muted);font-size:13px;line-height:1.7}
+#paper-strategies .os-help summary{cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);font-size:13px;list-style:none}
+#paper-strategies .os-help summary:after{content:'+';margin-left:auto;color:var(--green);font-size:18px}
+#paper-strategies .os-help[open] summary:after{content:'−'}
+#paper-strategies .os-help p{margin:12px 0 0;font-size:13px}
+#paper-strategies .os-action-help{font-size:13px;line-height:1.7;color:var(--muted);margin:0 0 16px;max-width:780px}
+@media(max-width:700px){#paper-strategies .os-quote-time{margin-left:0;flex-basis:100%}#paper-strategies .os-section-title{flex-wrap:wrap;gap:6px}#paper-strategies .os-section-title>span{max-width:none;text-align:left;padding-left:32px;flex-basis:100%}#paper-strategies .os-view-tabs button{font-size:13px}}
