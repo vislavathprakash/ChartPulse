@@ -109,7 +109,7 @@ function installNews({app,pool,requireAuth,asyncRoute,runtime}){
       if(last?.last_attempt&&Date.now()-Date.parse(last.last_attempt)<120000)continue;
       await pool.query("UPDATE news_feed_status SET last_attempt=NOW(),status='refreshing' WHERE feed_id=$1",[feed.id]);
       try{
-        const response=await fetch(feed.url,{signal:AbortSignal.timeout(15000),redirect:'error',headers:{Accept:'application/rss+xml, application/xml, text/xml','User-Agent':'AlertPe-News/1.0 (public RSS headlines)'}});
+        const response=await fetch(feed.url,{signal:AbortSignal.timeout(15000),redirect:'error',headers:{Accept:'application/rss+xml, application/xml, text/xml','User-Agent':'ChartPulse-News/1.0 (public RSS headlines)'}});
         if(!response.ok)throw new Error('Source responded HTTP '+response.status);
         const reader=response.body.getReader(),parts=[];let size=0;
         try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>2000000)throw new Error('Source exceeds feed size limit.');parts.push(Buffer.from(value));}}finally{await reader.cancel().catch(()=>{});}
