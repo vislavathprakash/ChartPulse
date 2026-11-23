@@ -35,7 +35,7 @@
       </div>
       <p class="muted paper-status" role="status"></p>
     </section>
-    <p class="muted paper-disclosure">Paper fills use the latest eligible quote without modelling fees, order-book liquidity, or partial fills. Futures reserve 20% of notional. Short options reserve 20% of underlying notional plus premium. These are practice estimates. Practice derivatives use fictional prices and preset lot sizes.</p>`;
+    <p class="muted paper-disclosure">Paper fills use the latest eligible quote without modelling fees, order-book liquidity, or partial fills. Futures reserve 20% of notional. Short options reserve 20% of underlying notional plus premium. These are practice estimates. Dhan instruments use available Dhan quotes and listed lot sizes. Workspace practice derivatives use fictional prices and preset lot sizes. No real broker orders are sent.</p>`;
   document.querySelector('.content-wrap').append(page);
   const metrics=page.querySelector('.paper-wallet'), body=$('paper-activity'), status=page.querySelector('.paper-status');
   const activityNav=body.querySelector('.paper-activity-tabs'), activityContent=$('paper-activity-content');
