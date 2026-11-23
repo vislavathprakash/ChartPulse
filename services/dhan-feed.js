@@ -52,12 +52,13 @@ async function readEquities(symbols) {
   const stream = Readable.fromWeb(response.body);
   const lines = createInterface({ input: stream, crlfDelay: Infinity });
   const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
-  let columns;
+  let columns,optionColumns;
   try {
     for await (const line of lines) {
       if (!columns) {
         const headers = csvFields(line.replace(/^\uFEFF/, ''));
         columns = ['SEM_EXM_EXCH_ID','SEM_SEGMENT','SEM_SMST_SECURITY_ID','SEM_INSTRUMENT_NAME','SEM_TRADING_SYMBOL','SEM_CUSTOM_SYMBOL','SEM_SERIES','SEM_EXCH_INSTRUMENT_TYPE','SEM_EXPIRY_DATE','SEM_LOT_UNITS'].map(name => headers.indexOf(name));
+        optionColumns=['SEM_STRIKE_PRICE','SEM_OPTION_TYPE'].map(name=>headers.indexOf(name));
         if (columns.some(index => index < 0)) throw new Error('Dhan changed the instrument directory format.');
         continue;
       }
@@ -76,8 +77,9 @@ async function readEquities(symbols) {
         if (!expiry || expiry < today) continue;
         const underlying = ticker.split(/-(?:\d{1,2})?[A-Z]{3}\d{4}-/i)[0];
         const lotSize=Number(lotUnits);
+        const strike=Number(fields[optionColumns[0]]),right=fields[optionColumns[1]]?.trim().toUpperCase();
         const contractSymbol = (instrument.startsWith('OPT') ? `${symbol}_${expiry}` : symbol).toUpperCase();
-        found.set(contractSymbol, { ...item, symbol:contractSymbol, expiry, underlying, lotSize:Number.isSafeInteger(lotSize)&&lotSize>0?lotSize:null, segment: exchange + '_FNO', code: exchange === 'NSE' ? 2 : 8, kind: instrument.startsWith('FUT') ? 'futures' : 'options' });
+        found.set(contractSymbol, { ...item, symbol:contractSymbol, expiry, underlying, strike:Number.isFinite(strike)&&strike>0?strike:null,right:['CE','PE'].includes(right)?right:null,lotSize:Number.isSafeInteger(lotSize)&&lotSize>0?lotSize:null, segment: exchange + '_FNO', code: exchange === 'NSE' ? 2 : 8, kind: instrument.startsWith('FUT') ? 'futures' : 'options' });
         continue;
       }
       if (segment !== 'E' || instrument !== 'EQUITY') continue;

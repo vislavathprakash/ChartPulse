@@ -89,7 +89,9 @@ function ticketQuote(item,quote) {
 }
 
 function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,practiceChart}) {
+  app.use(ROUTE,(_req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
   require('./paper-report').installPaperReport({app,pool,requireAuth,asyncRoute,publicOrder});
+  const strategies=require('./paper-strategies').installPaperStrategies({app,pool,requireAuth,asyncRoute,account,position,lockedFunds,needMarket,getMarket,executionPlan,insertOrder,fill,sessionDeadline,validateOrder,fresh,quotePrice,rupees});
   async function setup() {
     await pool.query("CREATE TABLE IF NOT EXISTS paper_accounts (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, cash BIGINT NOT NULL, realized BIGINT NOT NULL DEFAULT 0)");
     await pool.query("CREATE TABLE IF NOT EXISTS paper_positions (user_id INTEGER NOT NULL REFERENCES paper_accounts(user_id) ON DELETE CASCADE, source TEXT NOT NULL, symbol TEXT NOT NULL, instrument JSONB NOT NULL, quantity INTEGER NOT NULL, entry_value BIGINT NOT NULL, capital BIGINT NOT NULL, stop_loss BIGINT, take_profit BIGINT, protected_at TIMESTAMPTZ, mark BIGINT, mark_at TIMESTAMPTZ, PRIMARY KEY(user_id,source,symbol))");
@@ -105,6 +107,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     await pool.query("CREATE INDEX IF NOT EXISTS paper_pending_user ON paper_orders(user_id) WHERE state='pending'");
     await pool.query("CREATE INDEX IF NOT EXISTS paper_order_history ON paper_orders(user_id,id DESC)");
     await pool.query("CREATE INDEX IF NOT EXISTS paper_filled_report ON paper_orders(user_id,filled_at DESC,id DESC) WHERE state='filled'");
+    await strategies.setup();
   }
   const query=(...args)=>pool.query(...args);
   async function account(userId) {
@@ -124,7 +127,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     const result=await market(user,source,symbol,ensure);
     if(!result?.item)return null;
     const {item}=result;
-    return {...result,item:{symbol:item.symbol,name:item.name,kind:item.kind,exchange:item.exchange,lotSize:item.lotSize,expiry:item.expiry??null,practice:item.practice===true}};
+    return {...result,item:{symbol:item.symbol,name:item.name,kind:item.kind,exchange:item.exchange,lotSize:item.lotSize,expiry:item.expiry??null,practice:item.practice===true,strike:item.strike,right:item.right,underlying:item.underlying,contractType:item.instrument}};
   }
   async function needMarket(user,input,ensure=false) {
     const data=await getMarket(user,input.source,input.symbol,ensure);
@@ -169,7 +172,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     return price;
   }
 
-  app.use(ROUTE,(_req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
+
   app.get(ROUTE+'/instruments',requireAuth,asyncRoute(async(req,res)=>{
     if(!practice)throw fail('Practice derivatives are unavailable for this feed.',404);
     const {kind}=req.query;
@@ -206,6 +209,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
     const result=await pool.transaction(async()=>{
       const wallet=await account(user.id);
       const p=await position(user.id,t.source,t.symbol,t.product);
+      if(p?.strategy_id)throw fail('Manage this leg from Paper Trading → Options strategies.',409);
       const plan=executionPlan(data.item,t,p,price,data.underlying);
       return {price:rupees(price),quantity:plan.quantity,available:rupees(Number(wallet.cash)-await lockedFunds(user.id)),required:rupees(plan.required),releases:rupees(plan.release),pnl:plan.closing?rupees(plan.pnl):null,notional:rupees(plan.notional),closing:plan.closing};
     });
@@ -225,6 +229,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
       t.sessionEnd=sessionDeadline(data.item,t);
       const price=validateOrder(t,data.quote);
       const p=await position(user.id,t.source,t.symbol,t.product);
+      if(p?.strategy_id)throw fail('Manage this leg from Paper Trading → Options strategies.',409);
       const {rows:pending}=await query("SELECT source,symbol,product FROM paper_orders WHERE user_id=$1 AND state='pending'",[user.id]);
       if(pending.some(row=>row.source===t.source&&row.symbol===t.symbol&&row.product===t.product))throw fail('Cancel the existing pending order for this instrument first.',409);
       const canFill=fresh(data.quote)&&triggered(t,quotePrice(data.quote));
@@ -297,7 +302,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
       const pnl=current==null?null:(current*q-cost)*Math.sign(p.quantity);
       capital+=Number(p.capital);
       if(pnl!==null){openPnl+=pnl;marked++;}
-      return {...ticketQuote(p.instrument,quote),source:p.source,product:p.product,quantity:p.quantity,average:cost/q/100,last:rupees(current),pnl:rupees(pnl),capital:rupees(p.capital),stopLoss:rupees(p.stop_loss),takeProfit:rupees(p.take_profit)};
+      return {...ticketQuote(p.instrument,quote),source:p.source,product:p.product,strategyId:p.strategy_id,quantity:p.quantity,average:cost/q/100,last:rupees(current),pnl:rupees(pnl),capital:rupees(p.capital),stopLoss:rupees(p.stop_loss),takeProfit:rupees(p.take_profit)};
     }));
     const cash=Number(snapshot.wallet.cash),reserved=snapshot.pending.reduce((sum,o)=>sum+Number(o.reserved),0);
     res.json({startingCash:rupees(STARTING_CASH),cash:rupees(cash),available:rupees(cash-reserved),reserved:rupees(reserved),capital:rupees(capital),equity:rupees(cash+capital+openPnl),unrealized:rupees(openPnl),realized:rupees(snapshot.wallet.realized),marked,
@@ -388,6 +393,7 @@ function installPaperTrading({app,pool,requireAuth,asyncRoute,market,practice,pr
   async function autoExit(id,p,wallet,price,reason,markAt,chartTime) {
     const t={product:p.product,source:p.source,symbol:p.symbol,side:p.quantity>0?'sell':'buy',type:'market',quantity:Math.abs(p.quantity),level:null,stop:null,target:null};
     const order=await insertOrder(id,t,p.instrument,t.quantity,0,reason);
+    if(p.strategy_id)await query('UPDATE paper_orders SET strategy_id=$2 WHERE id=$1',[order.id,p.strategy_id]);
     await fill(id,order,p,wallet,price,executionPlan(p.instrument,t,p,price),markAt,chartTime);
   }
   return {setup,scan};

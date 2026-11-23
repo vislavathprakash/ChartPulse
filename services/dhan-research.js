@@ -104,7 +104,7 @@ function installDhanResearch({app,requireAuth,ownerOnly,asyncRoute,fetchData,cre
       const selected=expiry??dates[0];
       const chain=await cached('chain:'+base.symbol+':'+selected,12000,async()=>{
         const {data}=await fetchData('optionchain',{...payload,Expiry:selected});
-        const leg=value=>value?{symbol:optionSymbol(base,asNumber(value.security_id)),price:asNumber(value.last_price),oi:asNumber(value.oi),volume:asNumber(value.volume),iv:asNumber(value.implied_volatility),bid:asNumber(value.top_bid_price),ask:asNumber(value.top_ask_price)}:null;
+        const leg=value=>{if(!value)return null;const symbol=optionSymbol(base,asNumber(value.security_id));return {symbol,lotSize:instrument(symbol)?.lotSize??null,price:asNumber(value.last_price),oi:asNumber(value.oi),volume:asNumber(value.volume),iv:asNumber(value.implied_volatility),bid:asNumber(value.top_bid_price),ask:asNumber(value.top_ask_price)};};
         const strikes=Object.entries(data?.oc??{}).map(([strike,row])=>({strike:asNumber(strike),call:leg(row?.ce),put:leg(row?.pe)})).filter(row=>row.strike>0).sort((a,b)=>a.strike-b.strike);
         return {strikes,spot:asNumber(data?.last_price)};
       });
