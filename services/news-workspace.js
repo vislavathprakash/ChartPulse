@@ -93,8 +93,9 @@ function readRule(body={}){
 }
 function matches(rule,item){return (!rule.stock||rule.stock===item.stock)&&(!rule.category||item.categories.includes(rule.category))&&(!rule.keyword||(item.title+' '+item.summary+' '+(item.quick_read||item.quickRead||'')).toLowerCase().includes(rule.keyword.toLowerCase()));}
 function installNews({app,pool,requireAuth,asyncRoute,runtime}){
+  const institutional=require('./institutional-flows').installInstitutionalFlows({app,pool,requireAuth,asyncRoute});
   let refreshing=null;
-  async function setup(){await pool.query(`CREATE TABLE IF NOT EXISTS news_articles(id BIGSERIAL PRIMARY KEY,external_key TEXT UNIQUE NOT NULL,title TEXT NOT NULL,summary TEXT NOT NULL,source_url TEXT NOT NULL,source_name TEXT NOT NULL,feed_id TEXT NOT NULL,categories TEXT[] NOT NULL,stock TEXT,company TEXT,published_at TIMESTAMPTZ,event_day DATE,subject TEXT,observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  async function setup(){await institutional.setup();await pool.query(`CREATE TABLE IF NOT EXISTS news_articles(id BIGSERIAL PRIMARY KEY,external_key TEXT UNIQUE NOT NULL,title TEXT NOT NULL,summary TEXT NOT NULL,source_url TEXT NOT NULL,source_name TEXT NOT NULL,feed_id TEXT NOT NULL,categories TEXT[] NOT NULL,stock TEXT,company TEXT,published_at TIMESTAMPTZ,event_day DATE,subject TEXT,observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
     ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS quick_read TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS news_time_idx ON news_articles(published_at DESC,id DESC);CREATE INDEX IF NOT EXISTS news_stock_idx ON news_articles(stock,published_at DESC);CREATE INDEX IF NOT EXISTS news_categories_idx ON news_articles USING GIN(categories);
     CREATE TABLE IF NOT EXISTS news_feed_status(feed_id TEXT PRIMARY KEY,last_attempt TIMESTAMPTZ,last_success TIMESTAMPTZ,status TEXT NOT NULL DEFAULT 'waiting',error TEXT NOT NULL DEFAULT '',item_count INTEGER NOT NULL DEFAULT 0,content_hash TEXT NOT NULL DEFAULT '');
