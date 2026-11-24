@@ -30,11 +30,12 @@ window.liveMarket={
     if(state.currentPage==='charts')simulationChart.acceptLive(message);
   },
   subscribe(){if(!this.connected||this.socket?.readyState!==WebSocket.OPEN)return;
+    const watching=!document.hidden&&['overview','screener','charts'].includes(state.currentPage);
     const chart=window.simulationChart,stocks=state.meta.simulated&&chart.stocks?.length?chart.stocks:[...this.quotes.values()];
-    const charts=state.currentPage==='charts'&&state.meta.simulated?[chart.symbol,chart.settings.split?chart.settings.compareSymbol:null].filter(symbol=>this.quotes.has(symbol)):[];
+    const charts=watching&&state.currentPage==='charts'&&state.meta.simulated?[chart.symbol,chart.settings.split?chart.settings.compareSymbol:null].filter(symbol=>this.quotes.has(symbol)):[];
     const candidates=[...charts,...(window.stockWorkspace?.current()?.symbols||[]),...(state.currentPage==='charts'&&chart.visibleWatchSymbols?.length?chart.visibleWatchSymbols:stocks.slice(0,20).map(q=>q.symbol))];
-    const symbols=[...new Set(candidates.filter(symbol=>this.quotes.has(symbol)))].slice(0,50);
-    const message={type:'subscribe',symbols,charts,discover:!symbols.length,interval:chart.settings?.interval||'1m'};const key=JSON.stringify(message);if(key===this.subscriptionKey)return;this.subscriptionKey=key;this.socket.send(key);
+    const symbols=watching?[...new Set(candidates.filter(symbol=>this.quotes.has(symbol)))].slice(0,50):[];
+    const message={type:'subscribe',symbols,charts,discover:watching&&!symbols.length,interval:chart.settings?.interval||'1m'};const key=JSON.stringify(message);if(key===this.subscriptionKey)return;this.subscriptionKey=key;this.socket.send(key);
   },
   seed(quotes){for(const quote of quotes)this.quotes.set(quote.symbol,quote);this.subscribe();}
 };
