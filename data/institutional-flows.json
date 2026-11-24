@@ -1,0 +1,2479 @@
+{
+  "source": "Moneycontrol published cash-market archive",
+  "sourceUrl": "https://www.moneycontrol.com/stocks/marketstats/fii_dii_activity/",
+  "retrievedAt": "2026-11-24T18:30:23.971Z",
+  "from": "2025-11-25",
+  "to": "2026-11-25",
+  "rows": [
+    {
+      "date": "2025-11-25",
+      "fiiBuy": 16596.24,
+      "fiiSell": 15810.92,
+      "fiiNet": 785.32,
+      "diiBuy": 15153.03,
+      "diiSell": 11240.56,
+      "diiNet": 3912.47,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-11-26",
+      "fiiBuy": 16232.14,
+      "fiiSell": 11454.11,
+      "fiiNet": 4778.03,
+      "diiBuy": 16334.09,
+      "diiSell": 10086.16,
+      "diiNet": 6247.93,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-11-27",
+      "fiiBuy": 10262.02,
+      "fiiSell": 11517.22,
+      "fiiNet": -1255.2,
+      "diiBuy": 15558.92,
+      "diiSell": 11618.05,
+      "diiNet": 3940.87,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-11-28",
+      "fiiBuy": 10174.58,
+      "fiiSell": 13970.3,
+      "fiiNet": -3795.72,
+      "diiBuy": 14627.36,
+      "diiSell": 10478.88,
+      "diiNet": 4148.48,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-01",
+      "fiiBuy": 8979.4,
+      "fiiSell": 10150.71,
+      "fiiNet": -1171.31,
+      "diiBuy": 13024.65,
+      "diiSell": 10465.72,
+      "diiNet": 2558.93,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-02",
+      "fiiBuy": 15234.08,
+      "fiiSell": 18876.38,
+      "fiiNet": -3642.3,
+      "diiBuy": 15194.77,
+      "diiSell": 10548.83,
+      "diiNet": 4645.94,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-03",
+      "fiiBuy": 11134.97,
+      "fiiSell": 14341.89,
+      "fiiNet": -3206.92,
+      "diiBuy": 17188.06,
+      "diiSell": 12457.65,
+      "diiNet": 4730.41,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-04",
+      "fiiBuy": 11500.09,
+      "fiiSell": 13444.28,
+      "fiiNet": -1944.19,
+      "diiBuy": 16489.46,
+      "diiSell": 12828.41,
+      "diiNet": 3661.05,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-05",
+      "fiiBuy": 11456.36,
+      "fiiSell": 11895.26,
+      "fiiNet": -438.9,
+      "diiBuy": 16057.87,
+      "diiSell": 11868.7,
+      "diiNet": 4189.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-08",
+      "fiiBuy": 12500.23,
+      "fiiSell": 13155.82,
+      "fiiNet": -655.59,
+      "diiBuy": 16883.41,
+      "diiSell": 14340.92,
+      "diiNet": 2542.49,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-09",
+      "fiiBuy": 13604.94,
+      "fiiSell": 17365.02,
+      "fiiNet": -3760.08,
+      "diiBuy": 17438.88,
+      "diiSell": 11213.99,
+      "diiNet": 6224.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-10",
+      "fiiBuy": 11700.44,
+      "fiiSell": 13351.5,
+      "fiiNet": -1651.06,
+      "diiBuy": 16868.94,
+      "diiSell": 13116.63,
+      "diiNet": 3752.31,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-11",
+      "fiiBuy": 7534.15,
+      "fiiSell": 9555.09,
+      "fiiNet": -2020.94,
+      "diiBuy": 13196.12,
+      "diiSell": 9400.05,
+      "diiNet": 3796.07,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-12",
+      "fiiBuy": 10979.8,
+      "fiiSell": 12094.02,
+      "fiiNet": -1114.22,
+      "diiBuy": 15616.98,
+      "diiSell": 11748.04,
+      "diiNet": 3868.94,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-15",
+      "fiiBuy": 8609.68,
+      "fiiSell": 10078,
+      "fiiNet": -1468.32,
+      "diiBuy": 11749.18,
+      "diiSell": 9956.93,
+      "diiNet": 1792.25,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-16",
+      "fiiBuy": 10464.52,
+      "fiiSell": 12846.44,
+      "fiiNet": -2381.92,
+      "diiBuy": 12488.98,
+      "diiSell": 11411.5,
+      "diiNet": 1077.48,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-17",
+      "fiiBuy": 12801.81,
+      "fiiSell": 11630.1,
+      "fiiNet": 1171.71,
+      "diiBuy": 10752.75,
+      "diiSell": 9983.81,
+      "diiNet": 768.94,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-18",
+      "fiiBuy": 11442.37,
+      "fiiSell": 10846.59,
+      "fiiNet": 595.78,
+      "diiBuy": 12375.71,
+      "diiSell": 9675.35,
+      "diiNet": 2700.36,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-19",
+      "fiiBuy": 27447.95,
+      "fiiSell": 25617.06,
+      "fiiNet": 1830.89,
+      "diiBuy": 23097.51,
+      "diiSell": 17374.62,
+      "diiNet": 5722.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-22",
+      "fiiBuy": 10713.52,
+      "fiiSell": 11170.86,
+      "fiiNet": -457.34,
+      "diiBuy": 15295.92,
+      "diiSell": 11237.7,
+      "diiNet": 4058.22,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-23",
+      "fiiBuy": 7035.26,
+      "fiiSell": 8830.06,
+      "fiiNet": -1794.8,
+      "diiBuy": 11906.43,
+      "diiSell": 8094.06,
+      "diiNet": 3812.37,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-24",
+      "fiiBuy": 5071.31,
+      "fiiSell": 6792.57,
+      "fiiNet": -1721.26,
+      "diiBuy": 11850.05,
+      "diiSell": 9468.71,
+      "diiNet": 2381.34,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-26",
+      "fiiBuy": 12832.34,
+      "fiiSell": 13149.9,
+      "fiiNet": -317.56,
+      "diiBuy": 9980.68,
+      "diiSell": 8208.12,
+      "diiNet": 1772.56,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-29",
+      "fiiBuy": 6435.17,
+      "fiiSell": 9195.06,
+      "fiiNet": -2759.89,
+      "diiBuy": 15403.18,
+      "diiSell": 12759.33,
+      "diiNet": 2643.85,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-30",
+      "fiiBuy": 16253.99,
+      "fiiSell": 20098.01,
+      "fiiNet": -3844.02,
+      "diiBuy": 44583.09,
+      "diiSell": 38423.28,
+      "diiNet": 6159.81,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2025-12-31",
+      "fiiBuy": 5322.52,
+      "fiiSell": 8919.9,
+      "fiiNet": -3597.38,
+      "diiBuy": 19462.99,
+      "diiSell": 12703.35,
+      "diiNet": 6759.64,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=12&year=2025&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-01",
+      "fiiBuy": 1067.64,
+      "fiiSell": 4336.24,
+      "fiiNet": -3268.6,
+      "diiBuy": 13045.31,
+      "diiSell": 11519.42,
+      "diiNet": 1525.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-02",
+      "fiiBuy": 7850.45,
+      "fiiSell": 7560.65,
+      "fiiNet": 289.8,
+      "diiBuy": 15349.56,
+      "diiSell": 14672.18,
+      "diiNet": 677.38,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-05",
+      "fiiBuy": 11277.44,
+      "fiiSell": 11313.69,
+      "fiiNet": -36.25,
+      "diiBuy": 15565.79,
+      "diiSell": 13801.72,
+      "diiNet": 1764.07,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-06",
+      "fiiBuy": 15061.18,
+      "fiiSell": 15168.81,
+      "fiiNet": -107.63,
+      "diiBuy": 17240.41,
+      "diiSell": 15491.06,
+      "diiNet": 1749.35,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-07",
+      "fiiBuy": 14663.53,
+      "fiiSell": 16191.24,
+      "fiiNet": -1527.71,
+      "diiBuy": 18364.76,
+      "diiSell": 15475.44,
+      "diiNet": 2889.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-08",
+      "fiiBuy": 11090.27,
+      "fiiSell": 14457.39,
+      "fiiNet": -3367.12,
+      "diiBuy": 18707.23,
+      "diiSell": 15006.06,
+      "diiNet": 3701.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-09",
+      "fiiBuy": 11093.29,
+      "fiiSell": 14862.6,
+      "fiiNet": -3769.31,
+      "diiBuy": 18481.07,
+      "diiSell": 12885.23,
+      "diiNet": 5595.84,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-12",
+      "fiiBuy": 9071.61,
+      "fiiSell": 12710.01,
+      "fiiNet": -3638.4,
+      "diiBuy": 16985.9,
+      "diiSell": 11146.58,
+      "diiNet": 5839.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-13",
+      "fiiBuy": 11994.92,
+      "fiiSell": 13494.73,
+      "fiiNet": -1499.81,
+      "diiBuy": 15445.22,
+      "diiSell": 14263.44,
+      "diiNet": 1181.78,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-14",
+      "fiiBuy": 13121.23,
+      "fiiSell": 17902.47,
+      "fiiNet": -4781.24,
+      "diiBuy": 19930.32,
+      "diiSell": 14713.04,
+      "diiNet": 5217.28,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-16",
+      "fiiBuy": 20159.84,
+      "fiiSell": 24505.97,
+      "fiiNet": -4346.13,
+      "diiBuy": 19135.42,
+      "diiSell": 15200.11,
+      "diiNet": 3935.31,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-19",
+      "fiiBuy": 12379.75,
+      "fiiSell": 15642.57,
+      "fiiNet": -3262.82,
+      "diiBuy": 17887.61,
+      "diiSell": 13653.31,
+      "diiNet": 4234.3,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-20",
+      "fiiBuy": 14215.11,
+      "fiiSell": 17153.44,
+      "fiiNet": -2938.33,
+      "diiBuy": 18529.36,
+      "diiSell": 14863.67,
+      "diiNet": 3665.69,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-21",
+      "fiiBuy": 15370.98,
+      "fiiSell": 17158.64,
+      "fiiNet": -1787.66,
+      "diiBuy": 17387.34,
+      "diiSell": 12866.87,
+      "diiNet": 4520.47,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-22",
+      "fiiBuy": 16873.2,
+      "fiiSell": 19423,
+      "fiiNet": -2549.8,
+      "diiBuy": 17537.49,
+      "diiSell": 13314.51,
+      "diiNet": 4222.98,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-23",
+      "fiiBuy": 13550.25,
+      "fiiSell": 17663.63,
+      "fiiNet": -4113.38,
+      "diiBuy": 18258.75,
+      "diiSell": 14156.19,
+      "diiNet": 4102.56,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-27",
+      "fiiBuy": 29666.67,
+      "fiiSell": 32735.16,
+      "fiiNet": -3068.49,
+      "diiBuy": 23929.34,
+      "diiSell": 14929.63,
+      "diiNet": 8999.71,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-28",
+      "fiiBuy": 21044.5,
+      "fiiSell": 20564.24,
+      "fiiNet": 480.26,
+      "diiBuy": 19578.39,
+      "diiSell": 16217.8,
+      "diiNet": 3360.59,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-29",
+      "fiiBuy": 20212.73,
+      "fiiSell": 20606.7,
+      "fiiNet": -393.97,
+      "diiBuy": 24423.89,
+      "diiSell": 21785.13,
+      "diiNet": 2638.76,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-01-30",
+      "fiiBuy": 30492.98,
+      "fiiSell": 28241.61,
+      "fiiNet": 2251.37,
+      "diiBuy": 18590.13,
+      "diiSell": 19191.16,
+      "diiNet": -601.03,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=01&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-01",
+      "fiiBuy": 598.29,
+      "fiiSell": 1186.63,
+      "fiiNet": -588.34,
+      "diiBuy": 14390.79,
+      "diiSell": 15073.52,
+      "diiNet": -682.73,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-02",
+      "fiiBuy": 15172.55,
+      "fiiSell": 17005.01,
+      "fiiNet": -1832.46,
+      "diiBuy": 18626.43,
+      "diiSell": 16180.1,
+      "diiNet": 2446.33,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-03",
+      "fiiBuy": 27677.68,
+      "fiiSell": 22441.4,
+      "fiiNet": 5236.28,
+      "diiBuy": 28206.21,
+      "diiSell": 27191.97,
+      "diiNet": 1014.24,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-04",
+      "fiiBuy": 18453.01,
+      "fiiSell": 18423.22,
+      "fiiNet": 29.79,
+      "diiBuy": 18631.78,
+      "diiSell": 18382.24,
+      "diiNet": 249.54,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-05",
+      "fiiBuy": 14630.07,
+      "fiiSell": 16780.58,
+      "fiiNet": -2150.51,
+      "diiBuy": 15182.18,
+      "diiSell": 14052.36,
+      "diiNet": 1129.82,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-06",
+      "fiiBuy": 16718.66,
+      "fiiSell": 14767.89,
+      "fiiNet": 1950.77,
+      "diiBuy": 13215.74,
+      "diiSell": 14480.8,
+      "diiNet": -1265.06,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-09",
+      "fiiBuy": 16066.13,
+      "fiiSell": 13811.49,
+      "fiiNet": 2254.64,
+      "diiBuy": 13572.99,
+      "diiSell": 13568.84,
+      "diiNet": 4.15,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-10",
+      "fiiBuy": 16699.82,
+      "fiiSell": 16630.37,
+      "fiiNet": 69.45,
+      "diiBuy": 15262.9,
+      "diiSell": 14088.69,
+      "diiNet": 1174.21,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-11",
+      "fiiBuy": 16858.63,
+      "fiiSell": 15914.82,
+      "fiiNet": 943.81,
+      "diiBuy": 14281.26,
+      "diiSell": 14406.62,
+      "diiNet": -125.36,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-12",
+      "fiiBuy": 17949.52,
+      "fiiSell": 17841.1,
+      "fiiNet": 108.42,
+      "diiBuy": 17213.85,
+      "diiSell": 16937,
+      "diiNet": 276.85,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-13",
+      "fiiBuy": 14586.73,
+      "fiiSell": 21982.14,
+      "fiiNet": -7395.41,
+      "diiBuy": 20605.87,
+      "diiSell": 15051.91,
+      "diiNet": 5553.96,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-16",
+      "fiiBuy": 9169.39,
+      "fiiSell": 10141.52,
+      "fiiNet": -972.13,
+      "diiBuy": 13121.31,
+      "diiSell": 11454.33,
+      "diiNet": 1666.98,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-17",
+      "fiiBuy": 8867.62,
+      "fiiSell": 7872.41,
+      "fiiNet": 995.21,
+      "diiBuy": 12482.64,
+      "diiSell": 12295.6,
+      "diiNet": 187.04,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-18",
+      "fiiBuy": 9720.92,
+      "fiiSell": 8566.58,
+      "fiiNet": 1154.34,
+      "diiBuy": 12143.76,
+      "diiSell": 11703.42,
+      "diiNet": 440.34,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-19",
+      "fiiBuy": 8614.9,
+      "fiiSell": 9495.39,
+      "fiiNet": -880.49,
+      "diiBuy": 11483.86,
+      "diiSell": 12080.14,
+      "diiNet": -596.28,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-20",
+      "fiiBuy": 10010.06,
+      "fiiSell": 10944.67,
+      "fiiNet": -934.61,
+      "diiBuy": 14901.9,
+      "diiSell": 12264.75,
+      "diiNet": 2637.15,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-23",
+      "fiiBuy": 15294.02,
+      "fiiSell": 11810.32,
+      "fiiNet": 3483.7,
+      "diiBuy": 12360.86,
+      "diiSell": 13653.1,
+      "diiNet": -1292.24,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-24",
+      "fiiBuy": 20550.91,
+      "fiiSell": 20653.44,
+      "fiiNet": -102.53,
+      "diiBuy": 18580.96,
+      "diiSell": 15419.74,
+      "diiNet": 3161.22,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-25",
+      "fiiBuy": 30369.48,
+      "fiiSell": 27377.84,
+      "fiiNet": 2991.64,
+      "diiBuy": 18346.49,
+      "diiSell": 13227.92,
+      "diiNet": 5118.57,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-26",
+      "fiiBuy": 14607.9,
+      "fiiSell": 18073.89,
+      "fiiNet": -3465.99,
+      "diiBuy": 19242.72,
+      "diiSell": 14211.15,
+      "diiNet": 5031.57,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-02-27",
+      "fiiBuy": 36699.66,
+      "fiiSell": 44236.02,
+      "fiiNet": -7536.36,
+      "diiBuy": 24867.72,
+      "diiSell": 12574.91,
+      "diiNet": 12292.81,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=02&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-02",
+      "fiiBuy": 12737.34,
+      "fiiSell": 16032.98,
+      "fiiNet": -3295.64,
+      "diiBuy": 21110.66,
+      "diiSell": 12516.79,
+      "diiNet": 8593.87,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-04",
+      "fiiBuy": 19120.99,
+      "fiiSell": 27873.64,
+      "fiiNet": -8752.65,
+      "diiBuy": 26259.37,
+      "diiSell": 14191.2,
+      "diiNet": 12068.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-05",
+      "fiiBuy": 14914.99,
+      "fiiSell": 18667.51,
+      "fiiNet": -3752.52,
+      "diiBuy": 18821.1,
+      "diiSell": 13667.73,
+      "diiNet": 5153.37,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-06",
+      "fiiBuy": 14434.69,
+      "fiiSell": 20465.07,
+      "fiiNet": -6030.38,
+      "diiBuy": 19662.38,
+      "diiSell": 12690.87,
+      "diiNet": 6971.51,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-09",
+      "fiiBuy": 11156.99,
+      "fiiSell": 17502.56,
+      "fiiNet": -6345.57,
+      "diiBuy": 21586.46,
+      "diiSell": 12572.66,
+      "diiNet": 9013.8,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-10",
+      "fiiBuy": 13188.32,
+      "fiiSell": 17860.96,
+      "fiiNet": -4672.64,
+      "diiBuy": 17202.49,
+      "diiSell": 10869.23,
+      "diiNet": 6333.26,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-11",
+      "fiiBuy": 11448.68,
+      "fiiSell": 17715.99,
+      "fiiNet": -6267.31,
+      "diiBuy": 16044.16,
+      "diiSell": 11078.63,
+      "diiNet": 4965.53,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-12",
+      "fiiBuy": 15373.05,
+      "fiiSell": 22422.92,
+      "fiiNet": -7049.87,
+      "diiBuy": 19439.56,
+      "diiSell": 11989.79,
+      "diiNet": 7449.77,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-13",
+      "fiiBuy": 11923.16,
+      "fiiSell": 22639.8,
+      "fiiNet": -10716.64,
+      "diiBuy": 22707.84,
+      "diiSell": 12730.42,
+      "diiNet": 9977.42,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-16",
+      "fiiBuy": 11566.51,
+      "fiiSell": 20932.03,
+      "fiiNet": -9365.52,
+      "diiBuy": 25150.41,
+      "diiSell": 12557.05,
+      "diiNet": 12593.36,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-17",
+      "fiiBuy": 11903.71,
+      "fiiSell": 16644.93,
+      "fiiNet": -4741.22,
+      "diiBuy": 16762.65,
+      "diiSell": 11537.33,
+      "diiNet": 5225.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-18",
+      "fiiBuy": 12798.8,
+      "fiiSell": 15513.15,
+      "fiiNet": -2714.35,
+      "diiBuy": 16105.2,
+      "diiSell": 12852.17,
+      "diiNet": 3253.03,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-19",
+      "fiiBuy": 10012.07,
+      "fiiSell": 17570.26,
+      "fiiNet": -7558.19,
+      "diiBuy": 16926.98,
+      "diiSell": 13063.02,
+      "diiNet": 3863.96,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-20",
+      "fiiBuy": 28496.17,
+      "fiiSell": 34014.56,
+      "fiiNet": -5518.39,
+      "diiBuy": 22938.31,
+      "diiSell": 17232.08,
+      "diiNet": 5706.23,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-23",
+      "fiiBuy": 10330.98,
+      "fiiSell": 20745.21,
+      "fiiNet": -10414.23,
+      "diiBuy": 25952.98,
+      "diiSell": 13919.01,
+      "diiNet": 12033.97,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-24",
+      "fiiBuy": 12406.9,
+      "fiiSell": 20416.46,
+      "fiiNet": -8009.56,
+      "diiBuy": 21126.99,
+      "diiSell": 15259.84,
+      "diiNet": 5867.15,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-25",
+      "fiiBuy": 14547.7,
+      "fiiSell": 16353.07,
+      "fiiNet": -1805.37,
+      "diiBuy": 22921.89,
+      "diiSell": 17492.11,
+      "diiNet": 5429.78,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-27",
+      "fiiBuy": 20486.39,
+      "fiiSell": 24853.69,
+      "fiiNet": -4367.3,
+      "diiBuy": 37579.14,
+      "diiSell": 34012.99,
+      "diiNet": 3566.15,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-03-30",
+      "fiiBuy": 21952.95,
+      "fiiSell": 33116.01,
+      "fiiNet": -11163.06,
+      "diiBuy": 26358.5,
+      "diiSell": 11463.78,
+      "diiNet": 14894.72,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=03&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-01",
+      "fiiBuy": 17958.07,
+      "fiiSell": 26289.22,
+      "fiiNet": -8331.15,
+      "diiBuy": 18536.73,
+      "diiSell": 11364.93,
+      "diiNet": 7171.8,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-02",
+      "fiiBuy": 10626.52,
+      "fiiSell": 20557.65,
+      "fiiNet": -9931.13,
+      "diiBuy": 18421.27,
+      "diiSell": 11212.86,
+      "diiNet": 7208.41,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-06",
+      "fiiBuy": 8837.64,
+      "fiiSell": 17004.81,
+      "fiiNet": -8167.17,
+      "diiBuy": 20445.57,
+      "diiSell": 12356.87,
+      "diiNet": 8088.7,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-07",
+      "fiiBuy": 7953.46,
+      "fiiSell": 16645.57,
+      "fiiNet": -8692.11,
+      "diiBuy": 20860.09,
+      "diiSell": 12880.59,
+      "diiNet": 7979.5,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-08",
+      "fiiBuy": 19092.05,
+      "fiiSell": 21904.02,
+      "fiiNet": -2811.97,
+      "diiBuy": 29003.39,
+      "diiSell": 24835.22,
+      "diiNet": 4168.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-09",
+      "fiiBuy": 15746.32,
+      "fiiSell": 17457.51,
+      "fiiNet": -1711.19,
+      "diiBuy": 15968.21,
+      "diiSell": 15012.31,
+      "diiNet": 955.9,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-10",
+      "fiiBuy": 18303.96,
+      "fiiSell": 17631.87,
+      "fiiNet": 672.09,
+      "diiBuy": 15982.46,
+      "diiSell": 15572.41,
+      "diiNet": 410.05,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-13",
+      "fiiBuy": 15382.09,
+      "fiiSell": 17365.27,
+      "fiiNet": -1983.18,
+      "diiBuy": 16612.03,
+      "diiSell": 14179.73,
+      "diiNet": 2432.3,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-15",
+      "fiiBuy": 18075.63,
+      "fiiSell": 17409.48,
+      "fiiNet": 666.15,
+      "diiBuy": 18499.57,
+      "diiSell": 19068.55,
+      "diiNet": -568.98,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-16",
+      "fiiBuy": 16209.44,
+      "fiiSell": 15827.08,
+      "fiiNet": 382.36,
+      "diiBuy": 16538.08,
+      "diiSell": 19965.83,
+      "diiNet": -3427.75,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-17",
+      "fiiBuy": 16034.88,
+      "fiiSell": 15351.68,
+      "fiiNet": 683.2,
+      "diiBuy": 17513.99,
+      "diiSell": 22235.47,
+      "diiNet": -4721.48,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-20",
+      "fiiBuy": 12756.88,
+      "fiiSell": 13816.81,
+      "fiiNet": -1059.93,
+      "diiBuy": 18753.06,
+      "diiSell": 15786.17,
+      "diiNet": 2966.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-21",
+      "fiiBuy": 13033.17,
+      "fiiSell": 14952.16,
+      "fiiNet": -1918.99,
+      "diiBuy": 18366.67,
+      "diiSell": 16145.4,
+      "diiNet": 2221.27,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-22",
+      "fiiBuy": 13895.07,
+      "fiiSell": 15973.43,
+      "fiiNet": -2078.36,
+      "diiBuy": 18704.25,
+      "diiSell": 19752.42,
+      "diiNet": -1048.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-23",
+      "fiiBuy": 12829.12,
+      "fiiSell": 16083.83,
+      "fiiNet": -3254.71,
+      "diiBuy": 18498.19,
+      "diiSell": 17556.84,
+      "diiNet": 941.35,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-24",
+      "fiiBuy": 9837.2,
+      "fiiSell": 18665.07,
+      "fiiNet": -8827.87,
+      "diiBuy": 21560.16,
+      "diiSell": 16859.45,
+      "diiNet": 4700.71,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-27",
+      "fiiBuy": 30263.32,
+      "fiiSell": 31414.8,
+      "fiiNet": -1151.48,
+      "diiBuy": 19978.34,
+      "diiSell": 15854.42,
+      "diiNet": 4123.92,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-28",
+      "fiiBuy": 17231.5,
+      "fiiSell": 19335.24,
+      "fiiNet": -2103.74,
+      "diiBuy": 18044.05,
+      "diiSell": 16332.04,
+      "diiNet": 1712.01,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-29",
+      "fiiBuy": 14271.22,
+      "fiiSell": 16739.64,
+      "fiiNet": -2468.42,
+      "diiBuy": 17232.28,
+      "diiSell": 14970.11,
+      "diiNet": 2262.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-04-30",
+      "fiiBuy": 15049.55,
+      "fiiSell": 23097.41,
+      "fiiNet": -8047.86,
+      "diiBuy": 18252.89,
+      "diiSell": 14765.79,
+      "diiNet": 3487.1,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=04&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-04",
+      "fiiBuy": 19660.47,
+      "fiiSell": 16824.85,
+      "fiiNet": 2835.62,
+      "diiBuy": 19516.11,
+      "diiSell": 14751.95,
+      "diiNet": 4764.16,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-05",
+      "fiiBuy": 10392.91,
+      "fiiSell": 14014.49,
+      "fiiNet": -3621.58,
+      "diiBuy": 16234.31,
+      "diiSell": 13631.69,
+      "diiNet": 2602.62,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-06",
+      "fiiBuy": 14459.21,
+      "fiiSell": 20294.11,
+      "fiiNet": -5834.9,
+      "diiBuy": 22888.16,
+      "diiSell": 16051.29,
+      "diiNet": 6836.87,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-07",
+      "fiiBuy": 17997.95,
+      "fiiSell": 18338.84,
+      "fiiNet": -340.89,
+      "diiBuy": 17032.05,
+      "diiSell": 16590.98,
+      "diiNet": 441.07,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-08",
+      "fiiBuy": 15083.49,
+      "fiiSell": 19194.09,
+      "fiiNet": -4110.6,
+      "diiBuy": 21296.87,
+      "diiSell": 14548.74,
+      "diiNet": 6748.13,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-11",
+      "fiiBuy": 12813.74,
+      "fiiSell": 21251.3,
+      "fiiNet": -8437.56,
+      "diiBuy": 21626.43,
+      "diiSell": 15686.78,
+      "diiNet": 5939.65,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-12",
+      "fiiBuy": 16555.27,
+      "fiiSell": 18514.66,
+      "fiiNet": -1959.39,
+      "diiBuy": 20684.82,
+      "diiSell": 12694.5,
+      "diiNet": 7990.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-13",
+      "fiiBuy": 14373.99,
+      "fiiSell": 19077.14,
+      "fiiNet": -4703.15,
+      "diiBuy": 18872.65,
+      "diiSell": 13003.6,
+      "diiNet": 5869.05,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-14",
+      "fiiBuy": 17350.56,
+      "fiiSell": 17163.1,
+      "fiiNet": 187.46,
+      "diiBuy": 18255.96,
+      "diiSell": 17571.63,
+      "diiNet": 684.33,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-15",
+      "fiiBuy": 16299.6,
+      "fiiSell": 14970.43,
+      "fiiNet": 1329.17,
+      "diiBuy": 14961.88,
+      "diiSell": 16920.7,
+      "diiNet": -1958.82,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-18",
+      "fiiBuy": 17222.18,
+      "fiiSell": 14408.49,
+      "fiiNet": 2813.69,
+      "diiBuy": 16844.94,
+      "diiSell": 14162.82,
+      "diiNet": 2682.12,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-19",
+      "fiiBuy": 17907.55,
+      "fiiSell": 20365.04,
+      "fiiNet": -2457.49,
+      "diiBuy": 16951.95,
+      "diiSell": 13150.27,
+      "diiNet": 3801.68,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-20",
+      "fiiBuy": 14139.56,
+      "fiiSell": 15736.91,
+      "fiiNet": -1597.35,
+      "diiBuy": 16000.79,
+      "diiSell": 14032.44,
+      "diiNet": 1968.35,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-21",
+      "fiiBuy": 12322.16,
+      "fiiSell": 14213.37,
+      "fiiNet": -1891.21,
+      "diiBuy": 15857.03,
+      "diiSell": 13364.61,
+      "diiNet": 2492.42,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-22",
+      "fiiBuy": 10972.76,
+      "fiiSell": 15413.23,
+      "fiiNet": -4440.47,
+      "diiBuy": 18436.72,
+      "diiSell": 12433.19,
+      "diiNet": 6003.53,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-25",
+      "fiiBuy": 12083.12,
+      "fiiSell": 11261.37,
+      "fiiNet": 821.75,
+      "diiBuy": 16434.96,
+      "diiSell": 12578.08,
+      "diiNet": 3856.88,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-26",
+      "fiiBuy": 13127.02,
+      "fiiSell": 15534.89,
+      "fiiNet": -2407.87,
+      "diiBuy": 15536.74,
+      "diiSell": 14175.31,
+      "diiNet": 1361.43,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-27",
+      "fiiBuy": 11418.65,
+      "fiiSell": 12461.35,
+      "fiiNet": -1042.7,
+      "diiBuy": 16893.1,
+      "diiSell": 13072.1,
+      "diiNet": 3821,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-05-29",
+      "fiiBuy": 89733.64,
+      "fiiSell": 110839.5,
+      "fiiNet": -21105.86,
+      "diiBuy": 36999.7,
+      "diiSell": 20235.56,
+      "diiNet": 16764.14,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=05&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-01",
+      "fiiBuy": 17725.89,
+      "fiiSell": 21637.57,
+      "fiiNet": -3911.68,
+      "diiBuy": 15226.29,
+      "diiSell": 10117.16,
+      "diiNet": 5109.13,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-02",
+      "fiiBuy": 16955.9,
+      "fiiSell": 25318.82,
+      "fiiNet": -8362.92,
+      "diiBuy": 22508.77,
+      "diiSell": 12919.45,
+      "diiNet": 9589.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-03",
+      "fiiBuy": 17053.63,
+      "fiiSell": 22670.19,
+      "fiiNet": -5616.56,
+      "diiBuy": 17530,
+      "diiSell": 11789.11,
+      "diiNet": 5740.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-04",
+      "fiiBuy": 14012.52,
+      "fiiSell": 18459.58,
+      "fiiNet": -4447.06,
+      "diiBuy": 16824.35,
+      "diiSell": 12464.21,
+      "diiNet": 4360.14,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-05",
+      "fiiBuy": 11044.57,
+      "fiiSell": 19820.82,
+      "fiiNet": -8776.25,
+      "diiBuy": 22779.32,
+      "diiSell": 13645.75,
+      "diiNet": 9133.57,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-08",
+      "fiiBuy": 8842.08,
+      "fiiSell": 14397.75,
+      "fiiNet": -5555.67,
+      "diiBuy": 16683.18,
+      "diiSell": 11517.94,
+      "diiNet": 5165.24,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-09",
+      "fiiBuy": 14735.47,
+      "fiiSell": 19301.5,
+      "fiiNet": -4566.03,
+      "diiBuy": 17664.98,
+      "diiSell": 11505.5,
+      "diiNet": 6159.48,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-10",
+      "fiiBuy": 14047.79,
+      "fiiSell": 16172.77,
+      "fiiNet": -2124.98,
+      "diiBuy": 17396.4,
+      "diiSell": 14272.45,
+      "diiNet": 3123.95,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-11",
+      "fiiBuy": 14000.58,
+      "fiiSell": 15987.67,
+      "fiiNet": -1987.09,
+      "diiBuy": 16822.57,
+      "diiSell": 12598.06,
+      "diiNet": 4224.51,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-12",
+      "fiiBuy": 12064.61,
+      "fiiSell": 13146.79,
+      "fiiNet": -1082.18,
+      "diiBuy": 18877.03,
+      "diiSell": 13535.74,
+      "diiNet": 5341.29,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-15",
+      "fiiBuy": 15650.2,
+      "fiiSell": 15450.15,
+      "fiiNet": 200.05,
+      "diiBuy": 21080.9,
+      "diiSell": 17891.64,
+      "diiNet": 3189.26,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-16",
+      "fiiBuy": 13887.15,
+      "fiiSell": 14636.33,
+      "fiiNet": -749.18,
+      "diiBuy": 13553.36,
+      "diiSell": 13553.3,
+      "diiNet": 0.06,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-17",
+      "fiiBuy": 14806.3,
+      "fiiSell": 14704.71,
+      "fiiNet": 101.59,
+      "diiBuy": 16611.87,
+      "diiSell": 15050.47,
+      "diiNet": 1561.4,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-18",
+      "fiiBuy": 14611.83,
+      "fiiSell": 15637.03,
+      "fiiNet": -1025.2,
+      "diiBuy": 16163.18,
+      "diiSell": 12646.37,
+      "diiNet": 3516.81,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-19",
+      "fiiBuy": 31442.87,
+      "fiiSell": 26583.8,
+      "fiiNet": 4859.07,
+      "diiBuy": 18020.49,
+      "diiSell": 19180.13,
+      "diiNet": -1159.64,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-22",
+      "fiiBuy": 10082.08,
+      "fiiSell": 10717.99,
+      "fiiNet": -635.91,
+      "diiBuy": 17391.78,
+      "diiSell": 16356.06,
+      "diiNet": 1035.72,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-23",
+      "fiiBuy": 15396.07,
+      "fiiSell": 15378.21,
+      "fiiNet": 17.86,
+      "diiBuy": 16863.04,
+      "diiSell": 16182.83,
+      "diiNet": 680.21,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-24",
+      "fiiBuy": 16744.73,
+      "fiiSell": 18588.13,
+      "fiiNet": -1843.4,
+      "diiBuy": 17274.01,
+      "diiSell": 13636.75,
+      "diiNet": 3637.26,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-25",
+      "fiiBuy": 18988.03,
+      "fiiSell": 18604.27,
+      "fiiNet": 383.76,
+      "diiBuy": 24844.03,
+      "diiSell": 19096.28,
+      "diiNet": 5747.75,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-29",
+      "fiiBuy": 24754.26,
+      "fiiSell": 26104.36,
+      "fiiNet": -1350.1,
+      "diiBuy": 55273.85,
+      "diiSell": 52472.4,
+      "diiNet": 2801.45,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-06-30",
+      "fiiBuy": 23273.71,
+      "fiiSell": 25830.46,
+      "fiiNet": -2556.75,
+      "diiBuy": 23432.58,
+      "diiSell": 16590.24,
+      "diiNet": 6842.34,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=06&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-01",
+      "fiiBuy": 11623.31,
+      "fiiSell": 12763.81,
+      "fiiNet": -1140.5,
+      "diiBuy": 17136.57,
+      "diiSell": 13977.33,
+      "diiNet": 3159.24,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-02",
+      "fiiBuy": 14018.4,
+      "fiiSell": 14330.22,
+      "fiiNet": -311.82,
+      "diiBuy": 17391.61,
+      "diiSell": 15607.21,
+      "diiNet": 1784.4,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-03",
+      "fiiBuy": 13337.33,
+      "fiiSell": 11982,
+      "fiiNet": 1355.33,
+      "diiBuy": 18676.35,
+      "diiSell": 20630.24,
+      "diiNet": -1953.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-06",
+      "fiiBuy": 11686.1,
+      "fiiSell": 11443.07,
+      "fiiNet": 243.03,
+      "diiBuy": 19727.56,
+      "diiSell": 15936.14,
+      "diiNet": 3791.42,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-07",
+      "fiiBuy": 18414.01,
+      "fiiSell": 18020.82,
+      "fiiNet": 393.19,
+      "diiBuy": 18897.44,
+      "diiSell": 19280.87,
+      "diiNet": -383.43,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-08",
+      "fiiBuy": 17463.95,
+      "fiiSell": 15501.15,
+      "fiiNet": 1962.8,
+      "diiBuy": 19165.13,
+      "diiSell": 18374.97,
+      "diiNet": 790.16,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-09",
+      "fiiBuy": 14388.41,
+      "fiiSell": 14921.27,
+      "fiiNet": -532.86,
+      "diiBuy": 18302.87,
+      "diiSell": 16245.08,
+      "diiNet": 2057.79,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-10",
+      "fiiBuy": 15318.07,
+      "fiiSell": 12714.35,
+      "fiiNet": 2603.72,
+      "diiBuy": 17171.75,
+      "diiSell": 15152.07,
+      "diiNet": 2019.68,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-13",
+      "fiiBuy": 10386.48,
+      "fiiSell": 13448.75,
+      "fiiNet": -3062.27,
+      "diiBuy": 17393.46,
+      "diiSell": 15221.76,
+      "diiNet": 2171.7,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-14",
+      "fiiBuy": 12763.43,
+      "fiiSell": 13503.12,
+      "fiiNet": -739.69,
+      "diiBuy": 20420.87,
+      "diiSell": 17493.16,
+      "diiNet": 2927.71,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-15",
+      "fiiBuy": 13207.46,
+      "fiiSell": 13943.29,
+      "fiiNet": -735.83,
+      "diiBuy": 16226.42,
+      "diiSell": 15521.49,
+      "diiNet": 704.93,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-16",
+      "fiiBuy": 13576.08,
+      "fiiSell": 17781.64,
+      "fiiNet": -4205.56,
+      "diiBuy": 19236.8,
+      "diiSell": 16250.39,
+      "diiNet": 2986.41,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-17",
+      "fiiBuy": 14393.77,
+      "fiiSell": 14770.18,
+      "fiiNet": -376.41,
+      "diiBuy": 17180.08,
+      "diiSell": 16162.19,
+      "diiNet": 1017.89,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-20",
+      "fiiBuy": 13312.67,
+      "fiiSell": 14433.71,
+      "fiiNet": -1121.04,
+      "diiBuy": 16187.84,
+      "diiSell": 14875.81,
+      "diiNet": 1312.03,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-21",
+      "fiiBuy": 16327.88,
+      "fiiSell": 14677.72,
+      "fiiNet": 1650.16,
+      "diiBuy": 14638.54,
+      "diiSell": 15295.42,
+      "diiNet": -656.88,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-22",
+      "fiiBuy": 12889.82,
+      "fiiSell": 13709.02,
+      "fiiNet": -819.2,
+      "diiBuy": 13665.69,
+      "diiSell": 14083.95,
+      "diiNet": -418.26,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-23",
+      "fiiBuy": 11472.08,
+      "fiiSell": 14471.31,
+      "fiiNet": -2999.23,
+      "diiBuy": 16575.3,
+      "diiSell": 13628.16,
+      "diiNet": 2947.14,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-24",
+      "fiiBuy": 11123.86,
+      "fiiSell": 15016.63,
+      "fiiNet": -3892.77,
+      "diiBuy": 18959.43,
+      "diiSell": 13505.88,
+      "diiNet": 5453.55,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-27",
+      "fiiBuy": 11695.95,
+      "fiiSell": 13384.18,
+      "fiiNet": -1688.23,
+      "diiBuy": 15937.1,
+      "diiSell": 13607.96,
+      "diiNet": 2329.14,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-28",
+      "fiiBuy": 17530.97,
+      "fiiSell": 16775.64,
+      "fiiNet": 755.33,
+      "diiBuy": 18256.88,
+      "diiSell": 16592.72,
+      "diiNet": 1664.16,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-29",
+      "fiiBuy": 17358.31,
+      "fiiSell": 14376.44,
+      "fiiNet": 2981.87,
+      "diiBuy": 18176.22,
+      "diiSell": 17178.2,
+      "diiNet": 998.02,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-30",
+      "fiiBuy": 17431.96,
+      "fiiSell": 13808.45,
+      "fiiNet": 3623.51,
+      "diiBuy": 17979.63,
+      "diiSell": 19843.66,
+      "diiNet": -1864.03,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-07-31",
+      "fiiBuy": 19045.51,
+      "fiiSell": 18768.03,
+      "fiiNet": 277.48,
+      "diiBuy": 19885.8,
+      "diiSell": 17625.43,
+      "diiNet": 2260.37,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=07&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-03",
+      "fiiBuy": 12621.89,
+      "fiiSell": 11699.63,
+      "fiiNet": 922.26,
+      "diiBuy": 18325.97,
+      "diiSell": 16754.79,
+      "diiNet": 1571.18,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-04",
+      "fiiBuy": 15630.45,
+      "fiiSell": 13183.98,
+      "fiiNet": 2446.47,
+      "diiBuy": 15241.39,
+      "diiSell": 16177.53,
+      "diiNet": -936.14,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-05",
+      "fiiBuy": 15940.5,
+      "fiiSell": 16883.92,
+      "fiiNet": -943.42,
+      "diiBuy": 19353.43,
+      "diiSell": 16470.26,
+      "diiNet": 2883.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-06",
+      "fiiBuy": 16161.35,
+      "fiiSell": 16179.21,
+      "fiiNet": -17.86,
+      "diiBuy": 19723.68,
+      "diiSell": 15710.08,
+      "diiNet": 4013.6,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-07",
+      "fiiBuy": 12941.31,
+      "fiiSell": 12461.07,
+      "fiiNet": 480.24,
+      "diiBuy": 15679.58,
+      "diiSell": 15444.02,
+      "diiNet": 235.56,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-10",
+      "fiiBuy": 13161.56,
+      "fiiSell": 11186.8,
+      "fiiNet": 1974.76,
+      "diiBuy": 15868.51,
+      "diiSell": 17158.8,
+      "diiNet": -1290.29,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-11",
+      "fiiBuy": 14628.47,
+      "fiiSell": 14369.92,
+      "fiiNet": 258.55,
+      "diiBuy": 15006.72,
+      "diiSell": 14981.95,
+      "diiNet": 24.77,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-12",
+      "fiiBuy": 16584.64,
+      "fiiSell": 17587.14,
+      "fiiNet": -1002.5,
+      "diiBuy": 21518.55,
+      "diiSell": 15676.89,
+      "diiNet": 5841.66,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-13",
+      "fiiBuy": 14492.46,
+      "fiiSell": 15003.15,
+      "fiiNet": -510.69,
+      "diiBuy": 16565.14,
+      "diiSell": 12212.05,
+      "diiNet": 4353.09,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-14",
+      "fiiBuy": 12854.44,
+      "fiiSell": 12346.32,
+      "fiiNet": 508.12,
+      "diiBuy": 14295.49,
+      "diiSell": 13939.09,
+      "diiNet": 356.4,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-17",
+      "fiiBuy": 11546.16,
+      "fiiSell": 14081.26,
+      "fiiNet": -2535.1,
+      "diiBuy": 16654.08,
+      "diiSell": 11552.62,
+      "diiNet": 5101.46,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-18",
+      "fiiBuy": 13543.3,
+      "fiiSell": 11891.77,
+      "fiiNet": 1651.53,
+      "diiBuy": 15566.07,
+      "diiSell": 12986.76,
+      "diiNet": 2579.31,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-19",
+      "fiiBuy": 12875.76,
+      "fiiSell": 12467.77,
+      "fiiNet": 407.99,
+      "diiBuy": 17288.58,
+      "diiSell": 13314.86,
+      "diiNet": 3973.72,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-20",
+      "fiiBuy": 11411.73,
+      "fiiSell": 11995.09,
+      "fiiNet": -583.36,
+      "diiBuy": 16932.72,
+      "diiSell": 13395.01,
+      "diiNet": 3537.71,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-21",
+      "fiiBuy": 12560.91,
+      "fiiSell": 13103.62,
+      "fiiNet": -542.71,
+      "diiBuy": 15258.71,
+      "diiSell": 13134.57,
+      "diiNet": 2124.14,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-24",
+      "fiiBuy": 12332.64,
+      "fiiSell": 11150.98,
+      "fiiNet": 1181.66,
+      "diiBuy": 15337.18,
+      "diiSell": 12843.77,
+      "diiNet": 2493.41,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-25",
+      "fiiBuy": 13259.03,
+      "fiiSell": 11665.5,
+      "fiiNet": 1593.53,
+      "diiBuy": 14280.18,
+      "diiSell": 14049.92,
+      "diiNet": 230.26,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-26",
+      "fiiBuy": 17520.49,
+      "fiiSell": 17017.86,
+      "fiiNet": 502.63,
+      "diiBuy": 17710.07,
+      "diiSell": 11284.91,
+      "diiNet": 6425.16,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-27",
+      "fiiBuy": 15276.94,
+      "fiiSell": 15575.2,
+      "fiiNet": -298.26,
+      "diiBuy": 19605.6,
+      "diiSell": 14628.43,
+      "diiNet": 4977.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-28",
+      "fiiBuy": 13263.62,
+      "fiiSell": 18303.42,
+      "fiiNet": -5039.8,
+      "diiBuy": 16539.38,
+      "diiSell": 11355.45,
+      "diiNet": 5183.93,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-08-31",
+      "fiiBuy": 60025.88,
+      "fiiSell": 68011.76,
+      "fiiNet": -7985.88,
+      "diiBuy": 19730.38,
+      "diiSell": 15141.5,
+      "diiNet": 4588.88,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=08&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-01",
+      "fiiBuy": 17807.53,
+      "fiiSell": 16664.15,
+      "fiiNet": 1143.38,
+      "diiBuy": 15635.49,
+      "diiSell": 13788.55,
+      "diiNet": 1846.94,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-02",
+      "fiiBuy": 26715.88,
+      "fiiSell": 20027.51,
+      "fiiNet": 6688.37,
+      "diiBuy": 17639.89,
+      "diiSell": 14826.91,
+      "diiNet": 2812.98,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-03",
+      "fiiBuy": 13596.04,
+      "fiiSell": 15941.91,
+      "fiiNet": -2345.87,
+      "diiBuy": 17063.65,
+      "diiSell": 12086.19,
+      "diiNet": 4977.46,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-04",
+      "fiiBuy": 13857.58,
+      "fiiSell": 16969.52,
+      "fiiNet": -3111.94,
+      "diiBuy": 19254.19,
+      "diiSell": 10324.07,
+      "diiNet": 8930.12,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-07",
+      "fiiBuy": 9581.19,
+      "fiiSell": 9301.06,
+      "fiiNet": 280.13,
+      "diiBuy": 13154.13,
+      "diiSell": 12587.37,
+      "diiNet": 566.76,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-08",
+      "fiiBuy": 11704.84,
+      "fiiSell": 11828.03,
+      "fiiNet": -123.19,
+      "diiBuy": 14678.53,
+      "diiSell": 13328.89,
+      "diiNet": 1349.64,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-09",
+      "fiiBuy": 16392.9,
+      "fiiSell": 16975.89,
+      "fiiNet": -582.99,
+      "diiBuy": 18130.76,
+      "diiSell": 16621.72,
+      "diiNet": 1509.04,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-10",
+      "fiiBuy": 11882.95,
+      "fiiSell": 12321.19,
+      "fiiNet": -438.24,
+      "diiBuy": 13326.33,
+      "diiSell": 12300.48,
+      "diiNet": 1025.85,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-11",
+      "fiiBuy": 12616.89,
+      "fiiSell": 13547.79,
+      "fiiNet": -930.9,
+      "diiBuy": 15109.58,
+      "diiSell": 13141.41,
+      "diiNet": 1968.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-15",
+      "fiiBuy": 13194.76,
+      "fiiSell": 16172.62,
+      "fiiNet": -2977.86,
+      "diiBuy": 15221.98,
+      "diiSell": 12535.93,
+      "diiNet": 2686.05,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-16",
+      "fiiBuy": 12959.04,
+      "fiiSell": 14991.65,
+      "fiiNet": -2032.61,
+      "diiBuy": 15279.59,
+      "diiSell": 11371.36,
+      "diiNet": 3908.23,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-17",
+      "fiiBuy": 8761.71,
+      "fiiSell": 11970.47,
+      "fiiNet": -3208.76,
+      "diiBuy": 14105.01,
+      "diiSell": 10487.26,
+      "diiNet": 3617.75,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-18",
+      "fiiBuy": 38461.63,
+      "fiiSell": 37862.09,
+      "fiiNet": 599.54,
+      "diiBuy": 17310.04,
+      "diiSell": 16290.35,
+      "diiNet": 1019.69,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-21",
+      "fiiBuy": 10637.17,
+      "fiiSell": 11213.37,
+      "fiiNet": -576.2,
+      "diiBuy": 14098.64,
+      "diiSell": 11301.37,
+      "diiNet": 2797.27,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-22",
+      "fiiBuy": 9845.81,
+      "fiiSell": 13655.8,
+      "fiiNet": -3809.99,
+      "diiBuy": 14599.72,
+      "diiSell": 10479.65,
+      "diiNet": 4120.07,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-23",
+      "fiiBuy": 13580.4,
+      "fiiSell": 11962.95,
+      "fiiNet": 1617.45,
+      "diiBuy": 14404.9,
+      "diiSell": 12063.44,
+      "diiNet": 2341.46,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-24",
+      "fiiBuy": 13111.22,
+      "fiiSell": 18138.58,
+      "fiiNet": -5027.36,
+      "diiBuy": 18196.9,
+      "diiSell": 13895.72,
+      "diiNet": 4301.18,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-25",
+      "fiiBuy": 12327.36,
+      "fiiSell": 16021.29,
+      "fiiNet": -3693.93,
+      "diiBuy": 14035.77,
+      "diiSell": 11197.6,
+      "diiNet": 2838.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-28",
+      "fiiBuy": 9047.56,
+      "fiiSell": 14400.78,
+      "fiiNet": -5353.22,
+      "diiBuy": 15918.32,
+      "diiSell": 10729.3,
+      "diiNet": 5189.02,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-29",
+      "fiiBuy": 22472.7,
+      "fiiSell": 32452.92,
+      "fiiNet": -9980.22,
+      "diiBuy": 46261.11,
+      "diiSell": 39308.4,
+      "diiNet": 6952.71,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-09-30",
+      "fiiBuy": 14967.82,
+      "fiiSell": 25116.23,
+      "fiiNet": -10148.41,
+      "diiBuy": 24413.76,
+      "diiSell": 13142.03,
+      "diiNet": 11271.73,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=09&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-01",
+      "fiiBuy": 12260.26,
+      "fiiSell": 21744.48,
+      "fiiNet": -9484.22,
+      "diiBuy": 25420.04,
+      "diiSell": 15378.2,
+      "diiNet": 10041.84,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-05",
+      "fiiBuy": 15674.61,
+      "fiiSell": 20373.75,
+      "fiiNet": -4699.14,
+      "diiBuy": 20492.93,
+      "diiSell": 15311.31,
+      "diiNet": 5181.62,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-06",
+      "fiiBuy": 11258.72,
+      "fiiSell": 14220.02,
+      "fiiNet": -2961.3,
+      "diiBuy": 20146.4,
+      "diiSell": 15057.48,
+      "diiNet": 5088.92,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-07",
+      "fiiBuy": 12577.96,
+      "fiiSell": 18699.33,
+      "fiiNet": -6121.37,
+      "diiBuy": 18707.03,
+      "diiSell": 14110.46,
+      "diiNet": 4596.57,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-08",
+      "fiiBuy": 15725.45,
+      "fiiSell": 28669.03,
+      "fiiNet": -12943.58,
+      "diiBuy": 22987.97,
+      "diiSell": 12284.86,
+      "diiNet": 10703.11,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-09",
+      "fiiBuy": 10373.99,
+      "fiiSell": 13942.89,
+      "fiiNet": -3568.9,
+      "diiBuy": 15626.53,
+      "diiSell": 10883.27,
+      "diiNet": 4743.26,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-12",
+      "fiiBuy": 12583.21,
+      "fiiSell": 14291.69,
+      "fiiNet": -1708.48,
+      "diiBuy": 15506.73,
+      "diiSell": 12461.71,
+      "diiNet": 3045.02,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-13",
+      "fiiBuy": 13465.39,
+      "fiiSell": 14770.52,
+      "fiiNet": -1305.13,
+      "diiBuy": 16232.97,
+      "diiSell": 13793.73,
+      "diiNet": 2439.24,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-14",
+      "fiiBuy": 16381.85,
+      "fiiSell": 18239.29,
+      "fiiNet": -1857.44,
+      "diiBuy": 17428.61,
+      "diiSell": 14758.17,
+      "diiNet": 2670.44,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-15",
+      "fiiBuy": 12735.59,
+      "fiiSell": 18020.96,
+      "fiiNet": -5285.37,
+      "diiBuy": 19438.65,
+      "diiSell": 16119.26,
+      "diiNet": 3319.39,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-16",
+      "fiiBuy": 19951.59,
+      "fiiSell": 18785.67,
+      "fiiNet": 1165.92,
+      "diiBuy": 17201.8,
+      "diiSell": 20863.08,
+      "diiNet": -3661.28,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-19",
+      "fiiBuy": 11240.64,
+      "fiiSell": 12389.28,
+      "fiiNet": -1148.64,
+      "diiBuy": 14781.31,
+      "diiSell": 11580.12,
+      "diiNet": 3201.19,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-21",
+      "fiiBuy": 17003.9,
+      "fiiSell": 15981.58,
+      "fiiNet": 1022.32,
+      "diiBuy": 14931.57,
+      "diiSell": 13317.25,
+      "diiNet": 1614.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-22",
+      "fiiBuy": 13627.54,
+      "fiiSell": 17086.24,
+      "fiiNet": -3458.7,
+      "diiBuy": 16242.83,
+      "diiSell": 13351.51,
+      "diiNet": 2891.32,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-23",
+      "fiiBuy": 14445.54,
+      "fiiSell": 13557.89,
+      "fiiNet": 887.65,
+      "diiBuy": 19232.31,
+      "diiSell": 15996.95,
+      "diiNet": 3235.36,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-26",
+      "fiiBuy": 9324.9,
+      "fiiSell": 10787.39,
+      "fiiNet": -1462.49,
+      "diiBuy": 17389.57,
+      "diiSell": 14780,
+      "diiNet": 2609.57,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-27",
+      "fiiBuy": 24517.65,
+      "fiiSell": 20277.26,
+      "fiiNet": 4240.39,
+      "diiBuy": 15702.74,
+      "diiSell": 16952.77,
+      "diiNet": -1250.03,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-28",
+      "fiiBuy": 16834.53,
+      "fiiSell": 15962.7,
+      "fiiNet": 871.83,
+      "diiBuy": 17240.9,
+      "diiSell": 16597.55,
+      "diiNet": 643.35,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-29",
+      "fiiBuy": 13400.29,
+      "fiiSell": 14343.89,
+      "fiiNet": -943.6,
+      "diiBuy": 18458.64,
+      "diiSell": 16534.23,
+      "diiNet": 1924.41,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-10-30",
+      "fiiBuy": 20564.02,
+      "fiiSell": 16965.48,
+      "fiiNet": 3598.54,
+      "diiBuy": 16643.55,
+      "diiSell": 17461.06,
+      "diiNet": -817.51,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=10&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-02",
+      "fiiBuy": 16499.46,
+      "fiiSell": 13384.78,
+      "fiiNet": 3114.68,
+      "diiBuy": 14988.48,
+      "diiSell": 15380.68,
+      "diiNet": -392.2,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-03",
+      "fiiBuy": 20970.51,
+      "fiiSell": 14133.7,
+      "fiiNet": 6836.81,
+      "diiBuy": 16723.91,
+      "diiSell": 20402.76,
+      "diiNet": -3678.85,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-04",
+      "fiiBuy": 21607.38,
+      "fiiSell": 14323.35,
+      "fiiNet": 7284.03,
+      "diiBuy": 16392.82,
+      "diiSell": 20105.05,
+      "diiNet": -3712.23,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-05",
+      "fiiBuy": 31797.86,
+      "fiiSell": 16823.18,
+      "fiiNet": 14974.68,
+      "diiBuy": 22168.28,
+      "diiSell": 32612.82,
+      "diiNet": -10444.54,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-06",
+      "fiiBuy": 30455.63,
+      "fiiSell": 16705.81,
+      "fiiNet": 13749.82,
+      "diiBuy": 18084.32,
+      "diiSell": 24053.02,
+      "diiNet": -5968.7,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-08",
+      "fiiBuy": 52.39,
+      "fiiSell": 52.64,
+      "fiiNet": -0.25,
+      "diiBuy": 331.11,
+      "diiSell": 1031.42,
+      "diiNet": -700.31,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-09",
+      "fiiBuy": 20310.99,
+      "fiiSell": 13098.77,
+      "fiiNet": 7212.22,
+      "diiBuy": 12764.97,
+      "diiSell": 19937.5,
+      "diiNet": -7172.53,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-11",
+      "fiiBuy": 30087.21,
+      "fiiSell": 17523.88,
+      "fiiNet": 12563.33,
+      "diiBuy": 19704.39,
+      "diiSell": 28138.92,
+      "diiNet": -8434.53,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-12",
+      "fiiBuy": 20273.32,
+      "fiiSell": 12442.72,
+      "fiiNet": 7830.6,
+      "diiBuy": 15855.13,
+      "diiSell": 22186.3,
+      "diiNet": -6331.17,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-13",
+      "fiiBuy": 18339.57,
+      "fiiSell": 12603.02,
+      "fiiNet": 5736.55,
+      "diiBuy": 11745.95,
+      "diiSell": 13999.53,
+      "diiNet": -2253.58,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-16",
+      "fiiBuy": 15636.88,
+      "fiiSell": 10772.2,
+      "fiiNet": 4864.68,
+      "diiBuy": 11752.03,
+      "diiSell": 15271.08,
+      "diiNet": -3519.05,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-17",
+      "fiiBuy": 19930.98,
+      "fiiSell": 15735.6,
+      "fiiNet": 4195.38,
+      "diiBuy": 14903.8,
+      "diiSell": 14706.87,
+      "diiNet": 196.93,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-18",
+      "fiiBuy": 17913.16,
+      "fiiSell": 12046.38,
+      "fiiNet": 5866.78,
+      "diiBuy": 14602.25,
+      "diiSell": 17762.15,
+      "diiNet": -3159.9,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-19",
+      "fiiBuy": 20706.95,
+      "fiiSell": 13295.54,
+      "fiiNet": 7411.41,
+      "diiBuy": 17651.5,
+      "diiSell": 19008.07,
+      "diiNet": -1356.57,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-20",
+      "fiiBuy": 23596.4,
+      "fiiSell": 13287.98,
+      "fiiNet": 10308.42,
+      "diiBuy": 18492.63,
+      "diiSell": 23352.43,
+      "diiNet": -4859.8,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    },
+    {
+      "date": "2026-11-23",
+      "fiiBuy": 23473.67,
+      "fiiSell": 17800.68,
+      "fiiNet": 5672.99,
+      "diiBuy": 16505.75,
+      "diiSell": 19265.87,
+      "diiNet": -2760.12,
+      "sourceUrl": "https://www.moneycontrol.com/techmvc/responsive/fiidii/monthly?month=11&year=2026&section=cash&sub_section="
+    }
+  ]
+}
