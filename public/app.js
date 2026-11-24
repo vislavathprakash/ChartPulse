@@ -131,7 +131,7 @@ function navigate(page) {
   updateWorkspaceBackButton();
   document.body.classList.toggle('dhan-terminal-open',page==='private-dhan');
   $('simulationBanner').classList.toggle('hidden',page==='private-dhan'||page==='news'||!state.meta?.simulated);
-  if(page==='news')history.replaceState(null,'','/app?view=news');
+  if(page==='news')history.replaceState(null,'',newsPath('/app'));
   if(page==='paper')history.replaceState(null,'','/app?view=paper');
   else if(['paper','news'].includes(new URLSearchParams(location.search).get('view'))&&page!=='news'||page!=='private-dhan'&&new URLSearchParams(location.search).get('view')==='private-dhan')history.replaceState(null,'','/app');
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('hidden', p.id !== `page-${page}`));
