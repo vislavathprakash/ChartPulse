@@ -21,7 +21,7 @@ function installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled
     if(clients.size>=Number(process.env.MAX_GATEWAY_CONNECTIONS||10000)){socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');socket.destroy();return;}
     wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws,req));
   });
-  function send(ws,data){if(ws.readyState!==WebSocket.OPEN)return;if(ws.bufferedAmount>Number(process.env.SOCKET_BUFFER_LIMIT||262144)){metrics.count('slow_socket_disconnects');ws.close(1013,'Resynchronize');return;}ws.send(JSON.stringify(data));}
+  function send(ws,data){if(ws.readyState!==WebSocket.OPEN)return;if(ws.bufferedAmount>Number(process.env.SOCKET_BUFFER_LIMIT||262144)){metrics.count('slow_socket_disconnects');ws.close(1013,'Resynchronize');return;}const payload=JSON.stringify(data);metrics.count('socket_bytes_sent',Buffer.byteLength(payload));ws.send(payload);}
   function snapshot(ws){send(ws,{type:'snapshot',sequence:runtime.sequence,epoch:runtime.sourceEpoch,receivedAt:runtime.marketRuntime.lastTickAt,simulated:runtime.isSimulated,quotes:runtime.getQuotes().filter(q=>ws.symbols.has(q.symbol))});}
   wss.on('connection',ws=>{
     clients.add(ws);metrics.count('socket_connections');ws.alive=true;ws.symbols=new Set();ws.chartSymbols=[];ws.interval='1m';ws.rate={at:Date.now(),count:0};
@@ -55,7 +55,7 @@ function installGateway({server,app,runtime,pool,requireAuth,asyncRoute,entitled
   const onMarket=event=>{pending=event;};runtime.on('market',onMarket);
   const onPrivate=(userId,event)=>{for(const ws of clients)if(ws.userId===userId){if(event.type==='revoked'&&(!event.sessionId||event.sessionId===ws.sessionId))ws.close(1008,'Session revoked');else send(ws,event);}};runtime.on('private',onPrivate);
   // Coalesce display updates only. Durable evaluators use every committed market event.
-  const flush=runtime.every(250,async()=>{
+  const flush=runtime.every(runtime.isSimulated?2000:250,async()=>{
     if(!pending)return;const event=pending;pending=null;metrics.observe('quote_age_at_gateway_ms',Date.now()-Date.parse(event.receivedAt));const batches=new Map(),candleCache=new Map();const all=runtime.getQuotes();const summary={symbolCount:all.length,decliningCount:all.filter(q=>q.change_pct<=-3).length,movers:all.filter(q=>q.change_pct<0).sort((a,b)=>a.change_pct-b.change_pct).slice(0,4)};
     for(const ws of clients){if(ws.userId&&ws.awaitingUniverse&&all.length){ws.awaitingUniverse=false;send(ws,{type:'available',sequence:runtime.sequence});}if(!ws.userId||!ws.symbols.size)continue;const key=[...ws.symbols].sort().join(',')+'|'+ws.interval+'|'+ws.chartSymbols.join(',');
       if(!batches.has(key)){
