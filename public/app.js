@@ -3,6 +3,8 @@ const requestedView = new URLSearchParams(location.search).get('view');
 const privateDhanLink = requestedView === 'private-dhan';
 const paperLink = requestedView === 'paper';
 const newsLink = requestedView === 'news';
+const requestedNewsArticle=new URLSearchParams(location.search).get('article');
+const newsPath=path=>path+'?view=news'+(/^[1-9]\d{0,15}$/.test(requestedNewsArticle||'')?'&article='+requestedNewsArticle:'');
 const privateDhanEntry = new URLSearchParams(location.search);
 const privateDhanEntryTab = privateDhanEntry.get('tab');
 function privateDhanPath(path) {
@@ -77,10 +79,10 @@ function toast(message, error = false) {
   const el = $('toast'); el.textContent = message; el.classList.toggle('error', error); el.classList.remove('hidden');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3600);
 }
-function showAuth() { workspaceBackStack.length=0; updateWorkspaceBackButton(); window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':newsLink?'/app/login?view=news':'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showAuth() { workspaceBackStack.length=0; updateWorkspaceBackButton(); window.paperTrading?.reset(); window.privateDhanView?.reset(); window.syncIntegrationPreferences?.(); liveMarket.stop(); history.replaceState(null,'',privateDhanLink?privateDhanPath('/app/login'):paperLink?'/app/login?view=paper':newsLink?newsPath('/app/login'):'/app/login'); simulationChart.dispose(); tradingViewChart.dispose(); window.stockWorkspace?.reset(); $('tvChart').replaceChildren(); document.querySelectorAll('.workspace-dialog').forEach(d=>{d.close();d.remove();}); document.body.classList.remove('chart-workspace-open','dhan-terminal-open'); $('authView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
 function showApp(user, meta) {
   if(simulationChart.accountId!==user.id) { simulationChart.dispose(); simulationChart.accountId=user.id; simulationChart.settings=chartDefaults(); simulationChart.symbol=null; simulationChart.drawings=[]; simulationChart.watchlists=[]; simulationChart.watchlistId=null; simulationChart.search=''; simulationChart.searchFocused=false; simulationChart.panel='watchlist'; }
-  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):paperLink?'/app?view=paper':newsLink?'/app?view=news':'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
+  history.replaceState(null,'',privateDhanLink&&meta.privateDhan?privateDhanPath('/app'):paperLink?'/app?view=paper':newsLink?newsPath('/app'):'/app'); state.user = user; state.meta = meta; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden');
   window.privateDhanView?.configure(meta.privateDhan);
   const initial = (user.name || user.email || 'U').slice(0, 1).toUpperCase();
   $('userName').textContent = user.name || user.email; $('userRole').textContent = user.role; $('avatar').textContent = initial; $('topAvatar').textContent = initial;
