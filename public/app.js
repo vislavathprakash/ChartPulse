@@ -4,7 +4,8 @@ const privateDhanLink = requestedView === 'private-dhan';
 const paperLink = requestedView === 'paper';
 const newsLink = requestedView === 'news';
 const requestedNewsArticle=new URLSearchParams(location.search).get('article');
-const newsPath=path=>path+'?view=news'+(/^[1-9]\d{0,15}$/.test(requestedNewsArticle||'')?'&article='+requestedNewsArticle:'');
+const requestedNewsTab=new URLSearchParams(location.search).get('tab');
+const newsPath=path=>path+'?view=news'+(/^[1-9]\d{0,15}$/.test(requestedNewsArticle||'')?'&article='+requestedNewsArticle:'')+(requestedNewsTab==='flows'?'&tab=flows':'');
 const privateDhanEntry = new URLSearchParams(location.search);
 const privateDhanEntryTab = privateDhanEntry.get('tab');
 function privateDhanPath(path) {
