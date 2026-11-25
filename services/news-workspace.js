@@ -94,8 +94,9 @@ function readRule(body={}){
 function matches(rule,item){return (!rule.stock||rule.stock===item.stock)&&(!rule.category||item.categories.includes(rule.category))&&(!rule.keyword||(item.title+' '+item.summary+' '+(item.quick_read||item.quickRead||'')).toLowerCase().includes(rule.keyword.toLowerCase()));}
 function installNews({app,pool,requireAuth,asyncRoute,runtime}){
   const institutional=require('./institutional-flows').installInstitutionalFlows({app,pool,requireAuth,asyncRoute});
+  const flowAlerts=require('./institutional-alerts').installInstitutionalAlerts({app,pool,requireAuth,asyncRoute,runtime,refresh:institutional.refresh});
   let refreshing=null;
-  async function setup(){await institutional.setup();await pool.query(`CREATE TABLE IF NOT EXISTS news_articles(id BIGSERIAL PRIMARY KEY,external_key TEXT UNIQUE NOT NULL,title TEXT NOT NULL,summary TEXT NOT NULL,source_url TEXT NOT NULL,source_name TEXT NOT NULL,feed_id TEXT NOT NULL,categories TEXT[] NOT NULL,stock TEXT,company TEXT,published_at TIMESTAMPTZ,event_day DATE,subject TEXT,observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  async function setup(){await institutional.setup();await flowAlerts.setup();await pool.query(`CREATE TABLE IF NOT EXISTS news_articles(id BIGSERIAL PRIMARY KEY,external_key TEXT UNIQUE NOT NULL,title TEXT NOT NULL,summary TEXT NOT NULL,source_url TEXT NOT NULL,source_name TEXT NOT NULL,feed_id TEXT NOT NULL,categories TEXT[] NOT NULL,stock TEXT,company TEXT,published_at TIMESTAMPTZ,event_day DATE,subject TEXT,observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
     ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS quick_read TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS news_time_idx ON news_articles(published_at DESC,id DESC);CREATE INDEX IF NOT EXISTS news_stock_idx ON news_articles(stock,published_at DESC);CREATE INDEX IF NOT EXISTS news_categories_idx ON news_articles USING GIN(categories);
     CREATE TABLE IF NOT EXISTS news_feed_status(feed_id TEXT PRIMARY KEY,last_attempt TIMESTAMPTZ,last_success TIMESTAMPTZ,status TEXT NOT NULL DEFAULT 'waiting',error TEXT NOT NULL DEFAULT '',item_count INTEGER NOT NULL DEFAULT 0,content_hash TEXT NOT NULL DEFAULT '');
@@ -127,7 +128,7 @@ function installNews({app,pool,requireAuth,asyncRoute,runtime}){
       }catch(error){await pool.query("UPDATE news_feed_status SET status='unavailable',error=$2 WHERE feed_id=$1",[feed.id,String(error.message).slice(0,160)]);}
     }await pool.query("DELETE FROM news_articles WHERE observed_at<NOW()-INTERVAL '90 days'");}finally{await release();}
   })().finally(()=>refreshing=null);return refreshing;}
-  async function scan(){await pool.transaction(async()=>{
+  async function scan(){await flowAlerts.scan();await pool.transaction(async()=>{
     await runtime.assertLeadership();
     const {rows:rules}=await pool.query(`SELECT r.*,u.whatsapp_opt_in FROM news_rules r JOIN users u ON u.id=r.user_id WHERE r.enabled=TRUE AND u.active=TRUE AND u.role='customer' AND (r.user_id % $1)=$2 ORDER BY r.checked_at NULLS FIRST,r.id LIMIT 50 FOR UPDATE OF r SKIP LOCKED`,[runtime.shards,runtime.shard]);
     for(const rule of rules){const {rows:items}=await pool.query('SELECT * FROM news_articles WHERE id>$1 ORDER BY id LIMIT 200',[rule.cursor]);let cursor=rule.cursor,count=0;

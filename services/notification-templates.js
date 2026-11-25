@@ -22,7 +22,7 @@ function validate(config){
 function valuesFor(alert,user,origin){
   const date=new Date(alert.created_at),valid=Number.isFinite(+date);
   const articleId=alert.source==='news'?String(alert.event_key||'').match(/^news:\d+:(\d+)$/)?.[1]:null;
-  const newsUrl=origin+'/app?view=news'+(articleId?'&article='+articleId:'');
+  const newsUrl=origin+'/app?view=news'+(articleId?'&article='+articleId:/^flows:\d+:\d{4}-\d{2}-\d{2}$/.test(String(alert.event_key||''))?'&tab=flows':'');
   const detail=String(alert.detail||'No additional trigger details.');
   const readableDetail=alert.source==='news'?detail.replace(/https:\/\/[^\s<>]+/g,url=>/\.xml(?:[?#]|$)/i.test(url)?newsUrl:url):detail;
   return {alert_name:String(alert.title||'Market alert'),symbol:String(alert.symbol||'Market'),message:readableDetail,source:({dhan:'DhanHQ',news:'News',calendar:'Calendar',tradingview:'TradingView',screener:'Screener',drawing:'Chart drawing'})[alert.source]||'ChartPulse',triggered_at:valid?date.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'medium'})+' IST':'Time unavailable',app_url:alert.source==='news'?newsUrl:origin+(alert.source==='dhan'?'/app?view=private-dhan':'/app'),user_name:String(user?.name||'Trader')};
