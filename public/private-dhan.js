@@ -681,9 +681,10 @@
     openChain:symbol=>openInstrumentResearch(symbol,'chain'),
     openChart(symbol){navigate('private-dhan');openChart(symbol);desk.maximize();},
     openAlert(symbol){navigate('private-dhan');openChart(symbol);desk.alertFor(symbol);},
+    showConnectionHelp(){const d=workspaceDialog('Dhan connection required',`<p>Your Dhan terminal and all its tools remain in ChartPulse. This account or environment has no authorised Dhan feed, so live data is unavailable.</p><div class="dhan-capability-list">${[['charts','Charts & drawings'],['screener','Intraday & investing screeners'],['layers','Futures & options'],['commodity','MCX commodities'],['list','Watchlists & market depth'],['alerts','Price alerts & paper trading']].map(([i,t])=>'<span>'+terminalIcon(i)+html(t)+'</span>').join('')}</div><p>Use the configured Dhan owner account on the running server. A local test account does not inherit your production connection. If the public server is suspended, hosting must be restored before quotes can resume.</p>`);d.classList.add('dhan-connection-help');},
     configure(allowed) {
       reset();
-      nav.classList.toggle('hidden',!allowed);
+      nav.classList.remove('hidden');nav.title=allowed?'Dhan market terminal':'Dhan connection required';nav.onclick=event=>{if(!allowed){event.preventDefault();event.stopPropagation();window.privateDhanView.showConnectionHelp();}};
       selectTerminalView('dashboard',{load:false,syncUrl:false});
     },
     navigate(target) {

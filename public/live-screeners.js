@@ -1,5 +1,6 @@
 (() => {
   const page=$('page-screener');
+  const connection=document.createElement('div');connection.className='live-scan-connection hidden';connection.innerHTML=`${terminalIcon('charts')}<div><strong>Dhan live screeners require your authorised feed</strong><p>Intraday, investing, fundamentals, options, futures and commodity screeners remain in this application. This local account is disconnected; the screener below uses simulated data.</p></div><button type="button">Connection details</button>`;page.prepend(connection);connection.querySelector('button').onclick=()=>window.privateDhanView.showConnectionHelp();
   const root=document.createElement('div');root.id='liveScreeners';page.append(root);
   const groups=[['intraday','Intraday','charts'],['investing','Investing','research'],['fundamental','Fundamentals','overview'],['options','Options','layers'],['futures','Futures','list'],['commodities','Commodities','commodity']];
   const universes=[['NSE:NIFTY','Nifty 50'],['NSE:BANKNIFTY','Bank Nifty'],['NSE:NIFTYNXT50','Nifty Next 50'],['NSE:NIFTYIT','Nifty IT'],['BSE:SENSEX','Sensex']];
@@ -88,7 +89,7 @@
   }
   function renderSaved(){root.querySelector('#liveScanSaved').innerHTML=saved.length?saved.map(s=>`<div><button type="button" data-saved-scan="${html(s.id)}">${html(s.name)}</button><button type="button" data-remove-scan="${html(s.id)}" aria-label="Remove ${html(s.name)}">${terminalIcon('trash')}</button></div>`).join(''):'<p class="muted">Save a screener to reuse its filters.</p>';root.querySelectorAll('[data-saved-scan]').forEach(b=>b.onclick=()=>{const savedScan=saved.find(s=>s.id===b.dataset.savedScan),p=model.presets.find(p=>p.id===savedScan.preset);if(p)void choose(p,savedScan.config);});root.querySelectorAll('[data-remove-scan]').forEach(b=>b.onclick=()=>{saved=saved.filter(s=>s.id!==b.dataset.removeScan);saveLocal();renderSaved();});}
   async function enter(){
-    const enabled=state.meta?.privateDhan===true;page.classList.toggle('live-screeners-active',enabled);
+    const enabled=state.meta?.privateDhan===true;connection.classList.toggle('hidden',enabled);page.classList.toggle('live-screeners-active',enabled);
     if(!enabled)return;
     $('simulationBanner').classList.add('hidden');
     if(owner!==state.user?.id){owner=state.user.id;model=null;lastResult=null;try{saved=JSON.parse(localStorage.getItem('alertpe-live-scans:'+owner)||'[]');if(!Array.isArray(saved))saved=[];}catch{saved=[];}}
